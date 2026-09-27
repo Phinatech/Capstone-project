@@ -1,0 +1,140 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+/* ---------- Neutral palette: light (cool slate) ---------- */
+:root {
+  color-scheme: light;
+  --canvas: #f4f5f7;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #111827;
+  --muted: #5b6474;
+  --line: #e4e7ec;
+  --clay: #b45309;
+  --clay-soft: #fdf1e3;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #067647;
+  --success-soft: #e3f4ea;
+  --src-chirps: #2f6fae;
+  --src-nasa: #c2841c;
+  --src-meteostat: #7759a8;
+  --shadow-pop: 0 16px 40px -16px rgba(17, 24, 39, 0.24), 0 2px 6px rgba(17, 24, 39, 0.06);
+  --backdrop: rgba(17, 24, 39, 0.48);
+  /* Accent: petrol (default) */
+  --accent: #0f5b6e;
+  --accent-hover: #0b4a5a;
+  --accent-strong: #0b4a5a;
+  --accent-soft: #e2eef1;
+}
+/* ---------- Neutral palette: dark ---------- */
+html[data-mode='dark'] {
+  color-scheme: dark;
+  --canvas: #0d1117;
+  --surface: #141a22;
+  --surface-raised: #1a212b;
+  --ink: #e6e9ef;
+  --muted: #97a1b0;
+  --line: #252d38;
+  --clay: #f0a35e;
+  --clay-soft: #3a2a1a;
+  --danger: #f28b82;
+  --danger-soft: #3a1f1f;
+  --success: #6fcf97;
+  --success-soft: #16302a;
+  --src-chirps: #6aa3dc;
+  --src-nasa: #e0ac4f;
+  --src-meteostat: #a98ad6;
+  --shadow-pop: 0 20px 48px -16px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --accent: #1a7a8f;
+  --accent-hover: #156879;
+  --accent-strong: #9fd6e2;
+  --accent-soft: #12303a;
+}
+/* ---------- Accents ---------- */
+html[data-accent='indigo'] {
+  --accent: #3e4bb5;
+  --accent-hover: #333e98;
+  --accent-strong: #333e98;
+  --accent-soft: #e8eaf8;
+}
+html[data-mode='dark'][data-accent='indigo'] {
+  --accent: #5561d6;
+  --accent-hover: #4852bf;
+  --accent-strong: #c4c9f7;
+  --accent-soft: #22264a;
+}
+html[data-accent='plum'] {
+  --accent: #7a3b6e;
+  --accent-hover: #62305a;
+  --accent-strong: #62305a;
+  --accent-soft: #f3e6f0;
+}
+html[data-mode='dark'][data-accent='plum'] {
+  --accent: #99508a;
+  --accent-hover: #824476;
+  --accent-strong: #efc2e3;
+  --accent-soft: #382234;
+}
+html[data-accent='graphite'] {
+  --accent: #2f3a4a;
+  --accent-hover: #232c39;
+  --accent-strong: #232c39;
+  --accent-soft: #e8ebef;
+}
+html[data-mode='dark'][data-accent='graphite'] {
+  --accent: #5b6b82;
+  --accent-hover: #4d5b6f;
+  --accent-strong: #d3dae4;
+  --accent-soft: #232a35;
+}
+html,
+body,
+#root {
+  min-height: 100%;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1), color 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+body.scroll-locked {
+  overflow: hidden;
+}
+.scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  overscroll-behavior: contain;
+}
+.scroll-area::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
