@@ -34,7 +34,7 @@ export function Backtest() {
         </h2>
         <BacktestTable results={results} />
         <p className="mt-2 text-xs text-muted">
-          Latency and gas are modelled Sepolia estimates for a Chainlink Functions request and fulfilment.
+          Latency and gas are modelled Sepolia estimates for the relayer’s readings and finalizing the period on-chain.
         </p>
       </section>
 

@@ -1,7 +1,7 @@
 import type { ConfigurationProfile } from '../types/insurance';
 
-// Gas and latency are modelled Sepolia estimates for a Chainlink Functions request + fulfilment.
-// Aggregation runs off-chain, so on-chain differences come from request payload size and reputation storage.
+// Gas and latency are modelled Sepolia estimates for the relayer's submitReading calls plus finalizePeriod.
+// Aggregation runs on-chain in OracleAggregator, so cost grows with the number of sources that report.
 export const configurationProfiles: ConfigurationProfile[] = [
 {
   mode: 'single',

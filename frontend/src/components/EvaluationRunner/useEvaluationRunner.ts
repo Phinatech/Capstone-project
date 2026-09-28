@@ -6,11 +6,11 @@ import { formatEth } from '../../utils/format';
 import type { AggregationMode, CorruptionType, EvaluationResult, Policy, SourceId } from '../../types/insurance';
 
 export const evaluationStages = [
-'Request sent to Chainlink Functions',
-'Fetching CHIRPS, NASA POWER and Meteostat',
-'Aggregating readings off-chain',
+'Relayer fetching CHIRPS, NASA POWER and Meteostat',
+'Submitting each source’s reading on-chain',
+'Aggregator weighting readings by reputation',
 'Comparing against policy threshold',
-'Writing result on-chain'];
+'Settling the policy on-chain'];
 
 
 const STAGE_MS = 550;
