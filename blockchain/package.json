@@ -1,0 +1,34 @@
+{
+  "name": "@weather/blockchain",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hardhat 3 project: oracle aggregation contracts, tests, and deployment",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "hardhat build",
+    "test": "hardhat test",
+    "test:solidity": "hardhat test solidity",
+    "test:mocha": "hardhat test mocha",
+    "typecheck": "hardhat build && tsc --noEmit",
+    "deploy:local": "hardhat ignition deploy ignition/modules/DeployOracleInsurance.ts",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.15",
+    "@nomicfoundation/hardhat-ignition": "^3.1.8",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
+    "@types/chai": "^5.2.3",
+    "@types/chai-as-promised": "^8.0.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.20.3",
+    "chai": "^6.2.2",
+    "ethers": "^6.17.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.16.2",
+    "hardhat": "^3.16.0",
+    "mocha": "^11.8.0",
+    "typescript": "~6.0.3"
+  }
+}

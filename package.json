@@ -1,0 +1,30 @@
+{
+  "name": "weather-index-insurance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reputation-weighted oracle aggregation for weather-indexed micro-insurance (Sokoto State capstone)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "blockchain"
+  ],
+  "overrides": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:frontend": "npm run test --workspace frontend --if-present",
+    "test:backend": "npm run test --workspace backend --if-present",
+    "test:blockchain": "npm run test --workspace blockchain --if-present",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "audit": "npm audit --workspaces --if-present"
+  }
+}

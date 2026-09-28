@@ -1,0 +1,11 @@
+node_modules/
+artifacts/
+cache/
+coverage/
+dist/
+types/
+.env
+.env.*
+!.env.example
+.gas-snapshot
+snapshots/

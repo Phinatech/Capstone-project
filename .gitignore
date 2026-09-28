@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Builds & output
+dist/
+build/
+coverage/
+
+# Vite
+frontend/dist/
+.vite/
+
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Claude Code (kept locally, not tracked)
+CLAUDE.md
+.claude/
+
+# Editor / OS
+.DS_Store
+.idea/
+*.swp
