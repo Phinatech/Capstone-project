@@ -14,7 +14,9 @@
     "test:mocha": "hardhat test mocha",
     "typecheck": "hardhat build && tsc --noEmit",
     "deploy:local": "hardhat ignition deploy ignition/modules/DeployOracleInsurance.ts",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "node": "hardhat node",
+    "seed:local": "hardhat run scripts/seed-local.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.15",

@@ -16,18 +16,18 @@ oracle registration, reputation weights, and policy creation — and in
 |------|----------|--------------------------------------------------------|------------------------------------------|
 | H-1 | HIGH | Fully centralized admin: owner controls payouts, oracles, and weights | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
 | H-2 | HIGH | Payout can be settled late, after drought relief is already committed | `WeatherIndexInsurance.sol#checkAndSettle` |
-| H-3 | HIGH | `serialize-javascript` ≤7.0.4 — RCE (GHSA-5c6j-r48x-rmvq) | `package-lock.json` (dev, via mocha) |
+| H-3 | HIGH | `serialize-javascript` ≤7.0.4 — RCE (GHSA-5c6j-r48x-rmvq) — **resolved 2026-09-28** | `package-lock.json` (dev, via mocha) |
 | M-1 | MEDIUM | Manipulable finalization race: anyone can finalize a half-reported period | `OracleAggregator.sol#finalizePeriod` |
 | M-2 | MEDIUM | Owner can unilaterally rewrite reputation weights after readings are in | `OracleAggregator.sol#updateReputation` |
 | M-3 | MEDIUM | Last-second reentrancy griefing of the payout pool | `WeatherIndexInsurance.sol#fundPool` |
-| M-4 | MEDIUM | Payouts silently skipped when the pool is underfunded (no fund accounting) | `WeatherIndexInsurance.sol#checkAndSettle` |
+| M-4 | MEDIUM | Payouts silently skipped when the pool is underfunded (no fund accounting) — **resolved 2026-09-28** | `WeatherIndexInsurance.sol#checkAndSettle` |
 | M-5 | MEDIUM | No bounds/sanity checks on submitted rainfall readings | `OracleAggregator.sol#submitReading` |
 | L-1 | LOW | `finalizePeriod` can permanently brick a period before any reading exists* | `OracleAggregator.sol#finalizePeriod` |
 | L-2 | LOW | Truncation in weighted-average division | `OracleAggregator.sol#finalizePeriod` |
 | L-3 | LOW | Owner key = single point of failure; no timelock/multisig | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
 | L-4 | LOW | Sepolia key in `hardhat.config.ts` via `configVariable` (config hygiene) | `hardhat.config.ts` |
 | L-5 | LOW | `oracleList` can only grow; no deregistration path | `OracleAggregator.sol` |
-| L-6 | LOW | 14 npm advisories (12 low, 1 moderate, 1 high) in dev toolchain | `package-lock.json` |
+| L-6 | LOW | 14 npm advisories (12 low, 1 moderate, 1 high) in dev toolchain — **partly resolved 2026-09-28** | `package-lock.json` |
 
 \* L-1 was initially flagged as a griefing vector but re-classified low after
 re-reading `finalizePeriod`: the `submitters.length > 0` guard means an empty
@@ -99,6 +99,13 @@ the advisory label.
 `npm audit fix --force` (npm proposes mocha@11.3.0 / older hardhat-ignition —
 review the breaking change against the Hardhat toolbox before applying).
 Re-run `npm audit` after.
+
+**Status (2026-09-28): Resolved.** `npm audit fix --force` was not used (it
+would have downgraded the Hardhat toolbox). Instead, root `package.json`
+`overrides` pin `serialize-javascript` to `^7.0.5` (installed 7.1.2) and
+`diff` to `^8.0.3` (installed 8.0.4) under mocha 11.8.0. All 14 contract tests
+pass, and mocha's failure-diff output was checked by hand with a deliberately
+failing test.
 
 ---
 
@@ -196,6 +203,16 @@ but add a solvency check in `createPolicy` and emit a distinct event when a
 settle attempt fails due to underfunding *without* burning the claim
 (keep `claimed == false` if the transfer would fail, so settlement can be
 retried once the pool is funded).
+
+**Status (2026-09-28): Resolved (option b).** Each policy now reserves its
+payout when it is sold (`reservedPayouts`), and `buyPolicy` / `createPolicy`
+revert with "pool cannot cover payout" unless the unreserved balance
+(`availableCapacity()`, premium included) covers it — so a triggered policy
+can always be paid. Settlement releases the reserve either way. If the payout
+transfer itself fails (e.g. a farmer contract that rejects ETH), the whole
+`checkAndSettle` reverts and the policy stays unsettled, so it can be retried.
+Covered by `WeatherIndexInsurance.t.sol`, including a fuzz test that reserves
+never exceed the pool balance across random sales and settlements.
 
 ### M-5 — No sanity bounds on submitted rainfall readings
 
@@ -325,6 +342,18 @@ primitive"), and the `serialize-javascript` RCE chain via mocha.
 `--force` proposal before applying (it downgrades `hardhat-ignition`).
 Add `npm audit --audit-level=low` to CI so regressions are caught.
 
+**Status (2026-09-28): Partly resolved.** After adding the frontend and
+backend workspaces the audit had grown to 18 advisories; 11 remain, all low.
+Fixed: `serialize-javascript` and `diff` (see H-3); `esbuild` (moderate, via
+vite 5 — upgraded to vite 6.4.3); `react-router` (moderate, open redirect —
+upgraded to react-router-dom 7.18.4). `package-lock.json` is now committed.
+**Remaining, accepted:** `elliptic` (GHSA-848j-6mx2-7j84) and the 10
+`@ethersproject/*` v5 packages that depend on it. The advisory covers every
+`elliptic` version, so there is no patched release to move to; it is reached
+only through `@nomicfoundation/hardhat-verify` (Etherscan verification), a
+dev tool that never ships to users. The only way to clear it is to drop the
+verify plugin from the toolbox.
+
 ---
 
 ## Test-suite coverage gaps (security-relevant)
@@ -405,5 +434,5 @@ fuzz invariant are all genuinely valuable. Missing adversarial cases:
 2. **Before mainnet / real funds:** H-1 + L-3 (multisig owner, timelock,
    transferable two-step ownership), M-3 (explicit reserves + reentrancy
    guard), M-4 (escrow or retryable underfunded claims).
-3. **Hygiene, any time:** H-3/L-6 (`npm audit fix`), commit `package-lock.json`,
+3. **Hygiene, any time:** ~~H-3/L-6 (`npm audit fix`), commit `package-lock.json`~~ (done 2026-09-28; `elliptic` accepted),
    M-5 (input bounds), L-5 (oracle deactivation), the NatSpec/doc fixes.

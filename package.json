@@ -13,6 +13,8 @@
     "blockchain"
   ],
   "overrides": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "serialize-javascript": "^7.0.5",
@@ -26,7 +28,10 @@
     "test:blockchain": "npm run test --workspace blockchain --if-present",
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace backend",
+    "chain": "npm run node --workspace blockchain",
+    "seed:local": "npm run seed:local --workspace blockchain",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
     "audit": "npm audit --workspaces --if-present"
   }
 }

@@ -38,13 +38,33 @@ configurations of one contract, not three different implementations.
 contracts/
   OracleAggregator.sol        Core contribution: weighted rainfall aggregation
   OracleAggregator.t.sol      Solidity unit tests (forge-std) for the aggregation math
-  WeatherIndexInsurance.sol   Consumes the aggregate to decide policy payouts
+  WeatherIndexInsurance.sol   Coverage windows, farmer-bought policies, payouts
+  WeatherIndexInsurance.t.sol Solidity unit tests for buying, reserves and settlement
 test/
   integration.ts              TypeScript integration tests for the full aggregator -> payout flow
 ignition/modules/
   DeployOracleInsurance.ts    Deploys and wires both contracts together
+scripts/
+  seed-local.ts               Deploys + seeds a local node, writes the .env files
 hardhat.config.ts
 ```
+
+## How a policy works
+
+1. The owner publishes a **coverage window** with `addCoverageWindow(periods,
+   salesCloseAt)`: a list of dekad periods (`YYYYMMD`, e.g. `2026071` for
+   1-10 Jul 2026) and a deadline after which no more cover is sold.
+2. A farmer calls `buyPolicy(windowId, droughtThresholdMm, payoutAmount)`,
+   sending `quotePremium(payoutAmount)` (10% of the payout by default). The
+   sale reserves the payout and is refused if the pool can't cover it.
+3. Oracles report each dekad once to `OracleAggregator`; anyone finalizes it.
+4. Once every dekad in the window is finalized, anyone can call
+   `checkAndSettle(policyId)`: the window's dekad aggregates are summed and
+   compared with the threshold (both in mm × 100), and the farmer is paid
+   automatically if rainfall fell short.
+
+Overlapping windows ("July", "June-July") share the same dekad reports, so a
+source can't report the same rainfall differently for different policies.
 
 ## Running it
 
@@ -67,26 +87,38 @@ npx hardhat build && npx tsc --noEmit
 
 ## Deploying
 
-To a local, throwaway simulated chain:
+### Local development chain (deployed and seeded)
+
+From the repo root, in two terminals:
 
 ```shell
-npx hardhat ignition deploy ignition/modules/DeployOracleInsurance.ts
+npm run chain        # local Hardhat node on http://localhost:8545
+npm run seed:local   # deploy + seed, then write frontend/.env and backend/.env
 ```
 
-To Sepolia testnet, set a funded account's private key via the keystore
-plugin first (never a plaintext env var):
+`scripts/seed-local.ts` deploys both contracts, registers three oracle
+sources (Hardhat test accounts #2-#4) with the reputation weights shown on the
+admin Oracles page, funds the pool with 10 ETH, and publishes the next
+season's five coverage windows (the same windows as the frontend), each on
+sale until its first day. It writes the contract addresses into both `.env`
+files and the oracle keys into `backend/.env` for the relayer. It refuses to
+run on any network but `localhost`, because those keys are public. The node
+keeps no state between restarts, so rerun the seed after restarting it.
+
+### Sepolia testnet
+
+Set a funded account's private key via the keystore plugin first (never a
+plaintext env var):
 
 ```shell
 npx hardhat keystore set SEPOLIA_PRIVATE_KEY
 npx hardhat ignition deploy --network sepolia ignition/modules/DeployOracleInsurance.ts
 ```
 
-Deployment only creates the two contracts and wires the insurance contract
-to the aggregator. Registering the real oracle addresses, setting their
-reputation weights from the off-chain backtest, and creating farmer
-policies are separate steps — left to a follow-up script once you've
-decided how CHIRPS/NASA POWER/Meteostat data actually reaches the chain
-(the `backend/` workspace is the home for that relayer).
+The Ignition module only creates the two contracts and wires the insurance
+contract to the aggregator. Registering the real oracle addresses, setting
+their weights from the off-chain backtest, and publishing coverage windows
+are separate owner transactions (see `seed-local.ts` for the sequence).
 
 ## Next steps for the write-up / evaluation
 

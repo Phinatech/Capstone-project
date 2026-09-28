@@ -51,9 +51,13 @@ export function startRelayer(sources: SourceConfig[], intervalMinutes: number): 
   console.log(`[relayer] started: ${sources.length} source(s), every ${intervalMinutes} min`);
 }
 
-/** Dekad-style period id: (year, month 1-12, dekad 1-3). */
-export function currentPeriod(): number {
-  const now = new Date();
-  const dekad = Math.min(3, Math.floor(now.getUTCDate() / 10) + 1);
-  return now.getUTCFullYear() * 1000 + now.getUTCMonth() * 100 + dekad * 10;
+/**
+ * Dekad period id as YYYYMMD: year * 1000 + month (1-12) * 10 + dekad (1-3),
+ * e.g. 2026111 for 1-10 Nov 2026. Dekads follow the standard agro-met split:
+ * days 1-10, 11-20, and 21 to month end (8-11 days). Computed in UTC.
+ */
+export function currentPeriod(now: Date = new Date()): number {
+  const day = now.getUTCDate();
+  const dekad = day <= 10 ? 1 : day <= 20 ? 2 : 3;
+  return now.getUTCFullYear() * 1000 + (now.getUTCMonth() + 1) * 10 + dekad;
 }

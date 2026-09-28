@@ -108,6 +108,11 @@ silently skips the frontend (`--if-present`).
 then set `"build": "tsc --noEmit && vite build"` and add `"typecheck":
 "tsc --noEmit"` so the root script covers it.
 
+**Status (2026-09-28): Resolved.** The errors came from two copies of
+`@types/react` (18 and 19) plus three `BoxIcon`-as-type mistakes and 61 unused
+`React` imports; root `overrides` now pin one React 18 (runtime and types).
+`build` is `tsc --noEmit && vite build`, and `typecheck` exists.
+
 ### F-5 — 4 dependency advisories (1 high, dev-only)
 
 `npm audit` for this workspace:
@@ -127,6 +132,10 @@ another site — phishing risk at most).
 **Recommendation:** `npm audit fix` (non-breaking set), then evaluate react
 -router 7 or the patched 6.x line for the open redirect. Vite 5.2.0 → latest
 5.x clears the high advisory without the Vite 7 migration.
+
+**Status (2026-09-28): Resolved.** vite 5 → 6.4.3 (clears vite and esbuild)
+and react-router-dom 6 → 7.18.4 (no patched 6.x exists). All 17 routes were
+re-checked in a headless browser after the upgrade.
 
 ## Low severity
 
@@ -159,6 +168,10 @@ documented support fallback.
 **Recommendation:** one cleanup pass: real favicon, honest package names,
 delete `src/package.json`, rewrite `.env.example`.
 
+**Status (2026-09-28): Resolved.** `public/favicon.svg` (the app's rain-cloud
+mark), package renamed `@weather/frontend`, `src/package.json` and the
+`[TEMPLATE]` line were already gone, template README replaced.
+
 ### F-8 — Lint script has no ESLint config; no test script
 
 `npm run lint` runs `eslint .` but there is no `.eslintrc*`/`eslint.config.*`
@@ -172,6 +185,11 @@ and the route guards would catch real regressions.
 installed), wire `lint` into CI, add Vitest with tests for auth flows and
 `RequireRole`.
 
+**Status (2026-09-28): Partly resolved.** ESLint 9 + typescript-eslint 8 flat
+config (0 errors; 9 `react-refresh` warnings), root `npm run lint`. Vitest
+added with 11 tests for `utils/oracle.ts` (aggregation, reputation, backtest).
+Auth-flow and `RequireRole` tests are still to do.
+
 ### F-9 — Root docs describe a different frontend than the one on disk
 
 Root `README.md`/`CLAUDE.md` say "React 19 + Vite 7"; the actual app is
@@ -180,6 +198,10 @@ documented). Misleading docs cause wrong assumptions in reviews and upgrades.
 
 **Recommendation:** update root docs to match reality (React 18, Vite 5,
 Tailwind, react-router 6) and note the demo-auth nature of the app.
+
+**Status (2026-09-28): Resolved.** Root README now says React 18 + Vite 6 +
+Tailwind; `frontend/README.md` documents the stack and states that auth and
+data are simulated.
 
 ---
 

@@ -25,9 +25,13 @@ Copy `.env.example` to `.env` and adjust. Never commit `.env`.
 ```
 src/
   index.ts     Express app entry; mounts routers, starts relayer loop
-  relayer.ts   Periodic rainfall fetch -> submitReading (stub)
-  .env.example Configuration template
+  relayer.ts   Periodic rainfall fetch -> submitReading (stub), dekad period ids
+  relayer.test.ts  node:test tests (npm run test:backend)
+.env.example   Configuration template
 ```
+
+Period ids are `YYYYMMD` (year, month 1-12, dekad 1-3 on days 1-10 / 11-20 /
+21-end, UTC), e.g. `2026111` for 1-10 Nov 2026 — see `currentPeriod()`.
 
 ## Security notes
 
