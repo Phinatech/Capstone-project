@@ -138,6 +138,69 @@ contract WeatherIndexInsuranceTest is Test {
         insurance.setPremiumRate(10_001);
     }
 
+    // ---------- Two-step ownership (audit L-3) ----------
+
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    function test_TwoStepOwnershipTransfer() public {
+        address multisig = address(0x3001);
+
+        vm.expectEmit(true, true, false, false, address(insurance));
+        emit OwnershipTransferStarted(address(this), multisig);
+        insurance.transferOwnership(multisig);
+        assertEq(insurance.owner(), address(this)); // unchanged until accepted
+        assertEq(insurance.pendingOwner(), multisig);
+
+        vm.expectEmit(true, true, false, false, address(insurance));
+        emit OwnershipTransferred(address(this), multisig);
+        vm.prank(multisig);
+        insurance.acceptOwnership();
+        assertEq(insurance.owner(), multisig);
+        assertEq(insurance.pendingOwner(), address(0));
+
+        // The old owner is locked out and the new one has its powers (setting the premium rate).
+        vm.expectRevert(bytes("WeatherIndexInsurance: caller is not owner"));
+        insurance.setPremiumRate(500);
+        vm.prank(multisig);
+        insurance.setPremiumRate(500);
+    }
+
+    function test_OnlyOwnerCanStartATransfer() public {
+        vm.prank(stranger);
+        vm.expectRevert(bytes("WeatherIndexInsurance: caller is not owner"));
+        insurance.transferOwnership(stranger);
+    }
+
+    function test_OnlyThePendingOwnerCanAccept() public {
+        address multisig = address(0x3001);
+        insurance.transferOwnership(multisig);
+
+        vm.prank(stranger);
+        vm.expectRevert(bytes("WeatherIndexInsurance: caller is not pending owner"));
+        insurance.acceptOwnership();
+        vm.expectRevert(bytes("WeatherIndexInsurance: caller is not pending owner"));
+        insurance.acceptOwnership(); // not even the current owner
+        assertEq(insurance.owner(), address(this));
+    }
+
+    function test_PendingTransferCanBeRedirectedOrCancelled() public {
+        address first = address(0x3001);
+        address second = address(0x3002);
+        insurance.transferOwnership(first);
+        insurance.transferOwnership(second); // redirect
+        vm.prank(first);
+        vm.expectRevert(bytes("WeatherIndexInsurance: caller is not pending owner"));
+        insurance.acceptOwnership();
+
+        insurance.transferOwnership(address(0)); // cancel
+        assertEq(insurance.pendingOwner(), address(0));
+        vm.prank(second);
+        vm.expectRevert(bytes("WeatherIndexInsurance: caller is not pending owner"));
+        insurance.acceptOwnership();
+        assertEq(insurance.owner(), address(this));
+    }
+
     // ---------- Settlement ----------
 
     function test_PaysOutWhenWindowRainfallIsBelowThreshold() public {

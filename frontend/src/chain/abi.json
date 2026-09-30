@@ -20,6 +20,7 @@
     "function oracles(address) view returns (bool registered, string label, uint256 reputationWeight)",
     "function isFinalized(uint256) view returns (bool)",
     "function finalizedAggregate(uint256) view returns (uint256)",
+    "function weightForPeriod(uint256 period, address oracleAddress) view returns (uint256)",
     "event ReadingSubmitted(address indexed oracle, uint256 indexed period, uint256 rainfallMm)"
   ]
 }

@@ -102,7 +102,6 @@ interface Snapshot {
 interface OracleInfo {
   address: string;
   label: string;
-  weight: number;
 }
 
 interface Settlement {
@@ -158,16 +157,28 @@ policy: Policy,
 periods: bigint[],
 oracles: OracleInfo[],
 readings: Map<string, bigint>,
+periodWeights: Map<string, bigint>,
 settlement: Settlement,
 gasUsed: bigint,
 timestamp: number)
 : EvaluationResult {
-  const totalWeight = oracles.reduce((t, o) => t + o.weight, 0) || 1;
+  // A source's weight in each dekad is its snapshot weight (fixed at the
+  // dekad's first reading) over the total of the sources that reported, as in
+  // OracleAggregator.finalizePeriod; the window's figure averages the dekads.
+  const shareIn = (p: bigint, o: OracleInfo) => {
+    if (!readings.has(`${p}:${o.address}`)) return 0;
+    const total = oracles.reduce(
+      (t, x) => readings.has(`${p}:${x.address}`) ? t + Number(periodWeights.get(`${p}:${x.address}`) ?? 0n) : t,
+      0
+    );
+    return total ? Number(periodWeights.get(`${p}:${o.address}`) ?? 0n) / total : 0;
+  };
   const sourceReadings: SourceReading[] = oracles.flatMap((o) => {
     const sourceId = SOURCE_BY_LABEL[o.label];
     if (!sourceId) return [];
     const mm = periods.reduce((sum, p) => sum + Number(readings.get(`${p}:${o.address}`) ?? 0n), 0) / 100;
-    return [{ sourceId, value: mm, weight: o.weight / totalWeight, corrupted: false }];
+    const weight = periods.length ? periods.reduce((sum, p) => sum + shareIn(p, o), 0) / periods.length : 0;
+    return [{ sourceId, value: mm, weight, corrupted: false }];
   });
   return {
     mode: 'reputation',
@@ -236,7 +247,7 @@ function ChainData({
     const oracles: OracleInfo[] = await Promise.all(
       oracleAddresses.map(async (address) => {
         const o = await aggregator.oracles(address);
-        return { address: address.toLowerCase(), label: o.label as string, weight: Number(o.reputationWeight) };
+        return { address: address.toLowerCase(), label: o.label as string };
       })
     );
     const readings = new Map<string, bigint>();
@@ -251,7 +262,16 @@ function ChainData({
     const blockNumbers = new Set([...createdAtBlock.values(), ...[...settlements.values()].map((s) => s.log.blockNumber)]);
     const timestamps = new Map<number, number>();
     const gasUsed = new Map<string, bigint>();
+    // Snapshot weights for the dekads of settled policies' windows.
+    const settledPeriods = new Set<bigint>();
+    raw.forEach((p, id) => {
+      if (settlements.has(id)) (windows[Number(p.windowId)] ?? []).forEach((period) => settledPeriods.add(period));
+    });
+    const periodWeights = new Map<string, bigint>();
     await Promise.all([
+    ...[...settledPeriods].flatMap((period) =>
+    oracles.map(async (o) => periodWeights.set(`${period}:${o.address}`, await aggregator.weightForPeriod(period, o.address)))
+    ),
     ...[...blockNumbers].map(async (n) => timestamps.set(n, (await provider.getBlock(n))?.timestamp ?? 0)),
     ...[...settlements.values()].map(async (s) =>
     gasUsed.set(s.log.transactionHash, (await provider.getTransactionReceipt(s.log.transactionHash))?.gasUsed ?? 0n)
@@ -287,6 +307,7 @@ function ChainData({
           windows[windowIndex] ?? [],
           oracles,
           readings,
+          periodWeights,
           s,
           gasUsed.get(s.log.transactionHash) ?? 0n,
           timestamps.get(s.log.blockNumber) ?? 0

@@ -17,16 +17,16 @@ oracle registration, reputation weights, and policy creation — and in
 | H-1 | HIGH | Fully centralized admin: owner controls payouts, oracles, and weights | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
 | H-2 | HIGH | Payout can be settled late, after drought relief is already committed | `WeatherIndexInsurance.sol#checkAndSettle` |
 | H-3 | HIGH | `serialize-javascript` ≤7.0.4 — RCE (GHSA-5c6j-r48x-rmvq) — **resolved 2026-09-28** | `package-lock.json` (dev, via mocha) |
-| M-1 | MEDIUM | Manipulable finalization race: anyone can finalize a half-reported period | `OracleAggregator.sol#finalizePeriod` |
-| M-2 | MEDIUM | Owner can unilaterally rewrite reputation weights after readings are in | `OracleAggregator.sol#updateReputation` |
+| M-1 | MEDIUM | Manipulable finalization race: anyone can finalize a half-reported period — **resolved 2026-09-30** | `OracleAggregator.sol#finalizePeriod` |
+| M-2 | MEDIUM | Owner can unilaterally rewrite reputation weights after readings are in — **resolved 2026-09-30** | `OracleAggregator.sol#updateReputation` |
 | M-3 | MEDIUM | Last-second reentrancy griefing of the payout pool | `WeatherIndexInsurance.sol#fundPool` |
 | M-4 | MEDIUM | Payouts silently skipped when the pool is underfunded (no fund accounting) — **resolved 2026-09-28** | `WeatherIndexInsurance.sol#checkAndSettle` |
-| M-5 | MEDIUM | No bounds/sanity checks on submitted rainfall readings | `OracleAggregator.sol#submitReading` |
+| M-5 | MEDIUM | No bounds/sanity checks on submitted rainfall readings — **partly resolved 2026-09-30** | `OracleAggregator.sol#submitReading` |
 | L-1 | LOW | `finalizePeriod` can permanently brick a period before any reading exists* | `OracleAggregator.sol#finalizePeriod` |
 | L-2 | LOW | Truncation in weighted-average division | `OracleAggregator.sol#finalizePeriod` |
-| L-3 | LOW | Owner key = single point of failure; no timelock/multisig | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
+| L-3 | LOW | Owner key = single point of failure; no timelock/multisig — **partly resolved 2026-09-30** | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
 | L-4 | LOW | Sepolia key in `hardhat.config.ts` via `configVariable` (config hygiene) | `hardhat.config.ts` |
-| L-5 | LOW | `oracleList` can only grow; no deregistration path | `OracleAggregator.sol` |
+| L-5 | LOW | `oracleList` can only grow; no deregistration path — **resolved 2026-09-30** | `OracleAggregator.sol` |
 | L-6 | LOW | 14 npm advisories (12 low, 1 moderate, 1 high) in dev toolchain — **partly resolved 2026-09-28** | `package-lock.json` |
 
 \* L-1 was initially flagged as a griefing vector but re-classified low after
@@ -133,6 +133,26 @@ off-chain" is a social assumption the contract cannot enforce.
 and a reporting window (`finalizePeriod` reverts until `block.timestamp > periodClose`).
 Optionally a dispute/challenge period between first finalize request and lock-in.
 
+**Status (2026-09-30): Resolved.** `finalizePeriod` now requires (a) at least
+`minQuorum` sources to have reported (default 2) and (b) either every
+registered source to have reported or `reportingWindow` (default 1 day) to
+have passed since the period's *first* reading, recorded in
+`firstReadingAt`. The window is anchored to the first reading rather than a
+fixed `periodClose` because the aggregator treats period ids as opaque
+numbers; anchoring it this way still guarantees honest sources a full window
+to answer whatever was submitted first. The owner can tune both
+(`setMinQuorum`, bounded by the number of registered sources;
+`setReportingWindow`, at most 30 days), and lowering the quorum is the
+recovery path if sources go offline for good. The attack above now reverts
+with "quorum not reached"; see `test_SingleEarlyReadingCannotBeFinalized`
+and the integration test "won't let one source finalize an extreme early
+reading into a payout".
+
+*Residual:* the contract can't tell when a dekad has actually ended, so a
+reading submitted mid-dekad is accepted. The relayer must only report a
+dekad after it closes, and the owner-controlled quorum/window settings are
+part of the H-1 centralization risk. No dispute period was added.
+
 ### M-2 — Owner can rewrite reputation weights after readings are in (retroactive manipulation)
 
 **Location:** `contracts/OracleAggregator.sol#updateReputation`.
@@ -153,6 +173,27 @@ historical reliability rather than an administrator's real-time preference.
 `periodStartWeight[period][oracle]` set at first reading submission, or keep a
 `weightVersion` counter and record `weightVersionAtFirstReading[period]`), and
 make `updateReputation` only effective for *future* periods.
+
+**Status (2026-09-30): Resolved.** A period's first reading now snapshots
+every registered source's weight (`periodWeight`, readable through
+`weightForPeriod(period, oracle)`), and `finalizePeriod` aggregates with
+those snapshots only. `updateReputation` therefore takes effect from the next
+period to receive its first reading. The same applied to *registration*: a
+source registered after a period opened could otherwise report into it with
+any weight, so such submissions now revert ("registered after period
+opened"), and the "every source has reported" early-finalization check (M-1)
+counts the period's snapshot, not the live list. Covered by
+`test_AggregateUsesWeightsLiveWhenThePeriodStarted`, a fuzz test that any
+reweighting after the first reading leaves the aggregate unchanged,
+`test_SourceRegisteredMidPeriodCannotReportForIt`, and the integration test
+"ignores reputation changes made after a dekad's readings started". The
+frontend's on-chain results show the snapshot weights.
+
+*Residual:* the snapshot is per dekad, not per policy. For a coverage window
+already on sale, the owner can still reweight before its *later* dekads
+open; binding policies to the weights in force when they were sold would
+need a per-window snapshot. The first reporter pays for the snapshot (one
+storage write per registered source).
 
 ### M-3 — Reentrancy griefing of the payout pool via `fundPool`
 
@@ -236,6 +277,21 @@ optionally a per-period cap on deviation from the running median of other
 sources' readings, or a stake-and-slash for sources whose reading ends up a
 defined outlier at finalization.
 
+**Status (2026-09-30): Partly resolved.** `submitReading` now rejects any
+value above `MAX_READING = 50_000` (500.00 mm in one period, a constant
+rather than an owner setting) with "reading out of range", matching the
+fuzz tests' bound, which now reads the constant. A rejected reading doesn't
+use up the source's one submission for the period. Covered by
+`test_RejectsImplausibleReadings` (including a doubly scaled 120 mm →
+1,200,000 and `type(uint256).max`) and a fuzz test that every value above
+the bound reverts.
+
+*Residual:* a wrong value inside 0-500 mm (for example an unscaled 120 mm
+sent as `120` = 1.20 mm) is still accepted; the reputation weighting and the
+M-1 quorum limit its effect, and the relayer should validate readings before
+submitting. The median-deviation cap and stake-and-slash suggestions were
+not implemented.
+
 ---
 
 ## Low severity
@@ -288,6 +344,25 @@ in its own right for any deployment longer than a demo.
 **Recommendation:** add a two-step `transferOwnership` (propose/accept), then
 transfer to a multisig at deploy time. Add a timelock for weight updates.
 
+**Status (2026-09-30): Partly resolved.** Both contracts now have a two-step
+transfer with the same semantics and event names as OpenZeppelin's
+`Ownable2Step`: `transferOwnership(newOwner)` (owner only) records a
+`pendingOwner` and emits `OwnershipTransferStarted`; nothing changes until
+that address calls `acceptOwnership()`, which emits `OwnershipTransferred`.
+Proposing `address(0)` cancels a pending transfer. A mistyped address can't
+take control, and a lost key can now be migrated away from while it is still
+available. There is deliberately no `renounceOwnership`, since an ownerless
+contract could never publish windows or register oracles again. Covered by
+`test_TwoStepOwnershipTransfer`, `test_OnlyThePendingOwnerCanAccept` and
+`test_PendingTransferCanBeRedirectedOrCancelled` in both contracts' Solidity
+tests, plus the integration test "hands both contracts to a new owner in two
+steps".
+
+*Still open:* the deploy flow doesn't transfer to a multisig yet (the owner
+is still the deployer EOA until someone runs the transfer), and there is no
+timelock on owner actions, so H-1's centralization remains. A key that is
+already lost still can't be recovered.
+
 ### L-4 — Sepolia deployer key referenced in `hardhat.config.ts` (config hygiene)
 
 **Location:** `hardhat.config.ts` (`accounts: [configVariable("SEPOLIA_PRIVATE_KEY")]`).
@@ -319,6 +394,29 @@ gas-wise this is not exploitable by third parties.
 keeps the label/weight history) and `setReputationWeight(addr, 0)` semantics
 distinct from removal, so a bad source can be zeroed out without losing the
 audit trail.
+
+**Status (2026-09-30): Resolved.** `deactivateOracle(address)` (owner only)
+sets `registered = false`, records `deactivatedAt[address]`, emits
+`OracleDeactivated(oracle, label, lastWeight)` and leaves the label and
+weight readable through `oracles(address)`; the address stays in
+`oracleList` as history. A deactivated source can't submit, can't be
+reweighted, and can't be re-registered (which would overwrite its history);
+a replacement feed registers under a new address. New periods' weight
+snapshots skip it, and `minQuorum`'s upper bound is now
+`activeOracleCount`. Readings it already submitted for periods still
+reporting keep counting: like reweighting under M-2, deactivation can't
+change the outcome of a period already under way, so an owner can't use it
+to drop an honest but inconvenient reading. Weights still can't be set to 0;
+deactivation is the way to zero a source out. Covered by seven Solidity
+tests (history kept, left out of new periods, pending readings still count,
+mid-period deactivation, no re-registration, owner only, quorum bound) and
+the integration test "switches off a compromised source without losing its
+history".
+
+*Residual:* a garbage reading a leaked key submitted *before* deactivation
+still counts for that period (bounded by M-5's cap, its weight share and the
+M-1 quorum). If deactivation leaves fewer active sources than `minQuorum`,
+the owner must lower the quorum for new periods to finalize.
 
 ### L-6 — 14 npm advisories in the dev toolchain (12 low, 1 moderate, 1 high)
 

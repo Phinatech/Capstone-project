@@ -25,6 +25,8 @@ import {OracleAggregator} from "./OracleAggregator.sol";
 ///      payout correctness depends on the oracle aggregation feeding it.
 contract WeatherIndexInsurance {
     address public owner;
+    /// @notice Proposed new owner; becomes owner only by calling acceptOwnership.
+    address public pendingOwner;
     OracleAggregator public aggregator;
 
     /// @notice Upper bound on dekads per window (a full growing season is ~12).
@@ -68,6 +70,8 @@ contract WeatherIndexInsurance {
     event PayoutTriggered(uint256 indexed policyId, address indexed farmer, uint256 windowRainfallMm, uint256 payoutAmount);
     event PayoutSkipped(uint256 indexed policyId, uint256 windowRainfallMm, uint256 droughtThresholdMm);
     event PoolFunded(address indexed from, uint256 amount);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "WeatherIndexInsurance: caller is not owner");
@@ -77,6 +81,24 @@ contract WeatherIndexInsurance {
     constructor(address aggregatorAddress) {
         owner = msg.sender;
         aggregator = OracleAggregator(aggregatorAddress);
+        emit OwnershipTransferred(address(0), msg.sender);
+    }
+
+    /// @notice Starts handing the contract to `newOwner` (e.g. a multisig).
+    ///         Nothing changes until `newOwner` calls acceptOwnership, so a
+    ///         mistyped address can't take control. Proposing address(0)
+    ///         cancels a pending transfer.
+    function transferOwnership(address newOwner) external onlyOwner {
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Completes a transfer started by transferOwnership.
+    function acceptOwnership() external {
+        require(msg.sender == pendingOwner, "WeatherIndexInsurance: caller is not pending owner");
+        emit OwnershipTransferred(owner, msg.sender);
+        owner = msg.sender;
+        pendingOwner = address(0);
     }
 
     /// @notice Adds funds to the shared payout pool. Anyone can top it up.

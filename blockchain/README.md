@@ -57,7 +57,16 @@ hardhat.config.ts
 2. A farmer calls `buyPolicy(windowId, droughtThresholdMm, payoutAmount)`,
    sending `quotePremium(payoutAmount)` (10% of the payout by default). The
    sale reserves the payout and is refused if the pool can't cover it.
-3. Oracles report each dekad once to `OracleAggregator`; anyone finalizes it.
+3. Oracles report each dekad once to `OracleAggregator` (at most 500.00 mm,
+   `MAX_READING`; larger values are rejected as implausible). Anyone can then
+   finalize it, once at least `minQuorum` sources (default 2) have reported
+   and either all registered sources have, or `reportingWindow` (default
+   1 day) has passed since the dekad's first reading. One early, extreme
+   reading therefore can't be locked in before honest sources report
+   (audit M-1).
+   Each dekad's first reading also snapshots every source's weight, and the
+   aggregate uses only those, so reweighting a source affects later dekads,
+   never one that is already reporting (audit M-2).
 4. Once every dekad in the window is finalized, anyone can call
    `checkAndSettle(policyId)`: the window's dekad aggregates are summed and
    compared with the threshold (both in mm × 100), and the farmer is paid
@@ -65,6 +74,22 @@ hardhat.config.ts
 
 Overlapping windows ("July", "June-July") share the same dekad reports, so a
 source can't report the same rainfall differently for different policies.
+
+### Ownership
+
+Each contract's owner (the deployer at first) publishes windows, registers,
+reweights and deactivates oracles, and tunes the quorum, reporting window and
+premium rate. `deactivateOracle(address)` permanently stops a compromised or
+retired source from reporting while keeping its label and weight as history;
+readings it already sent for dekads still reporting keep counting. Ownership moves in two steps, so a mistyped address can't take control:
+
+```solidity
+contract.transferOwnership(newOwner); // current owner proposes (address(0) cancels)
+contract.acceptOwnership();           // called by newOwner to complete it
+```
+
+For anything beyond a demo, hand both contracts to a multisig this way right
+after deployment (audit L-3 / H-1).
 
 ## Running it
 
