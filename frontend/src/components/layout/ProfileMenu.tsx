@@ -5,6 +5,7 @@ import { Avatar } from '../Avatar';
 import { DropdownPanel, menuItemClass } from '../DropdownPanel';
 import { useDismiss } from '../../hooks/useDismiss';
 import { useI18n } from '../../contexts/I18nContext';
+import { usePolicies } from '../../contexts/PolicyContext';
 import { useUI } from '../../contexts/UIContext';
 import { shortAddress } from '../../utils/format';
 import type { User } from '../../types/user';
@@ -12,6 +13,7 @@ import type { User } from '../../types/user';
 export function ProfileMenu({ user }: {user: User;}) {
   const { t } = useI18n();
   const ui = useUI();
+  const wallet = usePolicies().walletOf(user);
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -22,7 +24,7 @@ export function ProfileMenu({ user }: {user: User;}) {
 
   async function copyWallet() {
     try {
-      await navigator.clipboard.writeText(user.wallet);
+      await navigator.clipboard.writeText(wallet);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -71,7 +73,7 @@ export function ProfileMenu({ user }: {user: User;}) {
             onClick={copyWallet}
             className="mt-1 flex w-full items-center justify-between rounded-md bg-canvas px-2.5 py-1.5 font-mono text-xs transition-colors duration-150 ease-out hover:bg-line focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
             
-            {shortAddress(user.wallet)}
+            {shortAddress(wallet)}
             {copied ?
             <CheckIcon className="h-3.5 w-3.5 text-accent" aria-label={t('menu.copied')} /> :
 

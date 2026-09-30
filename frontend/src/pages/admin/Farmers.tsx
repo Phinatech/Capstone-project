@@ -25,7 +25,7 @@ type Activity = 'all' | 'covered' | 'uncovered';
 const ease = [0.23, 1, 0.32, 1] as const;
 
 export function Farmers() {
-  const { policies, balanceOf } = usePolicies();
+  const { policies, balanceOf, walletOf } = usePolicies();
   const [params, setParams] = useSearchParams();
   const [view, setView] = usePersistentState<ViewMode>('sokoto-cover-view-farmers-v2', 'grid');
   const [lga, setLga] = useState('all');
@@ -199,7 +199,7 @@ export function Farmers() {
                     </span>
                   </span>
                   <span className="hidden truncate text-sm lg:block">{f.lga}</span>
-                  <span className="hidden truncate font-mono text-xs text-muted lg:block">{shortAddress(f.wallet)}</span>
+                  <span className="hidden truncate font-mono text-xs text-muted lg:block">{shortAddress(walletOf(f))}</span>
                   <span className="hidden text-right font-mono text-sm lg:block">
                     {active.length}
                     <span className="text-muted"> / {mine.length}</span>
@@ -299,7 +299,7 @@ export function Farmers() {
                 </ul>
             }
             </div>
-            <p className="break-all font-mono text-xs text-muted">{selected.wallet}</p>
+            <p className="break-all font-mono text-xs text-muted">{walletOf(selected)}</p>
           </div>
         }
       </Modal>

@@ -29,7 +29,7 @@ import type { ProfilePatch } from '../types/user';
 
 export function Profile() {
   const { user, updateProfile } = useAuth();
-  const { policies, balanceOf } = usePolicies();
+  const { policies, balanceOf, walletOf, source } = usePolicies();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -72,7 +72,7 @@ export function Profile() {
 
   async function copyWallet() {
     try {
-      await navigator.clipboard.writeText(user!.wallet);
+      await navigator.clipboard.writeText(walletOf(user!));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -140,7 +140,7 @@ export function Profile() {
             onClick={copyWallet}
             className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-line px-3 py-2 font-mono text-xs transition-colors duration-150 ease-out hover:border-muted">
             
-            <span className="truncate">{user.wallet}</span>
+            <span className="truncate">{walletOf(user)}</span>
             {copied ? <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent" aria-label="Copied" /> : <CopyIcon className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Copy wallet" />}
           </button>
         </div>
@@ -260,8 +260,9 @@ export function Profile() {
           <div className="mt-3">
             <ActivityList items={buildActivity(mine, 5)} basePath={`/${user.role}/policies`} showFarmer={!isFarmer} />
           </div>
+          {!(source.kind === 'chain' && source.local) &&
           <a
-            href={`https://sepolia.etherscan.io/address/${user.wallet}`}
+            href={`https://sepolia.etherscan.io/address/${walletOf(user)}`}
             target="_blank"
             rel="noreferrer"
             className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
@@ -269,6 +270,7 @@ export function Profile() {
             View wallet on Etherscan
             <ExternalLinkIcon className="h-3.5 w-3.5" aria-hidden />
           </a>
+          }
         </section>
       </div>
     </div>);

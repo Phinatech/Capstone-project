@@ -5,7 +5,6 @@ import { FilterTabs } from '../../components/FilterTabs';
 import { ChartCard, tooltipStyle } from '../../components/analytics/ChartCard';
 import { KpiStrip } from '../../components/analytics/KpiStrip';
 import { usePolicies } from '../../contexts/PolicyContext';
-import { contractPoolStartEth } from '../../data/policies';
 import { configurationProfiles } from '../../data/configurations';
 import { byCrop, byLga, byStatus, byWindow, portfolioStats, triggerMargins } from '../../utils/analytics';
 import { runBacktest } from '../../utils/oracle';
@@ -15,13 +14,11 @@ type Crop = 'all' | 'Millet' | 'Sorghum';
 const axis = { fontSize: 10, fill: 'var(--muted)' };
 
 export function Analytics() {
-  const { policies } = usePolicies();
+  const { policies, poolEth: pool } = usePolicies();
   const [crop, setCrop] = useState<Crop>('all');
   const scoped = crop === 'all' ? policies : policies.filter((p) => p.crop === crop);
 
   const stats = portfolioStats(scoped);
-  const all = portfolioStats(policies);
-  const pool = contractPoolStartEth + all.premiums - all.payouts;
   const windows = byWindow(scoped);
   const lgaRows = byLga(scoped);
   const status = byStatus(scoped);

@@ -8,6 +8,7 @@ import { isNavActive, navSections } from './navigation';
 import { useI18n } from '../../contexts/I18nContext';
 import { useUI } from '../../contexts/UIContext';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { usePolicies } from '../../contexts/PolicyContext';
 import type { User } from '../../types/user';
 
 interface SidebarProps {
@@ -26,6 +27,9 @@ const ease = [0.23, 1, 0.32, 1] as const;
 export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
   const { pathname } = useLocation();
   const { t } = useI18n();
+  const { source } = usePolicies();
+  const live = source.kind === 'chain';
+  const networkLabel = !live ? t('top.simulated') : source.local ? t('top.localChain') : t('top.testnet');
   const ui = useUI();
   const { unreadCount } = useNotifications();
   const [tip, setTip] = useState<Tip | null>(null);
@@ -158,10 +162,10 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
       <div className="mx-3 mb-3 rounded-md border border-line bg-canvas px-3 py-2.5">
           <p className="flex items-center gap-2 text-xs font-medium">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" aria-hidden />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+              {live && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" aria-hidden />}
+              <span className={`relative inline-flex h-2 w-2 rounded-full ${live ? 'bg-success' : 'bg-muted'}`} />
             </span>
-            <span className="truncate">{t('top.testnet')}</span>
+            <span className="truncate" title={source.kind === 'simulated' ? source.reason : undefined}>{networkLabel}</span>
           </p>
           <p className="mt-0.5 truncate text-[11px] text-muted">{t('top.sidebarNote')}</p>
         </div>

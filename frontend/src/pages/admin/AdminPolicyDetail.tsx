@@ -11,7 +11,7 @@ import { shortAddress } from '../../utils/format';
 
 export function AdminPolicyDetail() {
   const { policyId } = useParams();
-  const { policies } = usePolicies();
+  const { policies, walletOf } = usePolicies();
   const policy = policies.find((p) => p.id === Number(policyId));
   if (!policy) return <NotFound message="This policy doesn't exist on the contract." />;
   const farmer = findUser(policy.farmerId);
@@ -34,7 +34,7 @@ export function AdminPolicyDetail() {
               </Link>
           }{' '}
             · {policy.lga} {policy.crop} · {getWindow(policy.windowId).label} ·{' '}
-            <span className="font-mono">{farmer ? shortAddress(farmer.wallet) : ''}</span>
+            <span className="font-mono">{farmer ? shortAddress(walletOf(farmer)) : ''}</span>
           </>
         } />
       

@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckIcon, ChevronDownIcon, Loader2Icon, PlayIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, Loader2Icon, PlayIcon, ScaleIcon } from 'lucide-react';
+import { toast } from 'sonner';
+import { usePolicies } from '../../contexts/PolicyContext';
 import { configurationProfiles } from '../../data/configurations';
 import { oracleSources } from '../../data/rainfall';
 import { EvaluationResultPanel } from '../EvaluationResultPanel';
@@ -17,8 +20,26 @@ const selectClass =
 
 export function EvaluationRunner({ policy }: {policy: Policy;}) {
   const r = useEvaluationRunner(policy);
+  const { source, settleOnChain } = usePolicies();
+  const onChain = source.kind === 'chain';
+  const [settling, setSettling] = useState(false);
+  const [settleError, setSettleError] = useState<string | null>(null);
   const running = r.status === 'running';
   const settled = policy.status !== 'active';
+
+  async function settle() {
+    if (!settleOnChain) return;
+    setSettling(true);
+    setSettleError(null);
+    try {
+      await settleOnChain(policy.id);
+      toast.success(`Policy #${policy.id} settled on-chain`);
+    } catch (e) {
+      setSettleError(e instanceof Error ? e.message : 'Settlement failed.');
+    } finally {
+      setSettling(false);
+    }
+  }
   const shownResult = r.result ?? (r.status === 'idle' ? policy.evaluation ?? null : null);
 
   return (
@@ -28,7 +49,11 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
           Oracle evaluation
         </h2>
         <p className="mt-1 text-sm text-muted">
-          {settled ?
+          {onChain ?
+          settled ?
+          'Settled on-chain. Re-runs are simulations on the illustrative 2023 rainfall and move no funds.' :
+          'Settlement happens on-chain once the oracles have finalized every dekad in the window. Simulations use the illustrative 2023 rainfall and move no funds.' :
+          settled ?
           'This policy is settled. Re-runs are simulations and move no funds.' :
           'Requests rainfall for the coverage window and settles the policy automatically.'}
         </p>
@@ -110,8 +135,23 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
           className="mt-4 inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 ease-out hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70">
           
           {running ? <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden /> : <PlayIcon className="h-4 w-4" aria-hidden />}
-          {running ? 'Evaluating…' : settled ? 'Run simulation' : 'Request oracle evaluation'}
+          {running ? 'Evaluating…' : settled || onChain ? 'Run simulation' : 'Request oracle evaluation'}
         </button>
+        {onChain && !settled &&
+        <button
+          type="button"
+          onClick={settle}
+          disabled={settling}
+          className="ml-2 mt-4 inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-line px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ease-out hover:border-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-70">
+            {settling ? <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden /> : <ScaleIcon className="h-4 w-4" aria-hidden />}
+            {settling ? 'Settling…' : 'Settle on-chain'}
+          </button>
+        }
+        {settleError &&
+        <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+            {settleError}
+          </p>
+        }
       </div>
 
       <AnimatePresence mode="wait" initial={false}>

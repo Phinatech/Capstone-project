@@ -48,12 +48,13 @@ export function PurchaseForm() {
     }
     setError(null);
     setSubmitting(true);
-    setTimeout(() => {
-      const policy = purchasePolicy(user.id, { lga, crop, windowId, thresholdMm, premiumEth, payoutEth });
-      setSubmitting(false);
-      toast.success(`Policy #${policy.id} confirmed`, { description: `${formatEth(premiumEth)} premium paid into the contract.` });
+    purchasePolicy(user.id, { lga, crop, windowId, thresholdMm, premiumEth, payoutEth }).
+    then((policy) => {
+      toast.success(`Policy #${policy.id} confirmed`, { description: `${formatEth(policy.premiumEth)} premium paid into the contract.` });
       navigate(`/farmer/policies/${policy.id}`);
-    }, 900);
+    }).
+    catch((err: unknown) => setError(err instanceof Error ? err.message : 'The purchase failed. Try again.')).
+    finally(() => setSubmitting(false));
   }
 
   return (
@@ -153,7 +154,7 @@ export function PurchaseForm() {
         {submitting ?
         <>
             <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />
-            Confirming on Sepolia…
+            Confirming transaction…
           </> :
 
         'Pay premium & buy policy'

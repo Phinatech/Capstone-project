@@ -5,7 +5,6 @@ import { ActivityList } from '../../components/ActivityList';
 import { KpiStrip } from '../../components/analytics/KpiStrip';
 import { btnSecondary } from '../../components/ui/buttons';
 import { usePolicies } from '../../contexts/PolicyContext';
-import { contractPoolStartEth } from '../../data/policies';
 import { oracleSources } from '../../data/rainfall';
 import { buildActivity } from '../../utils/activity';
 import { portfolioStats } from '../../utils/analytics';
@@ -14,10 +13,9 @@ import { findUser, getFarmers } from '../../utils/users';
 import { formatEth } from '../../utils/format';
 
 export function AdminOverview() {
-  const { policies } = usePolicies();
+  const { policies, poolEth: pool } = usePolicies();
   const stats = portfolioStats(policies);
   const active = policies.filter((p) => p.status === 'active');
-  const pool = contractPoolStartEth + stats.premiums - stats.payouts;
 
   return (
     <div>

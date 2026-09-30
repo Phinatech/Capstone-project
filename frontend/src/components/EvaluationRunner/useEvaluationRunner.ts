@@ -18,7 +18,7 @@ const STAGE_MS = 550;
 type RunStatus = 'idle' | 'running' | 'done' | 'error';
 
 export function useEvaluationRunner(policy: Policy) {
-  const { recordEvaluation } = usePolicies();
+  const { recordEvaluation, source } = usePolicies();
   const [mode, setMode] = useState<AggregationMode>('reputation');
   const [corruptionEnabled, setCorruptionEnabled] = useState(false);
   const [corruptSource, setCorruptSource] = useState<SourceId>('chirps');
@@ -34,7 +34,8 @@ export function useEvaluationRunner(policy: Policy) {
   const run = useCallback(() => {
     timers.current.forEach((t) => clearTimeout(t));
     timers.current = [];
-    const settle = policy.status === 'active';
+    // On-chain, settlement is checkAndSettle; simulations never move funds.
+    const settle = policy.status === 'active' && source.kind === 'simulated';
     const corruption = corruptionEnabled ? { sourceId: corruptSource, type: corruptType } : null;
     setStatus('running');
     setResult(null);
@@ -62,7 +63,7 @@ export function useEvaluationRunner(policy: Policy) {
         }
       }, evaluationStages.length * STAGE_MS)
     );
-  }, [policy, mode, corruptionEnabled, corruptSource, corruptType, recordEvaluation]);
+  }, [policy, mode, corruptionEnabled, corruptSource, corruptType, recordEvaluation, source.kind]);
 
   return {
     mode,

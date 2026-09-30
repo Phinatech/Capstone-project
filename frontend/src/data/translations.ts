@@ -39,6 +39,8 @@ export const en = {
   'top.farmerPortal': 'Farmer portal',
   'top.adminConsole': 'Admin console',
   'top.testnet': 'Sepolia testnet',
+  'top.localChain': 'Local chain',
+  'top.simulated': 'Simulated data',
   'top.sidebarNote': 'Oracle relayer · 3 rainfall sources',
 
   'role.farmer': 'Farmer',
@@ -236,6 +238,8 @@ export const ha: Dictionary = {
   'top.farmerPortal': 'Shafin manoma',
   'top.adminConsole': 'Shafin gudanarwa',
   'top.testnet': 'Sepolia testnet',
+  'top.localChain': 'Blockchain na gida',
+  'top.simulated': 'Bayanan kwaikwayo',
   'top.sidebarNote': 'Oracle relayer · tushe 3 na ruwan sama',
 
   'role.farmer': 'Manomi',
@@ -430,6 +434,8 @@ export const fr: Dictionary = {
   'top.farmerPortal': 'Espace agriculteur',
   'top.adminConsole': 'Console admin',
   'top.testnet': 'Sepolia testnet',
+  'top.localChain': 'Chaîne locale',
+  'top.simulated': 'Données simulées',
   'top.sidebarNote': 'Relais oracle · 3 sources de pluie',
 
   'role.farmer': 'Agriculteur',

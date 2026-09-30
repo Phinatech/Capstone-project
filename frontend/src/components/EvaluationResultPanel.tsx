@@ -36,7 +36,7 @@ export function EvaluationResultPanel({ result, payoutEth, showValidation = true
             <span className="font-mono text-ink">{result.thresholdMm} mm</span> threshold
           </p>
         </div>
-        {showValidation &&
+        {showValidation && Number.isFinite(result.referenceMm) &&
         <div
           className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${correct ? 'bg-accent-soft text-accent-strong' : 'bg-danger-soft text-danger'}`}>
           
@@ -122,10 +122,12 @@ export function EvaluationResultPanel({ result, payoutEth, showValidation = true
           <dt className="text-xs text-muted">Gas used</dt>
           <dd className="mt-0.5 font-mono">{formatGas(result.gasUsed)}</dd>
         </div>
+        {Number.isFinite(result.latencySec) &&
         <div className="md:pl-6">
-          <dt className="text-xs text-muted">Resolution latency (modelled)</dt>
-          <dd className="mt-0.5 font-mono">{result.latencySec.toFixed(1)} s</dd>
-        </div>
+            <dt className="text-xs text-muted">Resolution latency (modelled)</dt>
+            <dd className="mt-0.5 font-mono">{result.latencySec.toFixed(1)} s</dd>
+          </div>
+        }
         <div className="col-span-2 min-w-0 md:col-span-1 md:pl-6">
           <dt className="text-xs text-muted">Transaction</dt>
           <dd className="mt-0.5 truncate font-mono text-xs leading-5" title={result.txHash}>

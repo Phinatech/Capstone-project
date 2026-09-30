@@ -1,0 +1,25 @@
+{
+  "WeatherIndexInsurance": [
+    "function nextPolicyId() view returns (uint256)",
+    "function nextWindowId() view returns (uint256)",
+    "function policies(uint256) view returns (address farmer, uint256 windowId, uint256 droughtThresholdMm, uint256 payoutAmount, uint256 premiumPaid, bool settled)",
+    "function getCoverageWindow(uint256 windowId) view returns (uint64 salesCloseAt, uint256[] periods)",
+    "function quotePremium(uint256 payoutAmount) view returns (uint256)",
+    "function availableCapacity() view returns (uint256)",
+    "function reservedPayouts() view returns (uint256)",
+    "function windowRainfall(uint256 windowId) view returns (uint256 total)",
+    "function buyPolicy(uint256 windowId, uint256 droughtThresholdMm, uint256 payoutAmount) payable returns (uint256 policyId)",
+    "function checkAndSettle(uint256 policyId)",
+    "event PolicyCreated(uint256 indexed policyId, address indexed farmer, uint256 indexed windowId, uint256 droughtThresholdMm, uint256 payoutAmount, uint256 premiumPaid)",
+    "event PayoutTriggered(uint256 indexed policyId, address indexed farmer, uint256 windowRainfallMm, uint256 payoutAmount)",
+    "event PayoutSkipped(uint256 indexed policyId, uint256 windowRainfallMm, uint256 droughtThresholdMm)"
+  ],
+  "OracleAggregator": [
+    "function getOracleCount() view returns (uint256)",
+    "function oracleList(uint256) view returns (address)",
+    "function oracles(address) view returns (bool registered, string label, uint256 reputationWeight)",
+    "function isFinalized(uint256) view returns (bool)",
+    "function finalizedAggregate(uint256) view returns (uint256)",
+    "event ReadingSubmitted(address indexed oracle, uint256 indexed period, uint256 rainfallMm)"
+  ]
+}
