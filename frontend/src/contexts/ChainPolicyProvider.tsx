@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Contract, JsonRpcProvider, Network, formatEther, parseEther, type EventLog, type Log } from 'ethers';
+import { BrowserProvider, Contract, JsonRpcProvider, Network, formatEther, parseEther, type EventLog, type Log } from 'ethers';
 import { toast } from 'sonner';
 import abi from '../chain/abi.json';
-import { LOCAL_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
+import { LOCAL_CHAIN_ID, SEPOLIA_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { coverageWindows } from '../data/policies';
 import { findUser, getFarmers } from '../utils/users';
@@ -15,9 +15,9 @@ import type { EvaluationResult, Policy, SourceReading } from '../types/insurance
 import type { User } from '../types/user';
 
 type Connection =
-{phase: 'connecting';} |
-{phase: 'ready';provider: JsonRpcProvider;chainId: bigint;accounts: string[];} |
-{phase: 'failed';reason: string;};
+  {phase: 'connecting';} |
+  {phase: 'ready';provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;} |
+  {phase: 'failed';reason: string;};
 
 async function rpc(url: string, method: string, timeoutMs = 3000): Promise<string> {
   const ctrl = new AbortController();
@@ -44,7 +44,25 @@ async function connect(config: ChainConfig): Promise<Connection> {
   } catch {
     return { phase: 'failed', reason: `No chain node answered at ${config.rpcUrl}. Start one with "npm run chain", then "npm run seed:local".` };
   }
-  // Probe first, then pin the network, so ethers doesn't retry detection forever.
+
+  // For non-local chains, try browser wallet first
+  if (chainId !== LOCAL_CHAIN_ID && typeof window !== 'undefined' && window.ethereum) {
+    try {
+      const browserProvider = new BrowserProvider(window.ethereum);
+      const accounts = await browserProvider.send('eth_requestAccounts', []);
+      if (accounts.length > 0) {
+        // Check if the contract is deployed on this chain
+        const code = await browserProvider.getCode(config.insuranceAddress);
+        if (code !== '0x') {
+          return { phase: 'ready', provider: browserProvider, chainId, accounts, isWallet: true };
+        }
+      }
+    } catch {
+      // Fall through to read-only mode
+    }
+  }
+
+  // Local chain or fallback: read-only with unlocked accounts
   const provider = new JsonRpcProvider(config.rpcUrl, Network.from(chainId), { staticNetwork: true, pollingInterval: 2000 });
   if ((await provider.getCode(config.insuranceAddress)) === '0x') {
     provider.destroy();
@@ -54,7 +72,7 @@ async function connect(config: ChainConfig): Promise<Connection> {
     };
   }
   const accounts: string[] = chainId === LOCAL_CHAIN_ID ? await provider.send('eth_accounts', []) : [];
-  return { phase: 'ready', provider, chainId, accounts };
+  return { phase: 'ready', provider, chainId, accounts, isWallet: false };
 }
 
 /** Policies read from, and transactions sent to, the deployed contracts. */
@@ -84,7 +102,7 @@ export function ChainPolicyProvider({ config, children }: {config: ChainConfig;c
   if (conn.phase === 'connecting') return <LoadingScreen label="Connecting to the chain" />;
   if (conn.phase === 'failed') return <SimulatedPolicyProvider reason={conn.reason}>{children}</SimulatedPolicyProvider>;
   return (
-    <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts}>
+    <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts} isWallet={conn.isWallet}>
       {children}
     </ChainData>);
 
@@ -127,7 +145,8 @@ function writeMeta(insurance: string, id: number, entry: PolicyMeta[number]) {
     localStorage.setItem(metaKey(insurance), JSON.stringify({ ...readMeta(insurance), [id]: entry }));
   } catch {
 
-    /* storage unavailable: the policy falls back to the farmer's profile */}
+    /* storage unavailable: the policy falls back to the farmer's profile */
+  }
 }
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
@@ -202,12 +221,11 @@ function ChainData({
   provider,
   chainId,
   accounts,
+  isWallet,
   children
 
 
-
-
-}: {config: ChainConfig;provider: JsonRpcProvider;chainId: bigint;accounts: string[];children: React.ReactNode;}) {
+}: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;children: React.ReactNode;}) {
   const { user } = useAuth();
   const { notify } = useNotifications();
   const local = chainId === LOCAL_CHAIN_ID && accounts.length > 0;
@@ -219,8 +237,12 @@ function ChainData({
   snapshotRef.current = snapshot;
 
   const addressOf = useCallback(
-    (userId: string): string | undefined => local ? accounts[localAccountIndex(userId)] : undefined,
-    [local, accounts]
+    (userId: string): string | undefined => {
+      if (local) return accounts[localAccountIndex(userId)];
+      if (isWallet && accounts.length > 0) return accounts[0];
+      return undefined;
+    },
+    [local, isWallet, accounts]
   );
 
   const load = useCallback(async (): Promise<Snapshot> => {
@@ -361,7 +383,7 @@ function ChainData({
   const purchasePolicy = useCallback(
     async (farmerId: string, input: PurchaseInput) => {
       const from = addressOf(farmerId);
-      if (!from) throw new Error('Buying cover on this network needs a browser wallet, which the app does not support yet.');
+      if (!from) throw new Error('Buying cover on this network needs a browser wallet. Connect MetaMask and try again.');
       const windowIndex = coverageWindows.findIndex((w) => w.id === input.windowId);
       if (windowIndex < 0 || windowIndex >= (snapshotRef.current?.windowCount ?? 0)) {
         throw new Error('This coverage window is not on sale on the contract.');
@@ -393,7 +415,7 @@ function ChainData({
   const settleOnChain = useCallback(
     async (policyId: number) => {
       const from = addressOf(user?.id ?? 'admin-1');
-      if (!from) throw new Error('Settling on this network needs a browser wallet, which the app does not support yet.');
+      if (!from) throw new Error('Settling on this network needs a browser wallet. Connect MetaMask and try again.');
       try {
         const signer = await provider.getSigner(from);
         const tx = await (insurance.connect(signer) as Contract).checkAndSettle(policyId);

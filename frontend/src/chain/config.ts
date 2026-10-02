@@ -20,6 +20,9 @@ export function readChainConfig(): ChainConfig | null {
 /** Hardhat's local chain id. Only there can the app sign with unlocked test accounts. */
 export const LOCAL_CHAIN_ID = 31337n;
 
+/** Sepolia testnet chain id. */
+export const SEPOLIA_CHAIN_ID = 11155111n;
+
 // Local test accounts per demo user. Accounts #2-#4 are the oracle sources
 // (see blockchain/scripts/seed-local.ts), so farmers skip them.
 const LOCAL_ACCOUNT_INDEX: Record<string, number> = {

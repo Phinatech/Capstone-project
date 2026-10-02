@@ -39,19 +39,12 @@ const WINDOWS = [
 
 const POOL_FUNDING = ethers.parseEther("10");
 
-/** Dekad index (0 = 1-10 June) to the relayer's YYYYMMD period id. */
-function periodId(year: number, index: number): number {
-  const month = 6 + Math.floor(index / 3);
-  const dekad = (index % 3) + 1;
-  return year * 1000 + month * 10 + dekad;
-}
+// Period mapping is shared with the backend relayer via @weather/backend/utils/period.
+// Re-exported here for convenience; the canonical implementation lives there.
+import { dekadIndexToPeriodId, dekadIndexToStart } from "../../backend/src/utils/period.js";
 
-/** UTC timestamp (seconds) of the first day of a dekad. */
-function dekadStart(year: number, index: number): number {
-  const month = 6 + Math.floor(index / 3);
-  const day = [1, 11, 21][index % 3];
-  return Date.UTC(year, month - 1, day) / 1000;
-}
+const periodId = dekadIndexToPeriodId;
+const dekadStart = dekadIndexToStart;
 
 async function upsertEnv(file: URL, example: URL, values: Record<string, string>) {
   let text: string;
