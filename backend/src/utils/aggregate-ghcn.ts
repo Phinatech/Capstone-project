@@ -21,9 +21,10 @@ function parseGhcnCsv(content: string): DailyReading[] {
   const lines = content.trim().split("\n");
   const readings: DailyReading[] = [];
   for (const line of lines.slice(1)) {
-    const [id, date, element, value] = line.split(",");
-    if (element !== "PRCP") continue;
-    readings.push({ date, prcp: Number(value) });
+    const [, date, element, value] = line.split(",");
+    if (element !== "PRCP" || date === undefined || value === undefined) continue;
+    // GHCN-Daily stores PRCP in tenths of a millimetre.
+    readings.push({ date, prcp: Number(value) / 10 });
   }
   return readings;
 }
@@ -67,7 +68,7 @@ async function main() {
 
   await writeFile(OUTPUT_FILE, JSON.stringify(output, null, 2));
   console.log(`Wrote ${sorted.length} dekadal values to ${OUTPUT_FILE.pathname}`);
-  console.log(`Period range: ${sorted[0][0]} to ${sorted.at(-1)![0]}`);
+  console.log(`Period range: ${sorted[0]![0]} to ${sorted.at(-1)![0]}`);
 }
 
 main().catch(console.error);

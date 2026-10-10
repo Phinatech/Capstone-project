@@ -5,6 +5,8 @@
     "target": "es2023",
     "skipLibCheck": true,
     "outDir": "dist",
+    // The repo root, so scripts/seed-local.ts can import backend/src/utils/period.ts.
+    "rootDir": "..",
     "types": ["node", "mocha"],
     "verbatimModuleSyntax": true
   }

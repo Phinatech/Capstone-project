@@ -4,7 +4,7 @@ export interface OnboardingStep {
   icon: 'shield' | 'radio' | 'wallet' | 'scale' | 'flask' | 'bell';
 }
 
-export const onboardingSteps: Record<'farmer' | 'admin', OnboardingStep[]> = {
+export const onboardingSteps: Record<'farmer' | 'admin' | 'agent', OnboardingStep[]> = {
   farmer: [
   {
     icon: 'shield',
@@ -37,6 +37,23 @@ export const onboardingSteps: Record<'farmer' | 'admin', OnboardingStep[]> = {
     icon: 'bell',
     title: 'Stay on top of live events',
     body: 'Feed updates, premiums and settlements arrive as real-time notifications. Use search (Ctrl K) to jump anywhere.'
+  }],
+
+  agent: [
+  {
+    icon: 'shield',
+    title: 'Insure farmers from your wallet',
+    body: 'Select a farmer, set the rainfall threshold, and pay the premium from your agent wallet. The farmer is paid automatically if the season falls short.'
+  },
+  {
+    icon: 'wallet',
+    title: 'No crypto knowledge needed',
+    body: 'The farmer does not need a wallet or any blockchain knowledge. You handle the transaction; they receive the payout directly.'
+  },
+  {
+    icon: 'bell',
+    title: 'Track every policy',
+    body: 'Monitor all farmer policies you have purchased, their status, and payouts from your agent dashboard.'
   }]
 
 };

@@ -110,7 +110,9 @@ export function initials(name: string): string {
 }
 
 export function homePath(user: User): string {
-  return user.role === 'admin' ? '/admin' : '/farmer';
+  if (user.role === 'admin') return '/admin';
+  if (user.role === 'agent') return '/agent';
+  return '/farmer';
 }
 
 export function isValidEmail(email: string): boolean {

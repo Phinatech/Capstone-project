@@ -55,9 +55,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function readStoredUser(): User | null {
+// Only "remember me" sessions survive a refresh; everyone else signs in again.
+function readRememberedUser(): User | null {
   try {
-    const id = window.localStorage.getItem(STORAGE_KEY) ?? window.sessionStorage.getItem(STORAGE_KEY);
+    const id = window.localStorage.getItem(STORAGE_KEY);
     return id ? findUser(id) ?? null : null;
   } catch {
     return null;
@@ -68,7 +69,7 @@ function persist(user: User, remember: boolean) {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
     window.sessionStorage.removeItem(STORAGE_KEY);
-    (remember ? window.localStorage : window.sessionStorage).setItem(STORAGE_KEY, user.id);
+    if (remember) window.localStorage.setItem(STORAGE_KEY, user.id);
   } catch {
 
     /* storage unavailable */}
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      setUser(readStoredUser());
+      setUser(readRememberedUser());
       setReady(true);
     }, BOOT_MS);
     return () => clearTimeout(t);

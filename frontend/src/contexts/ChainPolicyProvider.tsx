@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BrowserProvider, Contract, JsonRpcProvider, Network, formatEther, parseEther, type EventLog, type Log } from 'ethers';
 import { toast } from 'sonner';
 import abi from '../chain/abi.json';
-import { LOCAL_CHAIN_ID, SEPOLIA_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
+import { LOCAL_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { coverageWindows } from '../data/policies';
 import { findUser, getFarmers } from '../utils/users';

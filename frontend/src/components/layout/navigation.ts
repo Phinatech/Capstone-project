@@ -69,6 +69,25 @@ const adminNotifications: NavItem = {
 const adminProfile: NavItem = { to: '/admin/profile', labelKey: 'nav.profile', shortKey: 'nav.profile', icon: UserIcon };
 const adminSettings: NavItem = { to: '/admin/settings', labelKey: 'nav.settings', shortKey: 'nav.settings', icon: SettingsIcon };
 
+const agentHome: NavItem = { to: '/agent', labelKey: 'nav.dashboard', shortKey: 'nav.home', icon: LayoutDashboardIcon, exact: true };
+const agentPolicies: NavItem = {
+  to: '/agent/policies',
+  labelKey: 'nav.myPolicies',
+  shortKey: 'nav.policies',
+  icon: FileTextIcon,
+  exclude: ['/agent/policies/new']
+};
+const agentBuy: NavItem = { to: '/agent/policies/new', labelKey: 'nav.buyCover', shortKey: 'nav.buy', icon: PlusIcon, exact: true, primary: true };
+const agentNotifications: NavItem = {
+  to: '/agent/notifications',
+  labelKey: 'nav.notifications',
+  shortKey: 'nav.notifications',
+  icon: BellIcon,
+  badge: 'notifications'
+};
+const agentProfile: NavItem = { to: '/agent/profile', labelKey: 'nav.profile', shortKey: 'nav.profile', icon: UserIcon };
+const agentSettings: NavItem = { to: '/agent/settings', labelKey: 'nav.settings', shortKey: 'nav.settings', icon: SettingsIcon };
+
 export const navSections: Record<Role, NavSection[]> = {
   farmer: [
   { titleKey: 'section.cover', items: [farmerHome, farmerPolicies, farmerBuy, farmerPayouts] },
@@ -77,13 +96,18 @@ export const navSections: Record<Role, NavSection[]> = {
   admin: [
   { titleKey: 'section.operations', items: [adminOverview, adminPolicies, adminFarmers, adminAnalytics] },
   { titleKey: 'section.research', items: [adminOracles, adminBacktest, adminDataModel] },
-  { titleKey: 'section.account', items: [adminNotifications, adminProfile, adminSettings] }]
+  { titleKey: 'section.account', items: [adminNotifications, adminProfile, adminSettings] }],
+
+  agent: [
+  { titleKey: 'section.cover', items: [agentHome, agentPolicies, agentBuy] },
+  { titleKey: 'section.account', items: [agentNotifications, agentProfile, agentSettings] }]
 
 };
 
 export const mobileNav: Record<Role, NavItem[]> = {
   farmer: [farmerHome, farmerPolicies, farmerBuy, farmerPayouts, farmerProfile],
-  admin: [adminOverview, adminPolicies, adminAnalytics, adminOracles, adminFarmers]
+  admin: [adminOverview, adminPolicies, adminAnalytics, adminOracles, adminFarmers],
+  agent: [agentHome, agentPolicies, agentBuy, agentProfile]
 };
 
 export function isNavActive(item: NavItem, pathname: string): boolean {

@@ -33,7 +33,7 @@ function computeStats(observed: number[], predicted: number[]): {
   let sumSq = 0;
   let sumBias = 0;
   for (let i = 0; i < n; i++) {
-    const err = predicted[i] - observed[i];
+    const err = predicted[i]! - observed[i]!;
     sumAbs += Math.abs(err);
     sumSq += err * err;
     sumBias += err;
@@ -49,8 +49,8 @@ function computeStats(observed: number[], predicted: number[]): {
   let denObs = 0;
   let denPred = 0;
   for (let i = 0; i < n; i++) {
-    const dObs = observed[i] - meanObs;
-    const dPred = predicted[i] - meanPred;
+    const dObs = observed[i]! - meanObs;
+    const dPred = predicted[i]! - meanPred;
     num += dObs * dPred;
     denObs += dObs * dObs;
     denPred += dPred * dPred;
@@ -122,7 +122,7 @@ async function main() {
   const predicted: number[] = [];
 
   for (const period of common) {
-    observed.push(ghcnData[period]);
+    observed.push(ghcnData[period]!);
     predicted.push(nasaDekads.get(period)!);
   }
 

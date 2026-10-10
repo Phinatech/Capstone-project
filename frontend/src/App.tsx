@@ -40,6 +40,7 @@ const Oracles = page(() => import('./pages/admin/Oracles'), 'Oracles');
 const Analytics = page(() => import('./pages/admin/Analytics'), 'Analytics');
 const Backtest = page(() => import('./pages/admin/Backtest'), 'Backtest');
 const DataModel = page(() => import('./pages/admin/DataModel'), 'DataModel');
+const AgentBuyCover = page(() => import('./pages/agent/AgentBuyCover'), 'AgentBuyCover');
 
 function AppRoutes() {
   const { ready } = useAuth();
@@ -96,6 +97,20 @@ function AppRoutes() {
               <Route path="analytics" element={<Analytics />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="data-model" element={<DataModel />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+
+            <Route
+              path="/agent"
+              element={
+                <RequireRole role="agent">
+                  <DashboardLayout />
+                </RequireRole>
+              }>
+              <Route path="policies/new" element={<AgentBuyCover />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<Settings />} />

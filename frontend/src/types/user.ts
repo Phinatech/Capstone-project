@@ -1,4 +1,4 @@
-export type Role = 'farmer' | 'admin';
+export type Role = 'farmer' | 'admin' | 'agent';
 
 export type AuthProvider = 'password' | 'google';
 

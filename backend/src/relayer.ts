@@ -87,7 +87,7 @@ export async function submitReading(reading: RainfallReading): Promise<void> {
   );
 
   try {
-    const tx = await aggregator.submitReading(reading.period, reading.rainfallMm);
+    const tx = await aggregator.getFunction("submitReading")(reading.period, reading.rainfallMm);
     const receipt = await tx.wait();
     const timestamp = new Date().toISOString();
     console.log(

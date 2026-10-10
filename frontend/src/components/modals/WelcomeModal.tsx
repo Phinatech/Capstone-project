@@ -89,7 +89,7 @@ export function WelcomeModal({ open, onClose, user }: WelcomeModalProps) {
         </AnimatePresence>
       </div>
       <div className="flex justify-center gap-1.5 pb-2" aria-hidden>
-        {steps.map((_, i) =>
+        {steps.map((_step, i) =>
         <span
           key={i}
           className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ease-out ${i === index ? 'w-6 bg-accent' : 'w-1.5 bg-line'}`} />

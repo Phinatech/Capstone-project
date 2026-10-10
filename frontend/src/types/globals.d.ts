@@ -43,4 +43,10 @@ interface GoogleAccountsId {
 interface Window {
   turnstile?: TurnstileApi;
   google?: {accounts: {id: GoogleAccountsId;};};
+  ethereum?: {
+    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+    on: (event: string, callback: (...args: unknown[]) => void) => void;
+    removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
+    isMetaMask?: boolean;
+  };
 }
