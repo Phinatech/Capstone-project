@@ -4,16 +4,30 @@ Express + TypeScript service with two jobs:
 
 1. **API** — REST endpoints for policies, pool status, and aggregate readings
    (read-only for v1; writes go through the dapp).
-2. **Oracle relayer** — on a schedule, fetch rainfall for the current reporting
-   period and call `OracleAggregator.submitReading` on each registered source's
-   behalf.
+2. **Oracle relayer** — on a schedule, fetch each source's rainfall for every
+   finished dekad and call `OracleAggregator.submitReading` on its behalf.
 
 ## Status
 
-The relayer is **file-backed**: it reads historical GHCN precipitation data for
-Birni N'Konni, Niger (station `NG000001075`, ~83 km from Sokoto) and submits
-dekadal readings on-chain. This exercises the full transactional path — real
-signer per source, real `submitReading`, real `finalizePeriod`, real gas numbers.
+| Source | Feed |
+|--------|------|
+| NASA_POWER | **Live**: NASA POWER daily `PRECTOTCORR` for `RAINFALL_LATITUDE` / `RAINFALL_LONGITUDE` (default Sokoto), totalled per dekad. Lags about three days |
+| Meteostat | **Live** when `METEOSTAT_API_KEY` is set: Meteostat point daily `prcp` through RapidAPI, interpolated from stations 65010 (Sokoto) and 61075 (Birni N'Konni). Lags about a week; asked again about the same days at most every six hours to stay within the free plan's 500 requests a month. Without a key it replays historical data |
+| CHIRPS | Historical: the GHCN series below with an illustrative bias, so it only covers past seasons |
+
+The relayer is off unless `RELAYER_ENABLED=true`, because it spends the oracle
+accounts' gas. When on, it runs at start-up and then every
+`RELAYER_INTERVAL_MINUTES`: for each of the last `RELAYER_LOOKBACK_DEKADS`
+finished dekads that a source hasn't reported on-chain, it submits the
+source's total once every day of the dekad has data. The aggregator accepts
+one reading per source per dekad, so it never reports a dekad still in
+progress. NASA POWER runs about three days behind, so a dekad is usually
+reported three to four days after it ends, and Meteostat about a week after.
+
+The aggregator needs readings from at least two sources (`minQuorum`) before a
+dekad can finalize, so with NASA POWER and Meteostat both live, a dekad can
+finalize once both have reported and the reporting window has passed. If
+either feed has a gap, that dekad can't finalize until a third source reports.
 
 ## Data Source
 
@@ -33,21 +47,19 @@ is a known limitation in the satellite-rainfall literature, not a flaw unique
 to this project. Weights derived against GHCN should be cross-checked against
 TAMSAT where available.
 
-## Live API Integration (Deferred)
+## Live API Integration
 
-Live API integration (CHIRPS, NASA POWER, Meteostat) is **deferred, not dropped**.
-The file-backed relayer was chosen because:
+NASA POWER and Meteostat are live (see Status). CHIRPS is still **deferred, not
+dropped**: it ships as raster/NetCDF, so it needs its own adapter. Adding a
+source means writing a daily fetch for the insured location (see
+`src/utils/nasaPower.ts`), wrapping it in `dailyFeed` and registering it in
+`FEEDS` in `src/relayer.ts`; the relayer handles the rest (finished dekads
+only, one reading per dekad, the `MAX_READING = 50_000` plausibility check).
 
-- The contribution being evaluated is the **weighting logic**, not data plumbing
-- A file-backed relayer still exercises the entire real path (signer → submitReading → finalizePeriod → gas)
-- Live APIs have different formats (CHIRPS ships as raster/NetCDF, NASA POWER is REST, Meteostat is a library), rate limits, and latency variability
-- The historical dataset is the same one the Chapter Four backtest runs against
-
-A live implementation would need to:
-1. Replace `fetchRainfall` with API calls to each source
-2. Map each source's grid cell to the Sokoto region (lat 13.05, lon 5.23)
-3. Aggregate daily values to dekads
-4. Apply the same plausibility check (`MAX_READING = 50_000`)
+Meteostat's point data for Sokoto draws on station 61075, which is the
+Birni N'Konni GHCN station the backtest uses as ground truth, so Meteostat
+will look better against GHCN than it would against an independent gauge
+(see the caveat above).
 
 ## Getting started
 
@@ -80,13 +92,20 @@ Browser calls are allowed from the origins in `CORS_ORIGINS`
 ```
 src/
   index.ts     Express app entry; mounts routers, starts relayer loop
-  relayer.ts   Periodic rainfall fetch -> submitReading (file-backed)
-  relayer.test.ts  node:test tests (npm run test:backend)
+  relayer.ts   Per-source feeds -> submitReading for each finished dekad
+  *.test.ts    node:test tests (npm run test:backend)
   turnstile.ts Server-side Cloudflare Turnstile token check
-  turnstile.test.ts
   config.ts    Environment configuration
+  routes/
+    api.ts             Cached chain-data endpoints and SMS notifications
   utils/
     period.ts          Shared dekad period utilities (canonical implementation)
+    feeds.ts           Daily rainfall -> dekad totals, with request throttling
+    nasaPower.ts       NASA POWER daily rainfall
+    meteostat.ts       Meteostat daily rainfall (RapidAPI)
+    chain.ts           Contract reads and chunked event history
+    cache.ts           In-memory cache with block-aware refresh
+    logChunks.ts       Splits block ranges for eth_getLogs limits
     aggregate-ghcn.ts  GHCN daily -> dekadal aggregation script
 data/
   birni-n-konni-ghcn.csv       Raw GHCN daily data

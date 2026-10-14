@@ -1,19 +1,26 @@
 /**
- * Oracle relayer: fetches rainfall readings and submits them on-chain.
+ * Oracle relayer: reports each source's rainfall for every finished dekad
+ * on-chain, signing with that source's oracle account.
  *
- * Data source: historical GHCN precipitation data for Birni N'Konni, Niger
- * (station NG000001075), aggregated to dekads. This is the same dataset used
- * for the Chapter Four backtest, so the relayer exercises the full transactional
- * path with real historical data.
+ * NASA_POWER and Meteostat (when METEOSTAT_API_KEY is set) read their live APIs
+ * for the insured location (RAINFALL_LATITUDE / RAINFALL_LONGITUDE). CHIRPS has
+ * no live feed yet: it replays the historical GHCN series for Birni N'Konni
+ * (station NG000001075) with an illustrative bias, which only covers past
+ * seasons; so does Meteostat without a key.
  *
- * Live API integration (CHIRPS, NASA POWER, Meteostat) is deferred, not dropped.
- * See README.md for details on what a live implementation would require.
+ * A dekad is only reported once it has ended and the source has data for all
+ * of its days: the aggregator accepts one reading per source per dekad, so a
+ * partial total could never be corrected.
  */
 import { readFile } from "node:fs/promises";
 import { JsonRpcProvider, Wallet, Contract } from "ethers";
 import type { SourceConfig } from "./config.js";
 import { config } from "./config.js";
-import { currentPeriod } from "./utils/period.js";
+import { readReadings } from "./utils/chain.js";
+import { dailyFeed, type Feed } from "./utils/feeds.js";
+import { fetchMeteostatDaily } from "./utils/meteostat.js";
+import { fetchNasaPowerDaily } from "./utils/nasaPower.js";
+import { completedPeriods, currentPeriod } from "./utils/period.js";
 
 // Re-export for backward compatibility with the test suite
 export { currentPeriod };
@@ -24,8 +31,8 @@ export interface RainfallReading {
   rainfallMm: number; // scaled by 100 for 2dp precision, per OracleAggregator
 }
 
-// Source-specific bias factors to simulate each source's different error profile.
-// These are illustrative; replace with backtest-derived values.
+// Source-specific bias factors to simulate each source's different error profile
+// on the historical series. These are illustrative; replace with backtest-derived values.
 const SOURCE_BIAS: Record<string, number> = {
   CHIRPS: 1.02, // slight overestimate
   NASA_POWER: 0.98, // slight underestimate
@@ -46,27 +53,35 @@ async function loadDekadalData(): Promise<Map<number, number>> {
   return dekadalData;
 }
 
-export async function fetchRainfall(
-  source: SourceConfig,
-  period: number
-): Promise<RainfallReading | null> {
-  const data = await loadDekadalData();
-  const rainfallMm = data.get(period);
-  if (rainfallMm === undefined) {
-    console.log(`[relayer] no data for period ${period}, skipping ${source.label}`);
-    return null;
-  }
-
-  const bias = SOURCE_BIAS[source.label] ?? 1.0;
-  const adjusted = Math.round(rainfallMm * bias * 100);
-
-  if (adjusted > MAX_READING) {
-    console.log(`[relayer] reading ${adjusted} exceeds MAX_READING for ${source.label}, period ${period}`);
-    return null;
-  }
-
-  return { source: source.label, period, rainfallMm: adjusted };
+function historical(label: string): Feed {
+  return async (periods) => {
+    const data = await loadDekadalData();
+    const bias = SOURCE_BIAS[label] ?? 1.0;
+    const totals = new Map<number, number>();
+    for (const period of periods) {
+      const mm = data.get(period);
+      if (mm !== undefined) totals.set(period, mm * bias);
+    }
+    return totals;
+  };
 }
+
+// Meteostat's free plan allows 500 requests a month and its data lags about a
+// week, so hourly retries would use ~170 requests per dekad; six-hourly ~30.
+const METEOSTAT_MIN_INTERVAL_MS = 6 * 60 * 60_000;
+
+const location = { latitude: config.rainfallLatitude, longitude: config.rainfallLongitude };
+
+const FEEDS: Record<string, Feed> = {
+  NASA_POWER: dailyFeed((start, end) => fetchNasaPowerDaily({ apiUrl: config.nasaPowerApiUrl, ...location, start, end })),
+  CHIRPS: historical("CHIRPS"),
+  Meteostat: config.meteostatApiKey
+    ? dailyFeed(
+        (start, end) => fetchMeteostatDaily({ apiKey: config.meteostatApiKey, ...location, start, end }),
+        METEOSTAT_MIN_INTERVAL_MS
+      )
+    : historical("Meteostat"),
+};
 
 export async function submitReading(reading: RainfallReading): Promise<void> {
   const provider = new JsonRpcProvider(config.rpcUrl);
@@ -109,20 +124,66 @@ export async function submitReading(reading: RainfallReading): Promise<void> {
   }
 }
 
+/** Reports every finished dekad in the lookback that a source hasn't reported yet. */
+export async function relayFinishedDekads(sources: SourceConfig[], now = new Date()): Promise<void> {
+  const periods = completedPeriods(now, config.relayerLookbackDekads);
+  const reported = new Set((await readReadings()).map((r) => `${r.period}:${r.oracle.toLowerCase()}`));
+
+  for (const source of sources) {
+    const feed = FEEDS[source.label];
+    if (!feed) {
+      console.log(`[relayer] no feed for ${source.label}, skipping`);
+      continue;
+    }
+    const oracle = new Wallet(source.privateKey).address.toLowerCase();
+    const due = periods.filter((period) => !reported.has(`${period}:${oracle}`));
+    if (due.length === 0) continue;
+
+    let totals: Map<number, number>;
+    try {
+      totals = await feed(due);
+    } catch (e) {
+      console.log(`[relayer] ${source.label} feed failed: ${e instanceof Error ? e.message : String(e)}`);
+      continue;
+    }
+    const waiting = due.filter((period) => !totals.has(period));
+    if (waiting.length > 0) console.log(`[relayer] ${source.label} has no complete data yet for ${waiting.join(", ")}`);
+
+    for (const [period, mm] of totals) {
+      const rainfallMm = Math.round(mm * 100);
+      if (rainfallMm > MAX_READING) {
+        console.log(`[relayer] reading ${rainfallMm} exceeds MAX_READING for ${source.label}, period ${period}`);
+        continue;
+      }
+      await submitReading({ source: source.label, period, rainfallMm });
+    }
+  }
+}
+
 export function startRelayer(sources: SourceConfig[], intervalMinutes: number): void {
+  if (!config.relayerEnabled) {
+    console.log("[relayer] off; set RELAYER_ENABLED=true to submit readings on-chain");
+    return;
+  }
   if (sources.length === 0) {
     console.log("[relayer] ORACLE_SOURCES not configured; relayer idle");
     return;
   }
 
+  let running = false;
   const tick = async () => {
-    const period = currentPeriod();
-    for (const source of sources) {
-      const reading = await fetchRainfall(source, period);
-      if (reading) await submitReading(reading);
+    if (running) return;
+    running = true;
+    try {
+      await relayFinishedDekads(sources);
+    } catch (e) {
+      console.log(`[relayer] run failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      running = false;
     }
   };
 
+  void tick();
   setInterval(tick, intervalMinutes * 60_000);
   console.log(`[relayer] started: ${sources.length} source(s), every ${intervalMinutes} min`);
 }
