@@ -4,8 +4,41 @@
  */
 import { JsonRpcProvider, Contract, formatEther, type EventLog } from "ethers";
 import { config } from "../config.js";
+import { blockChunks } from "./logChunks.js";
 
 const provider = new JsonRpcProvider(config.rpcUrl);
+const logsProvider = config.logsRpcUrl === config.rpcUrl ? provider : new JsonRpcProvider(config.logsRpcUrl);
+
+// Chunks this far behind the head are past any realistic reorg, so their logs are kept.
+const SETTLED_DEPTH = 64;
+const settledChunks = new Map<string, Promise<EventLog[]>>();
+
+/**
+ * Every `eventName` log a contract emitted since DEPLOY_BLOCK, read in
+ * LOGS_BLOCK_RANGE-sized chunks. Full chunks well behind the head are kept,
+ * so after the first call only the newest blocks are fetched.
+ */
+async function queryEvents(address: string, abi: string[], eventName: string): Promise<EventLog[]> {
+  const contract = new Contract(address, abi, logsProvider);
+  const head = await logsProvider.getBlockNumber();
+  if (config.deployBlock > head) {
+    throw new Error(`DEPLOY_BLOCK ${config.deployBlock} is ahead of the chain head ${head}; is it set for another network?`);
+  }
+  const logs: EventLog[] = [];
+  for (const [from, to] of blockChunks(config.deployBlock, head, config.logsBlockRange)) {
+    const key = `${address}:${eventName}:${from}`;
+    let chunk = settledChunks.get(key);
+    if (!chunk) {
+      chunk = contract.queryFilter(eventName, from, to) as Promise<EventLog[]>;
+      if (to - from + 1 === config.logsBlockRange && head - to >= SETTLED_DEPTH) {
+        settledChunks.set(key, chunk);
+        chunk.catch(() => settledChunks.delete(key));
+      }
+    }
+    logs.push(...(await chunk));
+  }
+  return logs;
+}
 
 const aggregatorAbi = [
   "function getOracleCount() view returns (uint256)",
@@ -87,7 +120,8 @@ export interface PolicyEvaluation {
   purchasedAtBlock: number;
   purchasedAtTimestamp: number;
   settlementTimestamp: number;
-  gasUsed: bigint;
+  /** Settlement gas as a decimal string: JSON has no bigint. */
+  gasUsed: string;
 }
 
 export async function readPolicies(): Promise<PolicyData[]> {
@@ -157,11 +191,12 @@ export async function readPool(): Promise<PoolData> {
 }
 
 export async function readSettlements(): Promise<SettlementData[]> {
-  const insurance = new Contract(config.insuranceAddress, insuranceAbi, provider);
-  const triggered = await insurance.queryFilter(insurance.filters.PayoutTriggered!());
-  const skipped = await insurance.queryFilter(insurance.filters.PayoutSkipped!());
+  const [triggered, skipped] = await Promise.all([
+    queryEvents(config.insuranceAddress, insuranceAbi, "PayoutTriggered"),
+    queryEvents(config.insuranceAddress, insuranceAbi, "PayoutSkipped"),
+  ]);
   const settlements: SettlementData[] = [];
-  for (const e of triggered as EventLog[]) {
+  for (const e of triggered) {
     settlements.push({
       policyId: Number(e.args.policyId),
       triggered: true,
@@ -170,7 +205,7 @@ export async function readSettlements(): Promise<SettlementData[]> {
       blockNumber: e.blockNumber,
     });
   }
-  for (const e of skipped as EventLog[]) {
+  for (const e of skipped) {
     settlements.push({
       policyId: Number(e.args.policyId),
       triggered: false,
@@ -183,10 +218,9 @@ export async function readSettlements(): Promise<SettlementData[]> {
 }
 
 export async function readReadings(): Promise<ReadingData[]> {
-  const aggregator = new Contract(config.aggregatorAddress, aggregatorAbi, provider);
-  const events = await aggregator.queryFilter(aggregator.filters.ReadingSubmitted!());
+  const events = await queryEvents(config.aggregatorAddress, aggregatorAbi, "ReadingSubmitted");
   const readings: ReadingData[] = [];
-  for (const e of events as EventLog[]) {
+  for (const e of events) {
     readings.push({
       period: Number(e.args.period),
       oracle: e.args.oracle,
@@ -197,55 +231,71 @@ export async function readReadings(): Promise<ReadingData[]> {
 }
 
 export async function readPolicyEvaluations(): Promise<PolicyEvaluation[]> {
-  const insurance = new Contract(config.insuranceAddress, insuranceAbi, provider);
   const aggregator = new Contract(config.aggregatorAddress, aggregatorAbi, provider);
-  const policyCount = Number(await insurance.nextPolicyId!());
-  const oracleCount = Number(await aggregator.getOracleCount!());
-  const oracles: string[] = [];
-  for (let i = 0; i < oracleCount; i++) oracles.push(await aggregator.oracleList!(i));
+  const [policies, windows, oracles, settlements, readings, purchases] = await Promise.all([
+    readPolicies(),
+    readWindows(),
+    readOracles(),
+    readSettlements(),
+    readReadings(),
+    queryEvents(config.insuranceAddress, insuranceAbi, "PolicyCreated"),
+  ]);
+  const settlementOf = new Map(settlements.map((s) => [s.policyId, s]));
+  const purchaseBlockOf = new Map(purchases.map((e) => [Number(e.args.policyId), e.blockNumber]));
+  const periodsOf = (p: PolicyData) => windows[p.windowId]?.periods ?? [];
 
-  const settlements = await readSettlements();
-  const readings = await readReadings();
-
-  const evaluations: PolicyEvaluation[] = [];
-  for (let i = 0; i < policyCount; i++) {
-    const p = await insurance.policies!(i);
-    const s = settlements.find((x) => x.policyId === i) ?? null;
-    const policyReadings = readings.filter((r) => r.period >= 0); // all readings for now
-    const periodWeights: Record<string, number> = {};
-    for (const period of new Set(policyReadings.map((r) => r.period))) {
+  // Weights snapshotted for the dekads of settled policies' windows, each fetched once.
+  const weightLookups = new Map<string, { period: number; oracle: string }>();
+  for (const p of policies) {
+    if (!settlementOf.has(p.id)) continue;
+    for (const period of periodsOf(p)) {
       for (const o of oracles) {
-        const w = await aggregator.weightForPeriod!(period, o);
-        periodWeights[`${period}:${o.toLowerCase()}`] = Number(w);
+        const oracle = o.address.toLowerCase();
+        weightLookups.set(`${period}:${oracle}`, { period, oracle });
       }
     }
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    let purchasedAtBlock = 0;
-    let purchasedAtTimestamp = 0;
-    let settlementTimestamp = 0;
-    let gasUsed = 0n;
-    if (s) {
-      const receipt = await provider.getTransactionReceipt(s.txHash);
-      gasUsed = receipt?.gasUsed ?? 0n;
-      const block = await provider.getBlock(s.blockNumber);
-      settlementTimestamp = block?.timestamp ?? 0;
+  }
+  const blockNumbers = new Set([...purchaseBlockOf.values(), ...settlements.map((s) => s.blockNumber)]);
+  const [weights, timestamps, gasUsed] = await Promise.all([
+    Promise.all(
+      [...weightLookups].map(async ([key, { period, oracle }]) => [key, Number(await aggregator.weightForPeriod!(period, oracle))] as const)
+    ).then((entries) => new Map(entries)),
+    Promise.all([...blockNumbers].map(async (n) => [n, (await provider.getBlock(n))?.timestamp ?? 0] as const)).then(
+      (entries) => new Map(entries)
+    ),
+    Promise.all(
+      settlements.map(async (s) => [s.txHash, ((await provider.getTransactionReceipt(s.txHash))?.gasUsed ?? 0n).toString()] as const)
+    ).then((entries) => new Map(entries)),
+  ]);
+
+  return policies.map((p): PolicyEvaluation => {
+    const periods = new Set(periodsOf(p));
+    const settlement = settlementOf.get(p.id) ?? null;
+    const periodWeights: Record<string, number> = {};
+    if (settlement) {
+      for (const period of periods) {
+        for (const o of oracles) {
+          const key = `${period}:${o.address.toLowerCase()}`;
+          periodWeights[key] = weights.get(key) ?? 0;
+        }
+      }
     }
-    evaluations.push({
-      policyId: i,
+    const purchasedAtBlock = purchaseBlockOf.get(p.id) ?? 0;
+    return {
+      policyId: p.id,
       farmer: p.farmer,
-      windowId: Number(p.windowId),
-      droughtThresholdMm: Number(p.droughtThresholdMm),
-      payoutAmount: formatEther(p.payoutAmount),
-      premiumPaid: formatEther(p.premiumPaid),
+      windowId: p.windowId,
+      droughtThresholdMm: p.droughtThresholdMm,
+      payoutAmount: p.payoutAmount,
+      premiumPaid: p.premiumPaid,
       settled: p.settled,
-      settlement: s,
-      readings: policyReadings,
+      settlement,
+      readings: readings.filter((r) => periods.has(r.period)),
       periodWeights,
       purchasedAtBlock,
-      purchasedAtTimestamp,
-      settlementTimestamp,
-      gasUsed,
-    });
-  }
-  return evaluations;
+      purchasedAtTimestamp: timestamps.get(purchasedAtBlock) ?? 0,
+      settlementTimestamp: settlement ? timestamps.get(settlement.blockNumber) ?? 0 : 0,
+      gasUsed: settlement ? gasUsed.get(settlement.txHash) ?? "0" : "0",
+    };
+  });
 }

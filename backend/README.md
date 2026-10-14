@@ -57,6 +57,14 @@ npm run dev          # from repo root: npm run dev:backend
 
 Copy `.env.example` to `.env` and adjust. Never commit `.env`.
 
+Event history (settlements, readings, purchases) is read with `eth_getLogs`
+from `DEPLOY_BLOCK` onward, in chunks of `LOGS_BLOCK_RANGE` blocks. The RPC must
+keep logs back to the deploy block and accept that range: Alchemy's free tier
+allows only 10 blocks and PublicNode prunes logs older than a few days, so on
+Sepolia set `LOGS_RPC_URL` to `https://sepolia.gateway.tenderly.co` (tested
+with 100,000-block requests). Older chunks are kept in memory, so after the
+first request only new blocks are read.
+
 ## Endpoints
 
 | Method | Path | Response |

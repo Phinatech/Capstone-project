@@ -110,6 +110,8 @@ await upsertEnv(new URL("frontend/.env", root), new URL("frontend/.env.example",
 });
 await upsertEnv(new URL("backend/.env", root), new URL("backend/.env.example", root), {
   RPC_URL: rpcUrl,
+  LOGS_RPC_URL: rpcUrl,
+  DEPLOY_BLOCK: "0",
   ORACLE_AGGREGATOR_ADDRESS: aggregatorAddress,
   WEATHER_INDEX_INSURANCE_ADDRESS: insuranceAddress,
   ORACLE_SOURCES: oracleKeys.join(","),

@@ -269,7 +269,7 @@ function ChainData({
     const { policies: rawPolicies } = await policiesRes.json() as { policies: Array<{ id: number; farmer: string; windowId: number; droughtThresholdMm: number; payoutAmount: string; premiumPaid: string; settled: boolean }> };
     const { oracles: rawOracles } = await oraclesRes.json() as { oracles: Array<{ address: string; label: string; registered: boolean; reputationWeight: number }> };
     const { windows: rawWindows } = await windowsRes.json() as { windows: Array<{ id: number; salesCloseAt: number; periods: number[] }> };
-    const { evaluations: rawEvaluations } = await evaluationsRes.json() as { evaluations: Array<{ policyId: number; settlement: { policyId: number; triggered: boolean; rainfallMm: number; txHash: string; blockNumber: number } | null; readings: Array<{ period: number; oracle: string; rainfallMm: number }>; periodWeights: Record<string, number>; gasUsed: string; settlementTimestamp: number }> };
+    const { evaluations: rawEvaluations } = await evaluationsRes.json() as { evaluations: Array<{ policyId: number; settlement: { policyId: number; triggered: boolean; rainfallMm: number; txHash: string; blockNumber: number } | null; readings: Array<{ period: number; oracle: string; rainfallMm: number }>; periodWeights: Record<string, number>; gasUsed: string; purchasedAtTimestamp: number; settlementTimestamp: number }> };
 
     const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label }));
     const windows = rawWindows.map((w) => w.periods.map(BigInt));
@@ -299,6 +299,7 @@ function ChainData({
       const farmer = findUser(farmerId);
       const saved = meta[p.id]?.farmer === farmerAddress ? meta[p.id] : undefined;
       const windowIndex = p.windowId;
+      const evalData = rawEvaluations.find((e) => e.policyId === p.id);
       const policy: Policy = {
         id: p.id,
         farmerId,
@@ -308,10 +309,9 @@ function ChainData({
         thresholdMm: p.droughtThresholdMm / 100,
         premiumEth: Number(p.premiumPaid),
         payoutEth: Number(p.payoutAmount),
-        purchasedAt: new Date((timestamps.get(p.id) ?? 0) * 1000).toISOString().slice(0, 10),
+        purchasedAt: new Date((evalData?.purchasedAtTimestamp ?? 0) * 1000).toISOString().slice(0, 10),
         status: 'active'
       };
-      const evalData = rawEvaluations.find((e) => e.policyId === p.id);
       const s = evalData?.settlement ?? null;
       if (!s) return policy;
       const settlement: Settlement = {
