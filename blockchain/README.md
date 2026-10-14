@@ -143,7 +143,27 @@ npx hardhat ignition deploy --network sepolia ignition/modules/DeployOracleInsur
 The Ignition module only creates the two contracts and wires the insurance
 contract to the aggregator. Registering the real oracle addresses, setting
 their weights from the off-chain backtest, and publishing coverage windows
-are separate owner transactions (see `seed-local.ts` for the sequence).
+are separate owner transactions: `scripts/seed-sepolia.ts` does them once for
+a fresh deployment (see `seed-local.ts` for the sequence).
+
+#### Going live
+
+The relayer and settlement keeper sign with the keys in `backend/.env`
+(`ORACLE_SOURCES`, `KEEPER_PRIVATE_KEY`). `scripts/go-live.ts` makes the
+contracts match them: it registers those oracle accounts, deactivates any
+other active oracle (such as the public Hardhat test accounts), tops the pool
+up to `POOL_ETH` (default 0.2) and each oracle and keeper account up to
+`GAS_ETH` (default 0.01). It asks for the keystore password, prints its plan,
+and only sends transactions with `GO_LIVE=yes`; re-running it is safe.
+
+```shell
+npm run go-live --workspace blockchain               # plan only
+GO_LIVE=yes npm run go-live --workspace blockchain   # apply
+```
+
+Then set `RELAYER_ENABLED=true` in `backend/.env` and restart the backend.
+Rehearse first on a local node with `BACKEND_ENV=<env file with local
+addresses> npx hardhat run scripts/go-live.ts --network localhost`.
 
 ## Next steps for the write-up / evaluation
 

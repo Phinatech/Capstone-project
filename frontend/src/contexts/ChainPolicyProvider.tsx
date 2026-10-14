@@ -120,6 +120,8 @@ interface Snapshot {
 interface OracleInfo {
   address: string;
   label: string;
+  /** False once the owner deactivates it (e.g. after a key rotation). */
+  registered: boolean;
 }
 
 interface Settlement {
@@ -192,7 +194,9 @@ timestamp: number)
     );
     return total ? Number(periodWeights.get(`${p}:${o.address}`) ?? 0n) / total : 0;
   };
-  const sourceReadings: SourceReading[] = oracles.flatMap((o) => {
+  // A deactivated oracle only appears where it reported, so a rotated source isn't listed twice.
+  const sources = oracles.filter((o) => o.registered || periods.some((p) => readings.has(`${p}:${o.address}`)));
+  const sourceReadings: SourceReading[] = sources.flatMap((o) => {
     const sourceId = SOURCE_BY_LABEL[o.label];
     if (!sourceId) return [];
     const mm = periods.reduce((sum, p) => sum + Number(readings.get(`${p}:${o.address}`) ?? 0n), 0) / 100;
@@ -275,7 +279,7 @@ function ChainData({
     const { windows: rawWindows } = await windowsRes.json() as { windows: Array<{ id: number; salesCloseAt: number; periods: number[] }> };
     const { evaluations: rawEvaluations } = await evaluationsRes.json() as { evaluations: Array<{ policyId: number; settlement: { policyId: number; triggered: boolean; rainfallMm: number; txHash: string; blockNumber: number } | null; readings: Array<{ period: number; oracle: string; rainfallMm: number }>; periodWeights: Record<string, number>; gasUsed: string; purchasedAtTimestamp: number; settlementTimestamp: number }> };
 
-    const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label }));
+    const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label, registered: o.registered }));
     const windows = rawWindows.map((w) => w.periods.map(BigInt));
     const readings = new Map<string, bigint>();
     for (const r of rawEvaluations.flatMap((e) => e.readings)) {

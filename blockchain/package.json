@@ -16,7 +16,8 @@
     "deploy:local": "hardhat ignition deploy ignition/modules/DeployOracleInsurance.ts",
     "clean": "hardhat clean",
     "node": "hardhat node",
-    "seed:local": "hardhat run scripts/seed-local.ts --network localhost"
+    "seed:local": "hardhat run scripts/seed-local.ts --network localhost",
+    "go-live": "hardhat run scripts/go-live.ts --network sepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.15",

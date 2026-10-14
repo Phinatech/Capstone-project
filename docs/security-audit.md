@@ -15,7 +15,7 @@ oracle registration, reputation weights, and policy creation — and in
 | ID | Severity | Title | Location |
 |------|----------|--------------------------------------------------------|------------------------------------------|
 | H-1 | HIGH | Fully centralized admin: owner controls payouts, oracles, and weights | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
-| H-2 | HIGH | Payout can be settled late, after drought relief is already committed | `WeatherIndexInsurance.sol#checkAndSettle` |
+| H-2 | HIGH | Payout can be settled late, after drought relief is already committed — **partly resolved 2026-10-14** | `WeatherIndexInsurance.sol#checkAndSettle` |
 | H-3 | HIGH | `serialize-javascript` ≤7.0.4 — RCE (GHSA-5c6j-r48x-rmvq) — **resolved 2026-09-28** | `package-lock.json` (dev, via mocha) |
 | M-1 | MEDIUM | Manipulable finalization race: anyone can finalize a half-reported period — **resolved 2026-09-30** | `OracleAggregator.sol#finalizePeriod` |
 | M-2 | MEDIUM | Owner can unilaterally rewrite reputation weights after readings are in — **resolved 2026-09-30** | `OracleAggregator.sol#updateReputation` |
@@ -81,6 +81,15 @@ then the policy settles against that number forever.
 with the window stored on the policy at creation, and/or auto-settlement via
 a keepers network. Also consider an explicit `reportingWindow` on the
 aggregator (`submitReading` only before close, `finalizePeriod` only after).
+
+**Status (2026-10-14): Partly resolved.** The backend now runs a settlement
+keeper (`backend/src/settlement.ts`): every relayer run finalizes each dekad
+the aggregator accepts and settles each policy whose window is fully
+finalized, so a payout lands in the run after its last dekad finalizes rather
+than waiting for someone to call `checkAndSettle`. This is a single off-chain
+keeper, not a decentralized keepers network, and the contract still has no
+settlement deadline; a policy whose dekad never reaches quorum still can't
+settle (see L-1).
 
 ### H-3 — `serialize-javascript` ≤7.0.4: RCE via `RegExp.flags` / `Date.prototype.toISOString()` (dev dependency)
 

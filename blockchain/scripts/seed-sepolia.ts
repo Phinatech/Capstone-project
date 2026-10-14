@@ -1,6 +1,8 @@
 /**
- * Seeds the Sepolia deployment with oracles, pool funding, coverage windows,
- * and oracle readings. Works with the real Sepolia testnet contracts.
+ * Seeds a fresh Sepolia deployment with oracles, pool funding and coverage
+ * windows. Readings come from the backend relayer, never from this script: a
+ * made-up reading would finalize into real policies' windows.
+ * To switch an existing deployment to new oracle keys, use go-live.ts.
  *
  * Prerequisites:
  *   - Contracts deployed to Sepolia (via Ignition)
@@ -117,17 +119,23 @@ const now = Math.floor(Date.now() / 1000);
 let season = new Date().getUTCFullYear();
 if (dekadStart(season, 0) <= now) season += 1;
 
-for (const w of WINDOWS) {
-  const periods: number[] = [];
-  for (let i = w.start; i <= w.end; i++) periods.push(periodId(season, i));
-  const salesCloseAt = dekadStart(season, w.start);
-  try {
-    const tx = await insurance.addCoverageWindow(periods, salesCloseAt);
-    await tx.wait();
-    console.log(`  Added window: ${w.label} (${periods[0]}-${periods.at(-1)})`);
-  } catch (e: unknown) {
-    const err = e as { reason?: string; message?: string };
-    console.log(`  Failed to add window ${w.label}: ${err.reason ?? err.message}`);
+// The frontend maps window ids 0-4 to WINDOWS, so add them only once.
+const existingWindows = await insurance.nextWindowId();
+if (existingWindows > 0n) {
+  console.log(`  Contract already has ${existingWindows} coverage windows, skipping`);
+} else {
+  for (const w of WINDOWS) {
+    const periods: number[] = [];
+    for (let i = w.start; i <= w.end; i++) periods.push(periodId(season, i));
+    const salesCloseAt = dekadStart(season, w.start);
+    try {
+      const tx = await insurance.addCoverageWindow(periods, salesCloseAt);
+      await tx.wait();
+      console.log(`  Added window: ${w.label} (${periods[0]}-${periods.at(-1)})`);
+    } catch (e: unknown) {
+      const err = e as { reason?: string; message?: string };
+      console.log(`  Failed to add window ${w.label}: ${err.reason ?? err.message}`);
+    }
   }
 }
 
@@ -148,39 +156,5 @@ for (const { label, wallet } of oracleWallets) {
   }
 }
 
-// ---------- Submit Sample Oracle Readings ----------
-const firstPeriod = periodId(season, 0);
-const readingValues = [1000, 800, 1200];
-
-for (let i = 0; i < oracleWallets.length; i++) {
-  const { label, wallet } = oracleWallets[i];
-  const aggregatorAsOracle = aggregator.connect(wallet);
-  try {
-    const tx = await aggregatorAsOracle.submitReading(firstPeriod, readingValues[i]);
-    await tx.wait();
-    console.log(`  Submitted reading: period=${firstPeriod} value=${readingValues[i]} from ${label}`);
-  } catch (e: unknown) {
-    const err = e as { reason?: string; message?: string };
-    if (err.reason?.includes("already submitted")) {
-      console.log(`  Reading already submitted for period ${firstPeriod}, skipping`);
-    } else {
-      console.log(`  Failed to submit reading: ${err.reason ?? err.message}`);
-    }
-  }
-}
-
-// ---------- Finalize the period ----------
-try {
-  await new Promise((r) => setTimeout(r, 1000));
-  const tx = await aggregator.finalizePeriod(firstPeriod);
-  await tx.wait();
-  const aggregate = await aggregator.finalizedAggregate(firstPeriod);
-  console.log(`  Finalized period ${firstPeriod}: aggregate = ${aggregate} (scaled by 100)`);
-} catch (e: unknown) {
-  const err = e as { reason?: string; message?: string };
-  console.log(`  Failed to finalize period: ${err.reason ?? err.message}`);
-  console.log(`  (This is expected if the reporting window hasn't closed yet)`);
-}
-
-console.log("\nSepolia seeding complete!");
+console.log("\nSepolia seeding complete! Start the backend with RELAYER_ENABLED=true to report readings.");
 console.log("Test the API: curl http://localhost:3001/api/policies");

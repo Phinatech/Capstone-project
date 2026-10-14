@@ -34,6 +34,8 @@ export const config = {
   relayerLookbackDekads: wholeNumber("RELAYER_LOOKBACK_DEKADS", 3, 1),
   /** Parses ORACLE_SOURCES="CHIRPS:0xabc...,NASA_POWER:0xdef..." */
   oracleSources: parseSources(process.env.ORACLE_SOURCES ?? ""),
+  /** Account that pays the gas to finalize dekads and settle policies; empty turns that off. */
+  keeperPrivateKey: process.env.KEEPER_PRIVATE_KEY?.trim() ?? "",
   /** Location the rainfall feeds are read for (default: Sokoto). */
   rainfallLatitude: coordinate("RAINFALL_LATITUDE", 13.05, 90),
   rainfallLongitude: coordinate("RAINFALL_LONGITUDE", 5.23, 180),

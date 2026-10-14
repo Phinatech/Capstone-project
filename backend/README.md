@@ -29,6 +29,21 @@ dekad can finalize, so with NASA POWER and Meteostat both live, a dekad can
 finalize once both have reported and the reporting window has passed. If
 either feed has a gap, that dekad can't finalize until a third source reports.
 
+### Settlement
+
+After reporting, each run also settles what is ready (`src/settlement.ts`),
+paying the gas from `KEEPER_PRIVATE_KEY`:
+
+1. `finalizePeriod` for every reported dekad the aggregator will accept.
+2. `checkAndSettle` for every unsettled policy whose window's dekads are all
+   finalized, which pays the farmer if the window's rainfall is below their
+   threshold.
+
+Each call is dry-run first, so a dekad or policy that isn't ready costs no gas
+and the contracts remain the only place the rules live. In practice a dekad
+finalizes about a week after it ends, once Meteostat has reported, and its
+policies settle in the same run.
+
 ## Data Source
 
 **GHCN (Global Historical Climatology Network) — Birni N'Konni, Niger**
@@ -93,6 +108,7 @@ Browser calls are allowed from the origins in `CORS_ORIGINS`
 src/
   index.ts     Express app entry; mounts routers, starts relayer loop
   relayer.ts   Per-source feeds -> submitReading for each finished dekad
+  settlement.ts  Keeper: finalizePeriod + checkAndSettle once ready
   *.test.ts    node:test tests (npm run test:backend)
   turnstile.ts Server-side Cloudflare Turnstile token check
   config.ts    Environment configuration

@@ -21,6 +21,7 @@ import { dailyFeed, type Feed } from "./utils/feeds.js";
 import { fetchMeteostatDaily } from "./utils/meteostat.js";
 import { fetchNasaPowerDaily } from "./utils/nasaPower.js";
 import { completedPeriods, currentPeriod } from "./utils/period.js";
+import { settleDue } from "./settlement.js";
 
 // Re-export for backward compatibility with the test suite
 export { currentPeriod };
@@ -160,30 +161,37 @@ export async function relayFinishedDekads(sources: SourceConfig[], now = new Dat
   }
 }
 
+/**
+ * Every `intervalMinutes` (and once at start-up): report finished dekads, then
+ * finalize dekads and settle policies that are ready (see settlement.ts).
+ */
 export function startRelayer(sources: SourceConfig[], intervalMinutes: number): void {
   if (!config.relayerEnabled) {
-    console.log("[relayer] off; set RELAYER_ENABLED=true to submit readings on-chain");
+    console.log("[relayer] off; set RELAYER_ENABLED=true to submit readings and settle policies on-chain");
     return;
   }
-  if (sources.length === 0) {
-    console.log("[relayer] ORACLE_SOURCES not configured; relayer idle");
-    return;
-  }
+  const keeperKey = config.keeperPrivateKey;
+  if (sources.length === 0) console.log("[relayer] ORACLE_SOURCES not configured; not reporting readings");
+  if (!keeperKey) console.log("[settlement] KEEPER_PRIVATE_KEY not configured; not finalizing or settling");
+  if (sources.length === 0 && !keeperKey) return;
 
+  const run = async (job: string, work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (e) {
+      console.log(`[${job}] run failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
   let running = false;
   const tick = async () => {
     if (running) return;
     running = true;
-    try {
-      await relayFinishedDekads(sources);
-    } catch (e) {
-      console.log(`[relayer] run failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      running = false;
-    }
+    if (sources.length > 0) await run("relayer", () => relayFinishedDekads(sources));
+    if (keeperKey) await run("settlement", () => settleDue(keeperKey));
+    running = false;
   };
 
   void tick();
   setInterval(tick, intervalMinutes * 60_000);
-  console.log(`[relayer] started: ${sources.length} source(s), every ${intervalMinutes} min`);
+  console.log(`[relayer] started: ${sources.length} source(s)${keeperKey ? " and settlement" : ""}, every ${intervalMinutes} min`);
 }
