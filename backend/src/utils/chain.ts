@@ -9,6 +9,13 @@ import { blockChunks } from "./logChunks.js";
 const provider = new JsonRpcProvider(config.rpcUrl);
 const logsProvider = config.logsRpcUrl === config.rpcUrl ? provider : new JsonRpcProvider(config.logsRpcUrl);
 
+/** Head block both RPCs have reached: reads and event scans reflect at least this block. */
+export async function headBlock(): Promise<number> {
+  if (logsProvider === provider) return provider.getBlockNumber();
+  const [readsHead, logsHead] = await Promise.all([provider.getBlockNumber(), logsProvider.getBlockNumber()]);
+  return Math.min(readsHead, logsHead);
+}
+
 // Chunks this far behind the head are past any realistic reorg, so their logs are kept.
 const SETTLED_DEPTH = 64;
 const settledChunks = new Map<string, Promise<EventLog[]>>();

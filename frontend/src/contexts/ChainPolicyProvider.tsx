@@ -235,6 +235,8 @@ function ChainData({
   const [loadError, setLoadError] = useState<string | null>(null);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
+  // Policies bought in this browser that the API's (cached) reads don't include yet.
+  const unindexed = useRef(new Map<number, Policy>());
 
   const addressOf = useCallback(
     (userId: string): string | undefined => {
@@ -245,7 +247,8 @@ function ChainData({
     [local, isWallet, accounts]
   );
 
-  const load = useCallback(async (): Promise<Snapshot> => {
+  /** `minBlock`: ask the API for data read at or after this block, i.e. our own transaction's. */
+  const load = useCallback(async (minBlock?: number): Promise<Snapshot> => {
     const users = knownUsers(user);
     const idByAddress = new Map<string, string>();
     users.forEach((u) => {
@@ -255,11 +258,12 @@ function ChainData({
 
     // Fetch all data from the cached API instead of making dozens of RPC calls
     const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+    const fresh = minBlock === undefined ? '' : `?minBlock=${minBlock}`;
     const [policiesRes, oraclesRes, windowsRes, evaluationsRes] = await Promise.all([
-      fetch(`${apiUrl}/api/policies`),
-      fetch(`${apiUrl}/api/oracles`),
-      fetch(`${apiUrl}/api/windows`),
-      fetch(`${apiUrl}/api/evaluations`),
+      fetch(`${apiUrl}/api/policies${fresh}`),
+      fetch(`${apiUrl}/api/oracles${fresh}`),
+      fetch(`${apiUrl}/api/windows${fresh}`),
+      fetch(`${apiUrl}/api/evaluations${fresh}`),
     ]);
 
     if (!policiesRes.ok || !oraclesRes.ok || !windowsRes.ok || !evaluationsRes.ok) {
@@ -334,6 +338,10 @@ function ChainData({
         )
       };
     }).reverse();
+    for (const [id, bought] of unindexed.current) {
+      if (policies.some((p) => p.id === id)) unindexed.current.delete(id);else
+      policies.unshift(bought);
+    }
 
     const balances: Record<string, number> = {};
     await Promise.all(
@@ -342,7 +350,7 @@ function ChainData({
         if (a) balances[u.id] = Number(formatEther(await provider.getBalance(a)));
       })
     );
-    const poolEth = Number(await (await fetch(`${apiUrl}/api/pool`)).json().then((r: { balance: string }) => r.balance));
+    const poolEth = Number(await (await fetch(`${apiUrl}/api/pool${fresh}`)).json().then((r: { balance: string }) => r.balance));
     return { policies, balances, poolEth, windowCount: windows.length };
   }, [user, addressOf, insurance, aggregator, provider, config.insuranceAddress]);
 
@@ -387,23 +395,37 @@ function ChainData({
         throw new Error('This coverage window is not on sale on the contract.');
       }
       let id: number;
+      let premium: bigint;
+      let block: number;
       try {
         const signer = await provider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
-        const premium: bigint = await insurance.quotePremium(payout);
+        premium = await insurance.quotePremium(payout);
         const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowIndex, Math.round(input.thresholdMm * 100), payout, {
           value: premium
         });
         const receipt = await tx.wait();
         const event = (receipt.logs as Log[]).map((l) => insurance.interface.parseLog(l)).find((e) => e?.name === 'PolicyCreated');
         id = Number(event!.args.policyId);
+        block = receipt.blockNumber;
       } catch (e) {
         throw new Error(chainErrorMessage(e));
       }
+      // The premium is paid, so from here on the purchase must never be reported as failed.
       writeMeta(config.insuranceAddress, id, { lga: input.lga, crop: input.crop, farmer: from.toLowerCase() });
-      const next = await load();
-      setSnapshot(next);
-      const policy = next.policies.find((p) => p.id === id)!;
+      const bought: Policy = {
+        ...input,
+        id,
+        farmerId,
+        premiumEth: Number(formatEther(premium)),
+        purchasedAt: new Date().toISOString().slice(0, 10),
+        status: 'active'
+      };
+      unindexed.current.set(id, bought);
+      const next = await load(block).catch(() => null);
+      if (next) setSnapshot(next);else
+      setSnapshot((s) => s && { ...s, policies: [bought, ...s.policies.filter((p) => p.id !== id)] });
+      const policy = next?.policies.find((p) => p.id === id) ?? bought;
       notifyPurchase(notify, policy);
       return policy;
     },
@@ -414,14 +436,17 @@ function ChainData({
     async (policyId: number) => {
       const from = addressOf(user?.id ?? 'admin-1');
       if (!from) throw new Error('Settling on this network needs a browser wallet. Connect MetaMask and try again.');
+      let block: number;
       try {
         const signer = await provider.getSigner(from);
         const tx = await (insurance.connect(signer) as Contract).checkAndSettle(policyId);
-        await tx.wait();
+        block = (await tx.wait()).blockNumber;
       } catch (e) {
         throw new Error(chainErrorMessage(e));
       }
-      const next = await load();
+      // Settled on-chain; a failed reload shouldn't turn that into an error.
+      const next = await load(block).catch(() => null);
+      if (!next) return;
       setSnapshot(next);
       const policy = next.policies.find((p) => p.id === policyId);
       if (policy?.evaluation) notifySettlement(notify, policy, policy.evaluation.aggregateMm, policy.evaluation.triggered);
