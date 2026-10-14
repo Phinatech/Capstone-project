@@ -98,6 +98,8 @@ first request only new blocks are read.
 |--------|------|----------|
 | `GET` | `/health` | `200 {"ok":true,"service":"weather-insurance-backend"}` |
 | `POST` | `/auth/turnstile/verify` | Body `{"token":"..."}`. `200` when Cloudflare confirms the token, `400` when it refuses it (with Cloudflare's `errorCodes`) or the token is missing, `503` without `TURNSTILE_SECRET_KEY`, `502` when Cloudflare can't be reached |
+| `GET` | `/api/policies`, `/api/oracles`, `/api/windows`, `/api/pool`, `/api/settlements`, `/api/readings`, `/api/evaluations` | Cached chain data. `?minBlock=N` asks for data read at or after block N (e.g. right after your own transaction) |
+| `POST` | `/api/notify/sms` | Sends one SMS through Termii. Off (`503`) unless `NOTIFY_API_KEY` is set, and needs `Authorization: Bearer <NOTIFY_API_KEY>` (`401`). Body `{"phone", "type": "payout" \| "purchased" \| "settlement", "policyId", "payoutEth"?, "rainfallMm"?, "farmerName"?}`; `400` for a non-Nigerian number or a malformed field, `429` after 30 SMS in an hour, `502` when Termii refuses it (e.g. an unapproved sender ID) |
 
 Browser calls are allowed from the origins in `CORS_ORIGINS`
 (default `http://localhost:5173`).

@@ -44,6 +44,8 @@ export const config = {
   meteostatApiKey: process.env.METEOSTAT_API_KEY?.trim() ?? "",
   /** Cloudflare Turnstile secret key; without it the verify endpoint answers 503. */
   turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY?.trim() ?? "",
+  /** Secret callers of POST /api/notify/sms must send; empty keeps SMS off. */
+  notifyApiKey: process.env.NOTIFY_API_KEY?.trim() ?? "",
   /** Browser origins allowed to call the API, comma-separated. */
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
     .split(",")

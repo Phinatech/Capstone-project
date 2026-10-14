@@ -63,6 +63,21 @@ function formatPhoneNumber(phone: string): string {
   return digits;
 }
 
+/** A Nigerian mobile number as 234XXXXXXXXXX, or null if `phone` isn't one. */
+export function nigerianMobile(phone: string): string | null {
+  const digits = formatPhoneNumber(phone);
+  return /^234[789][01]\d{8}$/.test(digits) ? digits : null;
+}
+
+/**
+ * A farmer's name fit for an SMS under our sender ID: letters, spaces,
+ * apostrophes and hyphens only (so no links), at most 40 characters.
+ */
+export function smsName(name: unknown): string {
+  const clean = typeof name === "string" ? name.replace(/[^\p{L}\p{M} '-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40).trim() : "";
+  return clean || "a farmer";
+}
+
 export function payoutMessage(policyId: number, payoutEth: number): string {
   return `Sokoto Rainfall Cover: Policy #${policyId} paid out ${payoutEth.toFixed(4)} ETH. Check your wallet for the funds.`;
 }

@@ -5,7 +5,9 @@
  * so the frontend can fetch data with a single fast API call instead
  * of making dozens of RPC calls per page load.
  */
+import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
+import { config } from "../config.js";
 import { withCache } from "../utils/cache.js";
 import {
   headBlock,
@@ -17,7 +19,7 @@ import {
   readReadings,
   readPolicyEvaluations,
 } from "../utils/chain.js";
-import { sendSms, payoutMessage, policyPurchasedMessage, settlementMessage } from "../utils/sms.js";
+import { nigerianMobile, payoutMessage, policyPurchasedMessage, sendSms, settlementMessage, smsName } from "../utils/sms.js";
 
 const router = Router();
 
@@ -59,39 +61,75 @@ router.get("/settlements", cachedRead("settlements", SETTLEMENTS_TTL, readSettle
 router.get("/readings", cachedRead("readings", READINGS_TTL, readReadings, (readings) => ({ readings })));
 router.get("/evaluations", cachedRead("evaluations", EVALUATIONS_TTL, readPolicyEvaluations, (evaluations) => ({ evaluations })));
 
-// SMS notifications
-router.post("/notify/sms", async (req, res) => {
-  const { phone, type, policyId, payoutEth, rainfallMm, farmerName } = req.body as {
-    phone?: string;
-    type?: "payout" | "purchased" | "settlement";
-    policyId?: number;
-    payoutEth?: number;
-    rainfallMm?: number;
-    farmerName?: string;
-  };
+// SMS notifications. Each one costs Termii credit and goes out under our sender
+// ID, so the endpoint is off unless NOTIFY_API_KEY is set, callers must send
+// that key, and even they are capped per hour.
+const MAX_SMS_PER_HOUR = 30;
+let smsHour = { start: 0, sent: 0 };
 
-  if (!phone || !type || policyId === undefined) {
-    res.status(400).json({ error: "Missing required fields: phone, type, policyId" });
+/** True when the request carries `Authorization: Bearer <NOTIFY_API_KEY>`. */
+function hasNotifyKey(req: Request): boolean {
+  const given = /^Bearer (.+)$/.exec(req.get("authorization") ?? "")?.[1] ?? "";
+  const digest = (secret: string) => createHash("sha256").update(secret).digest();
+  return given !== "" && timingSafeEqual(digest(given), digest(config.notifyApiKey));
+}
+
+/** An optional non-negative amount from the request body; null when malformed. */
+const amount = (value: unknown) =>
+  value === undefined ? 0 : typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+
+router.post("/notify/sms", async (req, res) => {
+  if (!config.notifyApiKey) {
+    res.status(503).json({ error: "SMS notifications are off: NOTIFY_API_KEY is not set" });
+    return;
+  }
+  if (!hasNotifyKey(req)) {
+    res.status(401).json({ error: "Missing or wrong API key" });
+    return;
+  }
+
+  const { phone, type, policyId, payoutEth, rainfallMm, farmerName } = (req.body ?? {}) as Record<string, unknown>;
+  const to = typeof phone === "string" ? nigerianMobile(phone) : null;
+  if (!to) {
+    res.status(400).json({ error: "phone must be a Nigerian mobile number" });
+    return;
+  }
+  if (typeof policyId !== "number" || !Number.isSafeInteger(policyId) || policyId < 0) {
+    res.status(400).json({ error: "policyId must be a policy number" });
+    return;
+  }
+  const eth = amount(payoutEth);
+  const mm = amount(rainfallMm);
+  if (eth === null || mm === null) {
+    res.status(400).json({ error: "payoutEth and rainfallMm must be non-negative numbers" });
     return;
   }
 
   let message: string;
   switch (type) {
     case "payout":
-      message = payoutMessage(policyId, payoutEth ?? 0);
+      message = payoutMessage(policyId, eth);
       break;
     case "purchased":
-      message = policyPurchasedMessage(policyId, farmerName ?? "a farmer");
+      message = policyPurchasedMessage(policyId, smsName(farmerName));
       break;
     case "settlement":
-      message = settlementMessage(policyId, rainfallMm ?? 0);
+      message = settlementMessage(policyId, mm);
       break;
     default:
-      res.status(400).json({ error: "Invalid notification type" });
+      res.status(400).json({ error: "type must be payout, purchased or settlement" });
       return;
   }
 
-  const result = await sendSms(phone, message);
+  const now = Date.now();
+  if (now - smsHour.start >= 3_600_000) smsHour = { start: now, sent: 0 };
+  if (smsHour.sent >= MAX_SMS_PER_HOUR) {
+    res.status(429).json({ error: "SMS limit for this hour reached" });
+    return;
+  }
+  smsHour.sent++;
+
+  const result = await sendSms(to, message);
   if (result.success) {
     res.json({ success: true, messageId: result.messageId });
   } else {
