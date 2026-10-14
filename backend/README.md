@@ -57,6 +57,16 @@ npm run dev          # from repo root: npm run dev:backend
 
 Copy `.env.example` to `.env` and adjust. Never commit `.env`.
 
+## Endpoints
+
+| Method | Path | Response |
+|--------|------|----------|
+| `GET` | `/health` | `200 {"ok":true,"service":"weather-insurance-backend"}` |
+| `POST` | `/auth/turnstile/verify` | Body `{"token":"..."}`. `200` when Cloudflare confirms the token, `400` when it refuses it (with Cloudflare's `errorCodes`) or the token is missing, `503` without `TURNSTILE_SECRET_KEY`, `502` when Cloudflare can't be reached |
+
+Browser calls are allowed from the origins in `CORS_ORIGINS`
+(default `http://localhost:5173`).
+
 ## Layout
 
 ```
@@ -64,6 +74,8 @@ src/
   index.ts     Express app entry; mounts routers, starts relayer loop
   relayer.ts   Periodic rainfall fetch -> submitReading (file-backed)
   relayer.test.ts  node:test tests (npm run test:backend)
+  turnstile.ts Server-side Cloudflare Turnstile token check
+  turnstile.test.ts
   config.ts    Environment configuration
   utils/
     period.ts          Shared dekad period utilities (canonical implementation)

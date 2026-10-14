@@ -149,7 +149,7 @@ function writeMeta(insurance: string, id: number, entry: PolicyMeta[number]) {
   }
 }
 
-const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+
 
 function knownUsers(current: User | null): User[] {
   const list = [...getFarmers(), findUser('admin-1'), current].filter((u): u is User => !!u);
@@ -253,74 +253,72 @@ function ChainData({
       if (a) idByAddress.set(a.toLowerCase(), u.id);
     });
 
-    const [policyCount, windowCount, oracleCount] = (
-    await Promise.all([insurance.nextPolicyId(), insurance.nextWindowId(), aggregator.getOracleCount()])).
-    map(Number);
-    const [windows, raw, oracleAddresses, created, triggered, skipped, submitted] = await Promise.all([
-    Promise.all(range(windowCount).map(async (i) => Array.from((await insurance.getCoverageWindow(i)).periods as bigint[]))),
-    Promise.all(range(policyCount).map((i) => insurance.policies(i))),
-    Promise.all(range(oracleCount).map((i) => aggregator.oracleList(i) as Promise<string>)),
-    insurance.queryFilter(insurance.filters.PolicyCreated()),
-    insurance.queryFilter(insurance.filters.PayoutTriggered()),
-    insurance.queryFilter(insurance.filters.PayoutSkipped()),
-    aggregator.queryFilter(aggregator.filters.ReadingSubmitted())]
-    );
+    // Fetch all data from the cached API instead of making dozens of RPC calls
+    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+    const [policiesRes, oraclesRes, windowsRes, evaluationsRes] = await Promise.all([
+      fetch(`${apiUrl}/api/policies`),
+      fetch(`${apiUrl}/api/oracles`),
+      fetch(`${apiUrl}/api/windows`),
+      fetch(`${apiUrl}/api/evaluations`),
+    ]);
 
-    const oracles: OracleInfo[] = await Promise.all(
-      oracleAddresses.map(async (address) => {
-        const o = await aggregator.oracles(address);
-        return { address: address.toLowerCase(), label: o.label as string };
-      })
-    );
+    if (!policiesRes.ok || !oraclesRes.ok || !windowsRes.ok || !evaluationsRes.ok) {
+      throw new Error('Failed to fetch data from the API');
+    }
+
+    const { policies: rawPolicies } = await policiesRes.json() as { policies: Array<{ id: number; farmer: string; windowId: number; droughtThresholdMm: number; payoutAmount: string; premiumPaid: string; settled: boolean }> };
+    const { oracles: rawOracles } = await oraclesRes.json() as { oracles: Array<{ address: string; label: string; registered: boolean; reputationWeight: number }> };
+    const { windows: rawWindows } = await windowsRes.json() as { windows: Array<{ id: number; salesCloseAt: number; periods: number[] }> };
+    const { evaluations: rawEvaluations } = await evaluationsRes.json() as { evaluations: Array<{ policyId: number; settlement: { policyId: number; triggered: boolean; rainfallMm: number; txHash: string; blockNumber: number } | null; readings: Array<{ period: number; oracle: string; rainfallMm: number }>; periodWeights: Record<string, number>; gasUsed: string; settlementTimestamp: number }> };
+
+    const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label }));
+    const windows = rawWindows.map((w) => w.periods.map(BigInt));
     const readings = new Map<string, bigint>();
-    for (const e of submitted as EventLog[]) readings.set(`${e.args.period}:${(e.args.oracle as string).toLowerCase()}`, e.args.rainfallMm);
-
-    const settlements = new Map<number, Settlement>();
-    for (const e of triggered as EventLog[]) settlements.set(Number(e.args.policyId), { triggered: true, rainfall: e.args.windowRainfallMm, log: e });
-    for (const e of skipped as EventLog[]) settlements.set(Number(e.args.policyId), { triggered: false, rainfall: e.args.windowRainfallMm, log: e });
-    const createdAtBlock = new Map<number, number>();
-    for (const e of created as EventLog[]) createdAtBlock.set(Number(e.args.policyId), e.blockNumber);
-
-    const blockNumbers = new Set([...createdAtBlock.values(), ...[...settlements.values()].map((s) => s.log.blockNumber)]);
-    const timestamps = new Map<number, number>();
-    const gasUsed = new Map<string, bigint>();
-    // Snapshot weights for the dekads of settled policies' windows.
-    const settledPeriods = new Set<bigint>();
-    raw.forEach((p, id) => {
-      if (settlements.has(id)) (windows[Number(p.windowId)] ?? []).forEach((period) => settledPeriods.add(period));
-    });
+    for (const r of rawEvaluations.flatMap((e) => e.readings)) {
+      readings.set(`${r.period}:${r.oracle.toLowerCase()}`, BigInt(r.rainfallMm));
+    }
     const periodWeights = new Map<string, bigint>();
-    await Promise.all([
-    ...[...settledPeriods].flatMap((period) =>
-    oracles.map(async (o) => periodWeights.set(`${period}:${o.address}`, await aggregator.weightForPeriod(period, o.address)))
-    ),
-    ...[...blockNumbers].map(async (n) => timestamps.set(n, (await provider.getBlock(n))?.timestamp ?? 0)),
-    ...[...settlements.values()].map(async (s) =>
-    gasUsed.set(s.log.transactionHash, (await provider.getTransactionReceipt(s.log.transactionHash))?.gasUsed ?? 0n)
-    )]
-    );
+    for (const e of rawEvaluations) {
+      for (const [key, weight] of Object.entries(e.periodWeights)) {
+        periodWeights.set(key, BigInt(weight));
+      }
+    }
+    const gasUsed = new Map<string, bigint>();
+    for (const e of rawEvaluations) {
+      if (e.settlement) gasUsed.set(e.settlement.txHash, BigInt(e.gasUsed));
+    }
+    const timestamps = new Map<number, number>();
+    for (const e of rawEvaluations) {
+      if (e.settlement) timestamps.set(e.settlement.blockNumber, e.settlementTimestamp);
+    }
 
     const meta = readMeta(config.insuranceAddress);
-    const policies = raw.map((p, id): Policy => {
-      const farmerAddress = (p.farmer as string).toLowerCase();
+    const policies = rawPolicies.map((p): Policy => {
+      const farmerAddress = p.farmer.toLowerCase();
       const farmerId = idByAddress.get(farmerAddress) ?? p.farmer;
       const farmer = findUser(farmerId);
-      const saved = meta[id]?.farmer === farmerAddress ? meta[id] : undefined;
-      const windowIndex = Number(p.windowId);
+      const saved = meta[p.id]?.farmer === farmerAddress ? meta[p.id] : undefined;
+      const windowIndex = p.windowId;
       const policy: Policy = {
-        id,
+        id: p.id,
         farmerId,
         lga: saved?.lga ?? farmer?.lga ?? '—',
         crop: saved?.crop ?? farmer?.primaryCrop ?? 'Millet',
         windowId: coverageWindows[windowIndex]?.id ?? coverageWindows[0].id,
-        thresholdMm: Number(p.droughtThresholdMm) / 100,
-        premiumEth: Number(formatEther(p.premiumPaid)),
-        payoutEth: Number(formatEther(p.payoutAmount)),
-        purchasedAt: new Date((timestamps.get(createdAtBlock.get(id) ?? -1) ?? 0) * 1000).toISOString().slice(0, 10),
+        thresholdMm: p.droughtThresholdMm / 100,
+        premiumEth: Number(p.premiumPaid),
+        payoutEth: Number(p.payoutAmount),
+        purchasedAt: new Date((timestamps.get(p.id) ?? 0) * 1000).toISOString().slice(0, 10),
         status: 'active'
       };
-      const s = settlements.get(id);
+      const evalData = rawEvaluations.find((e) => e.policyId === p.id);
+      const s = evalData?.settlement ?? null;
       if (!s) return policy;
+      const settlement: Settlement = {
+        triggered: s.triggered,
+        rainfall: BigInt(s.rainfallMm),
+        log: { transactionHash: s.txHash, blockNumber: s.blockNumber } as EventLog,
+      };
       return {
         ...policy,
         status: s.triggered ? 'paid' : 'no_payout',
@@ -330,9 +328,9 @@ function ChainData({
           oracles,
           readings,
           periodWeights,
-          s,
-          gasUsed.get(s.log.transactionHash) ?? 0n,
-          timestamps.get(s.log.blockNumber) ?? 0
+          settlement,
+          gasUsed.get(s.txHash) ?? 0n,
+          timestamps.get(s.blockNumber) ?? 0
         )
       };
     }).reverse();
@@ -344,8 +342,8 @@ function ChainData({
         if (a) balances[u.id] = Number(formatEther(await provider.getBalance(a)));
       })
     );
-    const poolEth = Number(formatEther(await provider.getBalance(config.insuranceAddress)));
-    return { policies, balances, poolEth, windowCount };
+    const poolEth = Number(await (await fetch(`${apiUrl}/api/pool`)).json().then((r: { balance: string }) => r.balance));
+    return { policies, balances, poolEth, windowCount: windows.length };
   }, [user, addressOf, insurance, aggregator, provider, config.insuranceAddress]);
 
   // Reload on every new block; overlapping reloads collapse into one follow-up.

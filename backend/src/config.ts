@@ -19,6 +19,13 @@ export const config = {
   relayerIntervalMinutes: Number(process.env.RELAYER_INTERVAL_MINUTES ?? 60),
   /** Parses ORACLE_SOURCES="CHIRPS:0xabc...,NASA_POWER:0xdef..." */
   oracleSources: parseSources(process.env.ORACLE_SOURCES ?? ""),
+  /** Cloudflare Turnstile secret key; without it the verify endpoint answers 503. */
+  turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY?.trim() ?? "",
+  /** Browser origins allowed to call the API, comma-separated. */
+  corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };
 
 function parseSources(raw: string): SourceConfig[] {

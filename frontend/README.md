@@ -30,8 +30,9 @@ admin's simulation runs with corruption injection) use the illustrative
 
 Other things that are still simulated in both modes:
 
-- Sign-in is a client-side demo (see `docs/frontend-audit.md` F-1 to F-3),
-  and the Cloudflare Turnstile check uses Cloudflare's always-pass test key.
+- Sign-in is a client-side demo (see `docs/frontend-audit.md` F-1 to F-3).
+- The Cloudflare Turnstile check uses Cloudflare's always-pass test key
+  unless you set a real one — see [Security check](#security-check-cloudflare-turnstile).
 - A policy's location and crop aren't stored on-chain; the buyer's browser
   keeps them, and other browsers fall back to the farmer's profile.
 
@@ -52,6 +53,28 @@ server after the first seed so it picks up `.env`.
 
 Sign in with a demo account: open **Demo credentials** on the sign-in page, or
 see `src/data/demoCredentials.ts` (four farmers and one admin).
+
+## Security check (Cloudflare Turnstile)
+
+Sign in, sign up and password reset show a Turnstile check. With
+`VITE_TURNSTILE_SITE_KEY` empty (the default) it uses Cloudflare's always-pass
+test key and needs no backend. To make it a real check:
+
+1. In the Cloudflare dashboard, go to **Turnstile → Add widget** and list the
+   hostnames the app is served from (add `localhost` to try it locally).
+2. Put the **site key** in `frontend/.env` as `VITE_TURNSTILE_SITE_KEY` and the
+   **secret key** in `backend/.env` as `TURNSTILE_SECRET_KEY`.
+3. If the frontend isn't on `http://localhost:5173`, set `CORS_ORIGINS` in
+   `backend/.env` to its origin.
+4. Start the backend (`npm run dev:backend`) and restart the frontend dev server.
+
+Each form then sends its token to the backend's `POST /auth/turnstile/verify`,
+which confirms it with Cloudflare before the form goes ahead. Tokens are
+single-use, so the widget renews itself after every attempt. If the backend is
+down, the forms say so and stay locked.
+
+The check runs before a sign-in that still happens in the browser (F-1), so it
+stops bots using the forms, not someone who edits the page's JavaScript.
 
 ## Scripts
 

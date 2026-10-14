@@ -76,6 +76,13 @@ real site key (and verify the token server-side at the backend before any
 sign-up/sign-in endpoint — a client-side Turnstile check alone is trivially
 bypassed).
 
+**Status (2026-10-10): Partly resolved.** The site key now comes from
+`VITE_TURNSTILE_SITE_KEY`; left empty, the demo keeps the test key. With a real
+key, sign-in, sign-up and password reset send each token to the backend's
+`POST /auth/turnstile/verify`, which checks it with Cloudflare's siteverify
+using `TURNSTILE_SECRET_KEY`. Still open: the sign-in itself runs in the
+browser (F-1), so the check gates the forms rather than a server-side session.
+
 ## Medium severity
 
 ### F-3 — Passwords "hashed" with FNV-1a (not a password hash)
@@ -151,6 +158,11 @@ test key masks this — you'll discover it the day you deploy for real.
 **Recommendation:** before switching keys, add a graceful path: retry button
 on error (exists for script-load failure, not for challenge failure), and a
 documented support fallback.
+
+**Status (2026-10-10): Resolved.** A failed challenge now shows "The security
+check hit a problem" with a Retry button that renders a fresh challenge. A
+token the backend rejects, or a backend that can't be reached, shows its own
+message under the widget instead of a silent dead end.
 
 ### F-7 — Template leftovers: wrong favicon, stale names, dead nested package.json
 

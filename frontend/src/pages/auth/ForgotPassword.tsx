@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeftIcon, KeyRoundIcon, Loader2Icon, MailCheckIcon } from 'lucide-react';
@@ -9,6 +9,7 @@ import { submitButtonClass } from '../../components/auth/AuthDivider';
 import { btnSecondary } from '../../components/ui/buttons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
+import { useCaptcha } from '../../hooks/useCaptcha';
 import { isValidEmail } from '../../utils/users';
 import type { TranslationKey } from '../../data/translations';
 
@@ -17,24 +18,25 @@ export function ForgotPassword() {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<TranslationKey | null>(null);
-  const [captchaError, setCaptchaError] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
+  const [captchaError, setCaptchaError] = useState<TranslationKey | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState<{email: string;resetToken: string | null;} | null>(null);
 
-  const onVerify = useCallback((tk: string) => {
-    setToken(tk);
-    setCaptchaError(false);
-  }, []);
-  const onExpire = useCallback(() => setToken(null), []);
+  const captcha = useCaptcha(() => setCaptchaError(null));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return setError('error.required');
     if (!isValidEmail(email)) return setError('error.invalidEmail');
     setError(null);
-    if (!token) return setCaptchaError(true);
+    if (!captcha.token) return setCaptchaError('error.completeCheck');
     setSubmitting(true);
+    const checkError = await captcha.check();
+    if (checkError) {
+      setCaptchaError(checkError);
+      setSubmitting(false);
+      return;
+    }
     const resetToken = await requestPasswordReset(email);
     setSubmitting(false);
     setSent({ email: email.trim(), resetToken });
@@ -102,7 +104,7 @@ export function ForgotPassword() {
             error={error ? t(error) : undefined}
             placeholder="you@example.com" />
           
-            <TurnstileWidget onVerify={onVerify} onExpire={onExpire} error={captchaError ? t('error.completeCheck') : undefined} />
+            <TurnstileWidget {...captcha.widget} error={captchaError ? t(captchaError) : undefined} />
             <button type="submit" disabled={submitting} className={submitButtonClass}>
               {submitting && <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />}
               {submitting ? t('forgot.sending') : t('forgot.submit')}

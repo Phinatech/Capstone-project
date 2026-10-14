@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircleIcon, Loader2Icon } from 'lucide-react';
@@ -12,6 +12,7 @@ import { DemoCredentials } from '../components/auth/DemoCredentials';
 import { AuthDivider, submitButtonClass } from '../components/auth/AuthDivider';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
+import { useCaptcha } from '../hooks/useCaptcha';
 import { homePath, isValidEmail } from '../utils/users';
 import type { DemoCredential } from '../data/demoCredentials';
 import type { TranslationKey } from '../data/translations';
@@ -27,16 +28,10 @@ export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<TranslationKey | null>(null);
-
-  const onVerify = useCallback((tk: string) => {
-    setToken(tk);
-    setErrors((e) => ({ ...e, captcha: undefined }));
-  }, []);
-  const onExpire = useCallback(() => setToken(null), []);
+  const captcha = useCaptcha(() => setErrors((e) => ({ ...e, captcha: undefined })));
 
   if (user && !submitting) return <Navigate to={homePath(user)} replace />;
 
@@ -45,12 +40,18 @@ export function SignIn() {
     if (!nextEmail.trim()) nextErrors.email = 'error.required';else
     if (!isValidEmail(nextEmail)) nextErrors.email = 'error.invalidEmail';
     if (!nextPassword) nextErrors.password = 'error.required';
-    if (!token) nextErrors.captcha = 'error.completeCheck';
+    if (!captcha.token) nextErrors.captcha = 'error.completeCheck';
     setErrors(nextErrors);
     setFormError(null);
     if (Object.keys(nextErrors).length) return;
 
     setSubmitting(true);
+    const captchaError = await captcha.check();
+    if (captchaError) {
+      setErrors({ captcha: captchaError });
+      setSubmitting(false);
+      return;
+    }
     try {
       const signedIn = await signInWithPassword(nextEmail, nextPassword, remember);
       toast.success(t('toast.welcome', { name: signedIn.name.split(' ')[0] }));
@@ -141,7 +142,7 @@ export function SignIn() {
           </Link>
         </div>
 
-        <TurnstileWidget onVerify={onVerify} onExpire={onExpire} error={errors.captcha && t(errors.captcha)} />
+        <TurnstileWidget {...captcha.widget} error={errors.captcha && t(errors.captcha)} />
 
         <button type="submit" disabled={submitting} className={submitButtonClass}>
           {submitting && <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />}

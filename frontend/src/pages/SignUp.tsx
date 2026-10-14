@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircleIcon, Loader2Icon } from 'lucide-react';
@@ -11,6 +11,7 @@ import { GoogleButton } from '../components/auth/GoogleButton';
 import { AuthDivider, submitButtonClass } from '../components/auth/AuthDivider';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
+import { useCaptcha } from '../hooks/useCaptcha';
 import { lgas } from '../data/policies';
 import { homePath, isValidEmail } from '../utils/users';
 import type { TranslationKey } from '../data/translations';
@@ -24,16 +25,10 @@ export function SignUp() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', phone: '', lga: lgas[0], password: '', confirm: '' });
   const [agreed, setAgreed] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<TranslationKey | null>(null);
-
-  const onVerify = useCallback((tk: string) => {
-    setToken(tk);
-    setErrors((e) => ({ ...e, captcha: undefined }));
-  }, []);
-  const onExpire = useCallback(() => setToken(null), []);
+  const captcha = useCaptcha(() => setErrors((e) => ({ ...e, captcha: undefined })));
 
   if (user && !submitting) return <Navigate to={homePath(user)} replace />;
 
@@ -50,12 +45,18 @@ export function SignUp() {
     if (form.password.length < 8) next.password = 'error.passwordShort';
     if (form.confirm !== form.password) next.confirm = 'error.passwordMismatch';
     if (!agreed) next.terms = 'error.mustAgree';
-    if (!token) next.captcha = 'error.completeCheck';
+    if (!captcha.token) next.captcha = 'error.completeCheck';
     setErrors(next);
     setFormError(null);
     if (Object.keys(next).length) return;
 
     setSubmitting(true);
+    const captchaError = await captcha.check();
+    if (captchaError) {
+      setErrors({ captcha: captchaError });
+      setSubmitting(false);
+      return;
+    }
     try {
       const created = await signUp({ ...form });
       toast.success(t('toast.accountCreated'), { description: t('toast.welcome', { name: created.name.split(' ')[0] }) });
@@ -174,7 +175,7 @@ export function SignUp() {
           {errors.terms && <p className="mt-1.5 text-xs text-danger">{t(errors.terms)}</p>}
         </div>
 
-        <TurnstileWidget onVerify={onVerify} onExpire={onExpire} error={err('captcha')} />
+        <TurnstileWidget {...captcha.widget} error={err('captcha')} />
 
         <button type="submit" disabled={submitting} className={submitButtonClass}>
           {submitting && <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />}
