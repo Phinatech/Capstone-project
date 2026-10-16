@@ -1,0 +1,52 @@
+# Render Blueprint for the backend: the API, the oracle relayer and the
+# settlement keeper. In Render: New > Blueprint > pick this repository.
+# Values marked `sync: false` are secrets: Render asks for each one once when
+# the Blueprint is created (copy them from backend/.env). See docs/deployment.md.
+services:
+  - type: web
+    name: sokoto-cover-api
+    runtime: node
+    # Free instances sleep after 15 minutes without traffic, which pauses the
+    # relayer; keep one awake with an uptime monitor or switch to "starter".
+    plan: free
+    region: frankfurt # Render's closest region to Nigeria
+    buildCommand: npm ci --include=dev && npm run build --workspace backend
+    startCommand: npm run start --workspace backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Chain: Sepolia deployment
+      - key: RPC_URL
+        sync: false
+      - key: ORACLE_AGGREGATOR_ADDRESS
+        value: "0x1b595A484A0a26eaC8764307c19bbfDaA2E4aDE1"
+      - key: WEATHER_INDEX_INSURANCE_ADDRESS
+        value: "0x8520A0697D018a380a91CB65096AB50F5B65D6D5"
+      - key: DEPLOY_BLOCK
+        value: "11828462"
+      - key: LOGS_RPC_URL
+        value: https://sepolia.gateway.tenderly.co
+      - key: LOGS_BLOCK_RANGE
+        value: "50000"
+      # Relayer and settlement keeper (run them in one backend only)
+      - key: RELAYER_ENABLED
+        value: "true"
+      - key: ORACLE_SOURCES
+        sync: false
+      - key: KEEPER_PRIVATE_KEY
+        sync: false
+      - key: METEOSTAT_API_KEY
+        sync: false
+      # The frontend's address, e.g. https://sokoto-cover.pages.dev
+      - key: CORS_ORIGINS
+        sync: false
+      # Optional: leave empty to keep the demo Turnstile key and SMS off
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: NOTIFY_API_KEY
+        sync: false
+      - key: TERMINII_API_KEY
+        sync: false
+      - key: TERMINII_SENDER_ID
+        sync: false

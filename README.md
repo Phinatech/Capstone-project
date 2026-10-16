@@ -54,6 +54,8 @@ npm run dev:frontend     # http://localhost:5173
 
 ## Documentation
 
+- [`docs/deployment.md`](docs/deployment.md) — hosting: the frontend on
+  Cloudflare Pages, the backend on Render (`render.yaml`)
 - [`docs/security-audit.md`](docs/security-audit.md) — full audit: 0 critical,
   3 high, 5 medium, 6 low findings, plus remediation priorities
 - [`docs/frontend-audit.md`](docs/frontend-audit.md) — frontend security and

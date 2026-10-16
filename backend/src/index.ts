@@ -6,6 +6,10 @@ import apiRouter from "./routes/api.js";
 
 const app = express();
 
+// Hosted (e.g. on Render) the app sits behind one proxy; trust it so req.ip is
+// the visitor's address, which the Turnstile check passes on to Cloudflare.
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "10kb" }));
 
 // CORS: the dapp UI runs on its own origin (Vite on :5173 in development).
