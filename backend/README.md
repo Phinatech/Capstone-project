@@ -125,11 +125,28 @@ src/
     cache.ts           In-memory cache with block-aware refresh
     logChunks.ts       Splits block ranges for eth_getLogs limits
     aggregate-ghcn.ts  GHCN daily -> dekadal aggregation script
+    fetch-backtest-data.ts  Downloads NASA POWER, CHIRPS (and Meteostat) at the gauge
+    backtest.ts        Sources vs the gauge -> docs/backtest-results.md
+    backtestStats.ts   Error, weight and payout-agreement statistics
 data/
   birni-n-konni-ghcn.csv       Raw GHCN daily data
   sokoto-dekadal-rainfall.json  Aggregated dekadal values
+  backtest/                    Daily series at the gauge, from fetch-backtest-data.ts
 .env.example   Configuration template
 ```
+
+### Backtest
+
+```bash
+npx tsx src/utils/fetch-backtest-data.ts   # once; skips files already in data/backtest/
+npx tsx src/utils/backtest.ts              # writes docs/backtest-results.md
+```
+
+It scores NASA POWER and CHIRPS against the Birni N'Konni gauge, 1981-2024,
+compares single sources, equal weights, the deployed weights and
+out-of-sample reputation weights, counts payout calls that disagree with the
+gauge, and suggests `reputationWeight` values. Results and their limits are in
+[`docs/backtest-results.md`](../docs/backtest-results.md).
 
 Period ids are `YYYYMMD` (year, month 1-12, dekad 1-3 on days 1-10 / 11-20 /
 21-end, UTC), e.g. `2026111` for 1-10 Nov 2026 — see `src/utils/period.ts`.

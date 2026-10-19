@@ -56,6 +56,8 @@ npm run dev:frontend     # http://localhost:5173
 
 - [`docs/deployment.md`](docs/deployment.md) — hosting: the frontend on
   Cloudflare Pages, the backend on Render (`render.yaml`)
+- [`docs/backtest-results.md`](docs/backtest-results.md) — NASA POWER and CHIRPS
+  against the Birni N'Konni rain gauge, 1981-2024, and the weights the data supports
 - [`docs/security-audit.md`](docs/security-audit.md) — full audit: 0 critical,
   3 high, 5 medium, 6 low findings, plus remediation priorities
 - [`docs/frontend-audit.md`](docs/frontend-audit.md) — frontend security and

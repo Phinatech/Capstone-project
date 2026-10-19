@@ -1,0 +1,192 @@
+{
+  "generatedAt": "2026-10-19",
+  "gauge": {
+    "name": "Birni N'Konni",
+    "id": "NG000001075",
+    "latitude": 13.8,
+    "longitude": 5.25,
+    "kmFromSokoto": 83
+  },
+  "years": [
+    1981,
+    2024
+  ],
+  "minDays": 8,
+  "dekads": {
+    "all": 121,
+    "rainySeason": 81,
+    "byDecade": {
+      "1980s": 21,
+      "1990s": 17,
+      "2000s": 11,
+      "2010s": 21,
+      "2020s": 11
+    }
+  },
+  "medianMm": 53.8,
+  "dryThresholdMm": 34.4,
+  "sources": [
+    {
+      "name": "NASA POWER",
+      "rainySeason": {
+        "n": 81,
+        "mae": 30.25,
+        "rmse": 52.41,
+        "bias": -15.89,
+        "correlation": 0.34
+      },
+      "allMonths": {
+        "n": 121,
+        "mae": 21.44,
+        "rmse": 43.56,
+        "bias": -11.49,
+        "correlation": 0.6
+      }
+    },
+    {
+      "name": "CHIRPS",
+      "rainySeason": {
+        "n": 81,
+        "mae": 24.35,
+        "rmse": 47.41,
+        "bias": -11.75,
+        "correlation": 0.5
+      },
+      "allMonths": {
+        "n": 121,
+        "mae": 17.58,
+        "rmse": 39.86,
+        "bias": -9.04,
+        "correlation": 0.68
+      }
+    }
+  ],
+  "strategies": [
+    {
+      "name": "NASA POWER only",
+      "proposed": false,
+      "stats": {
+        "n": 81,
+        "mae": 30.25,
+        "rmse": 52.41,
+        "bias": -15.89,
+        "correlation": 0.34
+      },
+      "payout": {
+        "hits": 15,
+        "misses": 5,
+        "falseAlarms": 9,
+        "correctNegatives": 52
+      },
+      "versusReputation": {
+        "difference": -3.96,
+        "low": -6.39,
+        "high": -1.66,
+        "verdict": "reputation weights closer"
+      }
+    },
+    {
+      "name": "CHIRPS only",
+      "proposed": false,
+      "stats": {
+        "n": 81,
+        "mae": 24.35,
+        "rmse": 47.41,
+        "bias": -11.75,
+        "correlation": 0.5
+      },
+      "payout": {
+        "hits": 10,
+        "misses": 10,
+        "falseAlarms": 9,
+        "correctNegatives": 52
+      },
+      "versusReputation": {
+        "difference": 1.94,
+        "low": 0.16,
+        "high": 3.84,
+        "verdict": "reputation weights further"
+      }
+    },
+    {
+      "name": "Equal weights",
+      "proposed": false,
+      "stats": {
+        "n": 81,
+        "mae": 26.6,
+        "rmse": 48.8,
+        "bias": -13.82,
+        "correlation": 0.47
+      },
+      "payout": {
+        "hits": 11,
+        "misses": 9,
+        "falseAlarms": 8,
+        "correctNegatives": 53
+      },
+      "versusReputation": {
+        "difference": -0.3,
+        "low": -0.54,
+        "high": -0.07,
+        "verdict": "reputation weights closer"
+      }
+    },
+    {
+      "name": "Deployed weights (CHIRPS 421, NASA 268)",
+      "proposed": false,
+      "stats": {
+        "n": 81,
+        "mae": 25.88,
+        "rmse": 48.29,
+        "bias": -13.36,
+        "correlation": 0.48
+      },
+      "payout": {
+        "hits": 10,
+        "misses": 10,
+        "falseAlarms": 8,
+        "correctNegatives": 53
+      },
+      "versusReputation": {
+        "difference": 0.42,
+        "low": 0.17,
+        "high": 0.7,
+        "verdict": "reputation weights further"
+      }
+    },
+    {
+      "name": "Reputation weights, out of sample",
+      "proposed": true,
+      "stats": {
+        "n": 81,
+        "mae": 26.3,
+        "rmse": 48.54,
+        "bias": -13.63,
+        "correlation": 0.48
+      },
+      "payout": {
+        "hits": 11,
+        "misses": 9,
+        "falseAlarms": 8,
+        "correctNegatives": 53
+      },
+      "versusReputation": null
+    }
+  ],
+  "weights": {
+    "recommended": {
+      "NASA POWER": 450,
+      "CHIRPS": 550
+    },
+    "deployed": {
+      "CHIRPS": 421,
+      "NASA POWER": 268,
+      "Meteostat": 311
+    }
+  },
+  "meteostat": {
+    "identicalDays": 2876,
+    "sharedDays": 2876
+  },
+  "completeRainyMonths": 5
+}
