@@ -27,7 +27,7 @@ const methodSteps = [
 
 
 function versus(v: (typeof results.strategies)[number]['versusReputation']) {
-  if (!v) return { text: 'proposed', detail: '' };
+  if (!v) return { text: '–', detail: '' };
   const interval = `95% interval ${signedMm(v.low)} to ${signedMm(v.high)}`;
   if (v.verdict === "can't tell apart") return { text: 'no clear difference', detail: interval };
   const closer = v.difference < 0;
@@ -170,7 +170,7 @@ export function Backtest() {
           </table>
           <p className="mt-3 text-xs leading-relaxed text-muted">
             Data-supported weights are proportional to 1 / MSE over all {results.dekads.rainySeason} rainy-season dekads.
-            Meteostat’s can’t be estimated here: see below.
+            Meteostat’s can’t be estimated here: see “Meteostat is the gauge”.
           </p>
         </section>
 
