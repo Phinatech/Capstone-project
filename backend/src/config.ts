@@ -49,7 +49,8 @@ export const config = {
   /** Browser origins allowed to call the API, comma-separated. */
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
     .split(",")
-    .map((origin) => origin.trim())
+    // Browsers send origins without a trailing slash, so drop one pasted with the address.
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean),
 };
 
