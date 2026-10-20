@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { fileURLToPath } from "node:url";
 
 export interface SourceConfig {
   label: string;
@@ -40,6 +41,16 @@ export const config = {
   rainfallLatitude: coordinate("RAINFALL_LATITUDE", 13.05, 90),
   rainfallLongitude: coordinate("RAINFALL_LONGITUDE", 5.23, 180),
   nasaPowerApiUrl: process.env.NASA_POWER_API_URL?.trim() || "https://power.larc.nasa.gov/api/temporal/daily/point",
+  /** CHIRPS v2.0 daily GeoTIFF archive; the real source behind the CHIRPS oracle. */
+  chirpsBaseUrl:
+    process.env.CHIRPS_BASE_URL?.trim() ||
+    "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/tifs/p05",
+  /** Remembers extracted CHIRPS day values so each raster is downloaded once. */
+  chirpsCachePath:
+    process.env.CHIRPS_CACHE_PATH?.trim() ||
+    fileURLToPath(new URL("../../data/chirps-daily-cache.json", import.meta.url)),
+  /** How many CHIRPS rasters to fetch at once; each inflates to about 57 MB. */
+  chirpsConcurrency: wholeNumber("CHIRPS_CONCURRENCY", 3, 1),
   /** RapidAPI key for Meteostat; without it the Meteostat source replays historical data. */
   meteostatApiKey: process.env.METEOSTAT_API_KEY?.trim() ?? "",
   /** Cloudflare Turnstile secret key; without it the verify endpoint answers 503. */

@@ -32,7 +32,13 @@ async function sendIfReady(contract: Contract, method: string, arg: number, done
     if (err.code !== "CALL_EXCEPTION") throw e;
     return err.reason ?? err.shortMessage ?? "reverted";
   }
-  const receipt = await (await fn(arg)).wait();
+  // A dropped connection must not cost a policy another full tick: both methods
+  // are permissionless and idempotent, so re-sending a transaction that already
+  // landed simply comes back "not ready" on the dry run below.
+  const receipt = await withRpcRetry(async () => {
+    const tx = await fn(arg);
+    return tx.wait();
+  });
   console.log(`[settlement] ${done} tx=${receipt.hash} gasUsed=${receipt.gasUsed}`);
   return null;
 }

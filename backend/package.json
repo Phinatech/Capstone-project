@@ -18,7 +18,8 @@
   "dependencies": {
     "dotenv": "^17.2.0",
     "ethers": "^6.17.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "geotiff": "^3.0.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

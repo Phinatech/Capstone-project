@@ -2,11 +2,12 @@
  * Oracle relayer: reports each source's rainfall for every finished dekad
  * on-chain, signing with that source's oracle account.
  *
- * NASA_POWER and Meteostat (when METEOSTAT_API_KEY is set) read their live APIs
- * for the insured location (RAINFALL_LATITUDE / RAINFALL_LONGITUDE). CHIRPS has
- * no live feed yet: it replays the historical GHCN series for Birni N'Konni
- * (station NG000001075) with an illustrative bias, which only covers past
- * seasons; so does Meteostat without a key.
+ * NASA_POWER, CHIRPS and Meteostat (with METEOSTAT_API_KEY set) all read live
+ * data for the insured location (RAINFALL_LATITUDE / RAINFALL_LONGITUDE):
+ * NASA POWER from its JSON API, CHIRPS from the Climate Hazards Center's daily
+ * GeoTIFF archive, and Meteostat from its API. Meteostat without a key falls
+ * back to the historical GHCN series for Birni N'Konni (station NG000001075),
+ * which only covers past seasons.
  *
  * A dekad is only reported once it has ended and the source has data for all
  * of its days: the aggregator accepts one reading per source per dekad, so a
@@ -18,9 +19,11 @@ import type { SourceConfig } from "./config.js";
 import { config } from "./config.js";
 import { readReadings } from "./utils/chain.js";
 import { dailyFeed, type Feed } from "./utils/feeds.js";
+import { fetchChirpsDaily } from "./utils/chirps.js";
 import { fetchMeteostatDaily } from "./utils/meteostat.js";
 import { fetchNasaPowerDaily } from "./utils/nasaPower.js";
 import { completedPeriods, currentPeriod } from "./utils/period.js";
+import { withRpcRetry } from "./utils/rpcRetry.js";
 import { settleDue } from "./settlement.js";
 
 // Re-export for backward compatibility with the test suite
@@ -75,7 +78,20 @@ const location = { latitude: config.rainfallLatitude, longitude: config.rainfall
 
 const FEEDS: Record<string, Feed> = {
   NASA_POWER: dailyFeed((start, end) => fetchNasaPowerDaily({ apiUrl: config.nasaPowerApiUrl, ...location, start, end })),
-  CHIRPS: historical("CHIRPS"),
+  CHIRPS: dailyFeed((start, end) =>
+    fetchChirpsDaily(
+      {
+        baseUrl: config.chirpsBaseUrl,
+        latitude: config.rainfallLatitude,
+        longitude: config.rainfallLongitude,
+        cachePath: config.chirpsCachePath,
+      },
+      start,
+      end,
+      fetch,
+      config.chirpsConcurrency,
+    ),
+  ),
   Meteostat: config.meteostatApiKey
     ? dailyFeed(
         (start, end) => fetchMeteostatDaily({ apiKey: config.meteostatApiKey, ...location, start, end }),
@@ -103,8 +119,13 @@ export async function submitReading(reading: RainfallReading): Promise<void> {
   );
 
   try {
-    const tx = await aggregator.getFunction("submitReading")(reading.period, reading.rainfallMm);
-    const receipt = await tx.wait();
+    // A dropped connection must not cost a reporting window: the aggregator
+    // accepts one reading per source per dekad, so a re-sent transaction that
+    // actually landed comes back as "already submitted" below.
+    const receipt = await withRpcRetry(async () => {
+      const tx = await aggregator.getFunction("submitReading")(reading.period, reading.rainfallMm);
+      return tx.wait();
+    });
     const timestamp = new Date().toISOString();
     console.log(
       `[relayer] submitted: source=${reading.source} period=${reading.period} rainfallMm=${reading.rainfallMm} ` +
