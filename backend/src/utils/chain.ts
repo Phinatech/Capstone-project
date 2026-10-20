@@ -2,12 +2,48 @@
  * Reads policy, oracle, and window data from the blockchain.
  * Used by the API endpoints to serve cached data to the frontend.
  */
-import { JsonRpcProvider, Contract, formatEther, type EventLog } from "ethers";
+import { JsonRpcProvider, Contract, formatEther, type EventLog, type JsonRpcPayload, type JsonRpcResult } from "ethers";
 import { config } from "../config.js";
 import { blockChunks } from "./logChunks.js";
+import { mapLimit } from "./concurrency.js";
+import { withRpcRetry } from "./rpcRetry.js";
 
-const provider = new JsonRpcProvider(config.rpcUrl);
-const logsProvider = config.logsRpcUrl === config.rpcUrl ? provider : new JsonRpcProvider(config.logsRpcUrl);
+/**
+ * How many per-item contract reads to run at once; each one is a round trip.
+ * This stays low on purpose: the public gateways rate-limit well before the
+ * network saturates, and a burst is what got this backend a 429.
+ */
+const READ_CONCURRENCY = 3;
+
+const range = (count: number) => Array.from({ length: count }, (_, i) => i);
+
+/**
+ * Every read below goes through this provider. Public Sepolia endpoints drop
+ * connections now and then, and a single `request timeout` would turn a whole
+ * API route into a 500 that the frontend shows as a blank screen. Every call
+ * made here is a read, so re-running it is always safe.
+ */
+/**
+ * Every read below goes through this provider. Public Sepolia endpoints drop
+ * connections now and then, and a single `request timeout` would turn a whole
+ * API route into a 500 that the frontend shows as a blank screen. Every call
+ * made here is a read, so re-running it is always safe.
+ *
+ * `batchMaxCount: 1` matters as much as the retry. ethers groups concurrent
+ * calls into one batched HTTP request; retrying that batch re-sends frames the
+ * queue has already handed out, so the original callers wait forever on
+ * promises nothing will ever resolve. It showed up as reads that hung with no
+ * error and no timeout anywhere. One call per request keeps the retry honest.
+ */
+class RetryingProvider extends JsonRpcProvider {
+  override async _send(payload: JsonRpcPayload | JsonRpcPayload[]): Promise<JsonRpcResult[]> {
+    return withRpcRetry(() => super._send(payload));
+  }
+}
+
+const provider = new RetryingProvider(config.rpcUrl, undefined, { batchMaxCount: 1 });
+const logsProvider =
+  config.logsRpcUrl === config.rpcUrl ? provider : new RetryingProvider(config.logsRpcUrl, undefined, { batchMaxCount: 1 });
 
 /** Head block both RPCs have reached: reads and event scans reflect at least this block. */
 export async function headBlock(): Promise<number> {
@@ -25,26 +61,46 @@ const settledChunks = new Map<string, Promise<EventLog[]>>();
  * LOGS_BLOCK_RANGE-sized chunks. Full chunks well behind the head are kept,
  * so after the first call only the newest blocks are fetched.
  */
+/**
+ * How many block chunks to fetch at once; they are independent of one another.
+ * Kept deliberately small for the same rate-limit reason as READ_CONCURRENCY.
+ */
+const CHUNK_CONCURRENCY = 2;
+
 async function queryEvents(address: string, abi: string[], eventName: string): Promise<EventLog[]> {
   const contract = new Contract(address, abi, logsProvider);
   const head = await logsProvider.getBlockNumber();
   if (config.deployBlock > head) {
     throw new Error(`DEPLOY_BLOCK ${config.deployBlock} is ahead of the chain head ${head}; is it set for another network?`);
   }
-  const logs: EventLog[] = [];
-  for (const [from, to] of blockChunks(config.deployBlock, head, config.logsBlockRange)) {
-    const key = `${address}:${eventName}:${from}`;
-    let chunk = settledChunks.get(key);
-    if (!chunk) {
-      chunk = contract.queryFilter(eventName, from, to) as Promise<EventLog[]>;
-      if (to - from + 1 === config.logsBlockRange && head - to >= SETTLED_DEPTH) {
-        settledChunks.set(key, chunk);
-        chunk.catch(() => settledChunks.delete(key));
+
+  const ranges = [...blockChunks(config.deployBlock, head, config.logsBlockRange)];
+  const perChunk = new Array<EventLog[]>(ranges.length);
+
+  // Chunks don't depend on each other, so they are fetched a few at a time
+  // rather than strictly one after another. Fetched serially, a scan from
+  // DEPLOY_BLOCK to the head is ~54 round trips, which alone pushed the
+  // evaluations route past six minutes on its first, uncached call.
+  let next = 0;
+  const workers = Array.from({ length: Math.min(CHUNK_CONCURRENCY, ranges.length) }, async () => {
+    while (next < ranges.length) {
+      const index = next++;
+      const [from, to] = ranges[index]!;
+      const key = `${address}:${eventName}:${from}`;
+      let chunk = settledChunks.get(key);
+      if (!chunk) {
+        chunk = contract.queryFilter(eventName, from, to) as Promise<EventLog[]>;
+        if (to - from + 1 === config.logsBlockRange && head - to >= SETTLED_DEPTH) {
+          settledChunks.set(key, chunk);
+          chunk.catch(() => settledChunks.delete(key));
+        }
       }
+      perChunk[index] = await chunk;
     }
-    logs.push(...(await chunk));
-  }
-  return logs;
+  });
+  await Promise.all(workers);
+
+  return perChunk.flat();
 }
 
 const aggregatorAbi = [
@@ -134,52 +190,43 @@ export interface PolicyEvaluation {
 export async function readPolicies(): Promise<PolicyData[]> {
   const insurance = new Contract(config.insuranceAddress, insuranceAbi, provider);
   const count = Number(await insurance.nextPolicyId!());
-  const policies: PolicyData[] = [];
-  for (let i = 0; i < count; i++) {
-    const p = await insurance.policies!(i);
-    policies.push({
-      id: i,
-      farmer: p.farmer,
-      windowId: Number(p.windowId),
-      droughtThresholdMm: Number(p.droughtThresholdMm),
-      payoutAmount: formatEther(p.payoutAmount),
-      premiumPaid: formatEther(p.premiumPaid),
-      settled: p.settled,
-    });
-  }
-  return policies;
+  const rows = await mapLimit(range(count), READ_CONCURRENCY, (i) => insurance.policies!(i));
+  return rows.map((p, i) => ({
+    id: i,
+    farmer: p.farmer,
+    windowId: Number(p.windowId),
+    droughtThresholdMm: Number(p.droughtThresholdMm),
+    payoutAmount: formatEther(p.payoutAmount),
+    premiumPaid: formatEther(p.premiumPaid),
+    settled: p.settled,
+  }));
 }
 
 export async function readOracles(): Promise<OracleData[]> {
   const aggregator = new Contract(config.aggregatorAddress, aggregatorAbi, provider);
   const count = Number(await aggregator.getOracleCount!());
-  const oracles: OracleData[] = [];
-  for (let i = 0; i < count; i++) {
+  // Two round trips per oracle; fetching them one at a time made this 8 s.
+  return mapLimit(range(count), READ_CONCURRENCY, async (i) => {
     const addr = await aggregator.oracleList!(i);
     const o = await aggregator.oracles!(addr);
-    oracles.push({
+    return {
       address: addr,
       label: o.label,
       registered: o.registered,
       reputationWeight: Number(o.reputationWeight),
-    });
-  }
-  return oracles;
+    };
+  });
 }
 
 export async function readWindows(): Promise<WindowData[]> {
   const insurance = new Contract(config.insuranceAddress, insuranceAbi, provider);
   const count = Number(await insurance.nextWindowId!());
-  const windows: WindowData[] = [];
-  for (let i = 0; i < count; i++) {
-    const w = await insurance.getCoverageWindow!(i);
-    windows.push({
-      id: i,
-      salesCloseAt: Number(w.salesCloseAt),
-      periods: w.periods.map(Number),
-    });
-  }
-  return windows;
+  const windows = await mapLimit(range(count), READ_CONCURRENCY, (i) => insurance.getCoverageWindow!(i));
+  return windows.map((w, i) => ({
+    id: i,
+    salesCloseAt: Number(w.salesCloseAt),
+    periods: w.periods.map(Number),
+  }));
 }
 
 export async function readPool(): Promise<PoolData> {
@@ -239,14 +286,23 @@ export async function readReadings(): Promise<ReadingData[]> {
 
 export async function readPolicyEvaluations(): Promise<PolicyEvaluation[]> {
   const aggregator = new Contract(config.aggregatorAddress, aggregatorAbi, provider);
-  const [policies, windows, oracles, settlements, readings, purchases] = await Promise.all([
-    readPolicies(),
-    readWindows(),
-    readOracles(),
-    readSettlements(),
-    readReadings(),
-    queryEvents(config.insuranceAddress, insuranceAbi, "PolicyCreated"),
-  ]);
+
+  // Two of these at a time, not all six at once: together they ask for 18
+  // concurrent calls, which the public gateway answers with a 429 that ethers
+  // then escalates for a couple of minutes. Bounded, the whole set is ~7 s.
+  const readers: Array<() => Promise<unknown>> = [
+    () => readPolicies(),
+    () => readWindows(),
+    () => readOracles(),
+    () => readSettlements(),
+    () => readReadings(),
+    () => queryEvents(config.insuranceAddress, insuranceAbi, "PolicyCreated"),
+  ];
+  const [policies, windows, oracles, settlements, readings, purchases] = (await mapLimit(
+    readers,
+    2,
+    (read) => read(),
+  )) as [PolicyData[], WindowData[], OracleData[], SettlementData[], ReadingData[], EventLog[]];
   const settlementOf = new Map(settlements.map((s) => [s.policyId, s]));
   const purchaseBlockOf = new Map(purchases.map((e) => [Number(e.args.policyId), e.blockNumber]));
   const periodsOf = (p: PolicyData) => windows[p.windowId]?.periods ?? [];
@@ -263,15 +319,18 @@ export async function readPolicyEvaluations(): Promise<PolicyEvaluation[]> {
     }
   }
   const blockNumbers = new Set([...purchaseBlockOf.values(), ...settlements.map((s) => s.blockNumber)]);
+  // Bounded like the reads above. Fired at once these three lists are a burst
+  // of requests, and an unbounded burst is what earned this endpoint a 429 and
+  // a multi-minute retry spiral.
   const [weights, timestamps, gasUsed] = await Promise.all([
-    Promise.all(
-      [...weightLookups].map(async ([key, { period, oracle }]) => [key, Number(await aggregator.weightForPeriod!(period, oracle))] as const)
+    mapLimit([...weightLookups], READ_CONCURRENCY, async ([key, { period, oracle }]) =>
+      [key, Number(await aggregator.weightForPeriod!(period, oracle))] as const
     ).then((entries) => new Map(entries)),
-    Promise.all([...blockNumbers].map(async (n) => [n, (await provider.getBlock(n))?.timestamp ?? 0] as const)).then(
-      (entries) => new Map(entries)
-    ),
-    Promise.all(
-      settlements.map(async (s) => [s.txHash, ((await provider.getTransactionReceipt(s.txHash))?.gasUsed ?? 0n).toString()] as const)
+    mapLimit([...blockNumbers], READ_CONCURRENCY, async (n) =>
+      [n, (await provider.getBlock(n))?.timestamp ?? 0] as const
+    ).then((entries) => new Map(entries)),
+    mapLimit(settlements, READ_CONCURRENCY, async (s) =>
+      [s.txHash, ((await provider.getTransactionReceipt(s.txHash))?.gasUsed ?? 0n).toString()] as const
     ).then((entries) => new Map(entries)),
   ]);
 

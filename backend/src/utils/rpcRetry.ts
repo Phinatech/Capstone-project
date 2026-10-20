@@ -20,11 +20,13 @@ const TRANSIENT = [
   "socket hang up",
   "bad response",
   "service unavailable",
-  "too many requests",
-  "429",
   "502",
   "503",
 ];
+
+// Deliberately absent: HTTP 429. ethers escalates those on its own schedule,
+// and wrapping them here multiplies each logical call into a dozen requests,
+// which is exactly how the endpoint got rate limited in the first place.
 
 export function isTransientRpcError(error: unknown): boolean {
   const err = error as { reason?: string; message?: string; code?: string };

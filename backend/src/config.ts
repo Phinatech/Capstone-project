@@ -48,7 +48,7 @@ export const config = {
   /** Remembers extracted CHIRPS day values so each raster is downloaded once. */
   chirpsCachePath:
     process.env.CHIRPS_CACHE_PATH?.trim() ||
-    fileURLToPath(new URL("../../data/chirps-daily-cache.json", import.meta.url)),
+    fileURLToPath(new URL("../data/chirps-daily-cache.json", import.meta.url)),
   /** How many CHIRPS rasters to fetch at once; each inflates to about 57 MB. */
   chirpsConcurrency: wholeNumber("CHIRPS_CONCURRENCY", 3, 1),
   /** RapidAPI key for Meteostat; without it the Meteostat source replays historical data. */
