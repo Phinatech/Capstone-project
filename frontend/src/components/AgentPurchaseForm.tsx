@@ -1,12 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2Icon, UserIcon } from 'lucide-react';
+import { InfoIcon, Loader2Icon, UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePolicies } from '../contexts/PolicyContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useFx } from '../contexts/FxContext';
+import { useAgentSales } from '../contexts/AgentSalesContext';
 import { coverageWindows, crops, lgas, payoutOptionsEth, premiumRate } from '../data/policies';
+import { commissionNgn, newPaymentReference } from '../utils/agentSales';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '../types/agent';
+import type { PaymentMethod } from '../types/agent';
 import { SOURCE_IDS, windowTotal } from '../utils/oracle';
 import { formatEth } from '../utils/format';
+import { formatNgn } from '../utils/currency';
 import { getFarmers } from '../utils/users';
 
 const fieldClass =
@@ -15,6 +21,7 @@ const fieldClass =
 export function AgentPurchaseForm() {
   const { balanceOf, purchasePolicy } = usePolicies();
   const { user } = useAuth();
+  const { ethToNgn, approximate, rate } = useFx();
   const balanceEth = user ? balanceOf(user.id) : 0;
   const navigate = useNavigate();
   const farmers = getFarmers();
@@ -24,6 +31,8 @@ export function AgentPurchaseForm() {
   const [windowId, setWindowId] = useState(coverageWindows[1].id);
   const [threshold, setThreshold] = useState('85');
   const [payoutEth, setPayoutEth] = useState(payoutOptionsEth[1]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentReference, setPaymentReference] = useState(newPaymentReference);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +43,11 @@ export function AgentPurchaseForm() {
   );
   const premiumEth = payoutEth * premiumRate;
   const selectedFarmer = farmers.find((f) => f.id === farmerId);
+
+  // Naira figures the farmer is quoted, locked in at the rate on screen.
+  const payoutNgn = ethToNgn(payoutEth);
+  const premiumNgn = ethToNgn(premiumEth);
+  const commissionNgnAmount = commissionNgn(premiumNgn);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,12 +68,35 @@ export function AgentPurchaseForm() {
       setError('Select a farmer to insure.');
       return;
     }
+    if (!paymentReference.trim()) {
+      setError('Enter the payment reference the farmer settled with.');
+      return;
+    }
     setError(null);
     setSubmitting(true);
     purchasePolicy(selectedFarmer.id, { lga, crop, windowId, thresholdMm, premiumEth, payoutEth }).
     then((policy) => {
+      recordSale({
+        policyId: policy.id,
+        agentId: user.id,
+        farmerId: selectedFarmer.id,
+        farmerName: selectedFarmer.name,
+        lga,
+        crop,
+        windowId,
+        thresholdMm,
+        premiumEth,
+        payoutEth,
+        premiumNgn,
+        payoutNgn,
+        commissionNgn: commissionNgnAmount,
+        ethNgnRate: rate.ethNgn,
+        paymentMethod,
+        paymentReference: paymentReference.trim(),
+        soldAt: new Date().toISOString()
+      });
       toast.success(`Policy #${policy.id} confirmed`, {
-        description: `${formatEth(policy.premiumEth)} premium paid for ${selectedFarmer.name}.`
+        description: `${formatNgn(premiumNgn)} collected from ${selectedFarmer.name}.`
       });
       navigate(`/agent/policies/${policy.id}`);
     }).
@@ -76,7 +113,7 @@ export function AgentPurchaseForm() {
         </span>
       </div>
       <p className="mt-1 text-sm text-muted">
-        You pay the premium from your wallet. The farmer receives the payout automatically if rainfall falls short.
+        Collect naira from the farmer, then pay the premium from your wallet. The farmer is paid automatically if rainfall falls short.
       </p>
 
       <label className="mt-4 block text-sm font-medium">
@@ -165,15 +202,65 @@ export function AgentPurchaseForm() {
             className={`whitespace-nowrap rounded-md border px-2 py-2 font-mono text-xs transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             payoutEth === opt ? 'border-accent bg-accent-soft text-accent-strong' : 'border-line text-ink hover:border-muted'}`
             }>
-              {formatEth(opt)}
+              <span className="block">{formatEth(opt)}</span>
+              <span className="mt-0.5 block text-[10px] font-normal opacity-70">{formatNgn(ethToNgn(opt))}</span>
             </button>
           )}
         </div>
       </fieldset>
 
-      <div className="mt-5 flex items-baseline justify-between border-t border-line pt-4">
-        <span className="text-sm text-muted">Premium due</span>
-        <span className="font-mono text-lg font-semibold">{formatEth(premiumEth)}</span>
+      <fieldset className="mt-4">
+        <legend className="text-sm font-medium">How the farmer paid you</legend>
+        <div className="mt-1.5 grid grid-cols-3 gap-2">
+          {PAYMENT_METHODS.map((m) =>
+          <button
+            key={m}
+            type="button"
+            aria-pressed={paymentMethod === m}
+            onClick={() => setPaymentMethod(m)}
+            className={`whitespace-nowrap rounded-md border px-2 py-2 text-xs transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            paymentMethod === m ? 'border-accent bg-accent-soft text-accent-strong' : 'border-line text-ink hover:border-muted'}`
+            }>
+              {PAYMENT_METHOD_LABELS[m]}
+            </button>
+          )}
+        </div>
+        <label className="mt-3 block text-sm font-medium">
+          Payment reference
+          <input
+            type="text"
+            maxLength={24}
+            className={`${fieldClass} font-mono`}
+            value={paymentReference}
+            onChange={(e) => setPaymentReference(e.target.value)}
+            placeholder="SKT-0000"
+            aria-describedby="reference-hint" />
+          <span id="reference-hint" className="mt-1.5 block text-xs font-normal text-muted">
+            Read this back to the farmer; it ties their naira payment to the policy.
+          </span>
+        </label>
+      </fieldset>
+
+      <div className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted">Farmer pays you</span>
+          <span className="font-mono text-lg font-semibold">{formatNgn(premiumNgn)}</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted">You pay on-chain</span>
+          <span className="font-mono">{formatEth(premiumEth)}</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted">Your commission (10%)</span>
+          <span className="font-mono text-clay">{formatNgn(commissionNgnAmount)}</span>
+        </div>
+        <p className="flex items-start gap-1.5 pt-1 text-xs text-muted">
+          <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          {approximate ?
+          'The exchange rate could not be refreshed, so these naira figures are approximate.' :
+          'The naira figure is fixed at the rate shown above. The contract always settles in ETH.'
+          }
+        </p>
       </div>
 
       {error &&
@@ -192,7 +279,7 @@ export function AgentPurchaseForm() {
             Confirming transaction…
           </> :
 
-        'Pay premium & buy policy'
+        `Collect ${formatNgn(premiumNgn)} & buy policy`
         }
       </button>
     </form>);

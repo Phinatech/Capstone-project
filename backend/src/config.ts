@@ -51,6 +51,17 @@ export const config = {
     fileURLToPath(new URL("../data/chirps-daily-cache.json", import.meta.url)),
   /** How many CHIRPS rasters to fetch at once; each inflates to about 57 MB. */
   chirpsConcurrency: wholeNumber("CHIRPS_CONCURRENCY", 3, 1),
+  /** Where agent sales (the naira half of each purchase) are recorded. */
+  agentSalesPath:
+    process.env.AGENT_SALES_PATH?.trim() ||
+    fileURLToPath(new URL("../data/agent-sales.json", import.meta.url)),
+  /** How long a naira exchange rate is served from cache before re-quoting. */
+  fxTtlMinutes: wholeNumber("FX_TTL_MINUTES", 15, 1),
+  /** Used when the live rate cannot be fetched, so quotes never fail outright. */
+  fxEthUsdFallback: decimalNumber("FX_ETH_USD_FALLBACK", 2_500, 1),
+  fxUsdNgnFallback: decimalNumber("FX_USD_NGN_FALLBACK", 1_400, 1),
+  /** How long each rate provider is given before the fallback is used. */
+  fxTimeoutMs: wholeNumber("FX_TIMEOUT_MS", 8_000, 500),
   /** RapidAPI key for Meteostat; without it the Meteostat source replays historical data. */
   meteostatApiKey: process.env.METEOSTAT_API_KEY?.trim() ?? "",
   /** Cloudflare Turnstile secret key; without it the verify endpoint answers 503. */
@@ -71,6 +82,16 @@ function wholeNumber(name: string, fallback: number, min: number): number {
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value < min) {
     throw new Error(`${name} must be a whole number of at least ${min}, got "${raw}"`);
+  }
+  return value;
+}
+
+function decimalNumber(name: string, fallback: number, min: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < min) {
+    throw new Error(`${name} must be a number of at least ${min}, got "${raw}"`);
   }
   return value;
 }

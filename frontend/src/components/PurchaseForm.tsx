@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { coverageWindows, crops, lgas, payoutOptionsEth, premiumRate } from '../data/policies';
 import { SOURCE_IDS, windowTotal } from '../utils/oracle';
 import { formatEth } from '../utils/format';
+import { formatNgn } from '../utils/currency';
+import { useFx } from '../contexts/FxContext';
 
 const fieldClass =
 'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
@@ -14,6 +16,7 @@ const fieldClass =
 export function PurchaseForm() {
   const { balanceOf, purchasePolicy } = usePolicies();
   const { user } = useAuth();
+  const { ethToNgn, approximate } = useFx();
   const balanceEth = user ? balanceOf(user.id) : 0;
   const navigate = useNavigate();
   const [lga, setLga] = useState(user?.lga ?? lgas[0]);
@@ -128,17 +131,23 @@ export function PurchaseForm() {
             className={`whitespace-nowrap rounded-md border px-2 py-2 font-mono text-xs transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             payoutEth === opt ? 'border-accent bg-accent-soft text-accent-strong' : 'border-line text-ink hover:border-muted'}`
             }>
-            
-              {formatEth(opt)}
+              <span className="block">{formatEth(opt)}</span>
+              <span className="mt-0.5 block text-[10px] font-normal opacity-70">{formatNgn(ethToNgn(opt))}</span>
             </button>
           )}
         </div>
       </fieldset>
 
-      <div className="mt-5 flex items-baseline justify-between border-t border-line pt-4">
+      <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-4">
         <span className="text-sm text-muted">Premium due</span>
-        <span className="font-mono text-lg font-semibold">{formatEth(premiumEth)}</span>
+        <span className="text-right">
+          <span className="font-mono text-lg font-semibold">{formatEth(premiumEth)}</span>
+          <span className="ml-2 font-mono text-sm text-muted">≈ {formatNgn(ethToNgn(premiumEth))}</span>
+        </span>
       </div>
+      {approximate &&
+      <p className="mt-1 text-xs text-muted">Naira figures are approximate: the rate could not be refreshed.</p>
+      }
 
       {error &&
       <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">

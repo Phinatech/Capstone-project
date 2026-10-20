@@ -1,5 +1,6 @@
 import { PageHeader } from '../../components/PageHeader';
 import { AgentPurchaseForm } from '../../components/AgentPurchaseForm';
+import { FxRateNote } from '../../components/FxRateNote';
 import { coverageWindows } from '../../data/policies';
 import { dekadalRainfall } from '../../data/rainfall';
 import { SOURCE_IDS, windowTotal } from '../../utils/oracle';
@@ -8,9 +9,13 @@ export function AgentBuyCover() {
   return (
     <div>
       <PageHeader
-        back={{ to: '/agent/policies', label: 'Farmers' }}
+        back={{ to: '/agent/policies', label: 'Policies you sold' }}
         title="Buy cover for a farmer"
-        description="Select a farmer, set the rainfall threshold, and pay the premium from your agent wallet. The farmer is paid automatically if the season falls short." />
+        description="Collect the premium in naira, pay it on-chain in ETH, and the farmer is paid automatically if the season falls short." />
+
+      <div className="mb-3 sm:mb-6">
+        <FxRateNote />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">

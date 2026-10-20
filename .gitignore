@@ -31,3 +31,7 @@ CLAUDE.md
 
 # Oracle feed caches (regenerated at runtime, never committed)
 backend/data/chirps-daily-cache.json
+
+# Runtime data written by the API (never commit farmer/agent records)
+backend/data/agent-sales.json
+backend/data/agent-sales.json.tmp

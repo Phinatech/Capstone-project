@@ -8,6 +8,7 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { PreferencesProvider, usePreferences } from './contexts/PreferencesContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { FxProvider } from './contexts/FxContext';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { RequireRole, RoleRedirect } from './components/layout/RequireRole';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -40,7 +41,10 @@ const Oracles = page(() => import('./pages/admin/Oracles'), 'Oracles');
 const Analytics = page(() => import('./pages/admin/Analytics'), 'Analytics');
 const Backtest = page(() => import('./pages/admin/Backtest'), 'Backtest');
 const DataModel = page(() => import('./pages/admin/DataModel'), 'DataModel');
+const AgentDashboard = page(() => import('./pages/agent/AgentDashboard'), 'AgentDashboard');
+const AgentPolicies = page(() => import('./pages/agent/AgentPolicies'), 'AgentPolicies');
 const AgentBuyCover = page(() => import('./pages/agent/AgentBuyCover'), 'AgentBuyCover');
+const AgentPolicyDetail = page(() => import('./pages/agent/AgentPolicyDetail'), 'AgentPolicyDetail');
 
 function AppRoutes() {
   const { ready } = useAuth();
@@ -110,7 +114,10 @@ function AppRoutes() {
                   <DashboardLayout />
                 </RequireRole>
               }>
+              <Route index element={<AgentDashboard />} />
+              <Route path="policies" element={<AgentPolicies />} />
               <Route path="policies/new" element={<AgentBuyCover />} />
+              <Route path="policies/:policyId" element={<AgentPolicyDetail />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<Settings />} />
@@ -146,11 +153,13 @@ export function App() {
             <ErrorBoundary fullScreen>
               <BrowserRouter>
                 <AuthProvider>
-                  <NotificationProvider>
-                    <PolicyProvider>
-                      <AppRoutes />
-                    </PolicyProvider>
-                  </NotificationProvider>
+                  <FxProvider>
+                    <NotificationProvider>
+                      <PolicyProvider>
+                        <AppRoutes />
+                      </PolicyProvider>
+                    </NotificationProvider>
+                  </FxProvider>
                 </AuthProvider>
               </BrowserRouter>
             </ErrorBoundary>

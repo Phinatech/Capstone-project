@@ -8,7 +8,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
-import { withCache } from "../utils/cache.js";
+import { getCached, setCached, withCache } from "../utils/cache.js";
+import { readFxRate, type FxRate } from "../utils/fx.js";
+import { createAgentStore, parseSale } from "../utils/agentStore.js";
 import {
   headBlock,
   readPolicies,
@@ -31,7 +33,7 @@ const POOL_TTL = 15_000;
 const SETTLEMENTS_TTL = 30_000;
 const READINGS_TTL = 30_000;
 const EVALUATIONS_TTL = 30_000;
-
+const FX_TTL = 60_000 * config.fxTtlMinutes;
 /**
  * GET handler for a cached chain read. `?minBlock=N` asks for data read at or
  * after block N, e.g. right after the caller's own transaction landed in it.
@@ -60,6 +62,102 @@ router.get("/pool", cachedRead("pool", POOL_TTL, readPool, (pool) => pool));
 router.get("/settlements", cachedRead("settlements", SETTLEMENTS_TTL, readSettlements, (settlements) => ({ settlements })));
 router.get("/readings", cachedRead("readings", READINGS_TTL, readReadings, (readings) => ({ readings })));
 router.get("/evaluations", cachedRead("evaluations", EVALUATIONS_TTL, readPolicyEvaluations, (evaluations) => ({ evaluations })));
+
+/**
+ * Naira quote used by the agent flow, where the farmer pays in local currency
+ * and the contract is paid in ETH. Not chain data, so it is cached on its own
+ * timer; a provider outage still answers, with `ethUsdSource`/`usdNgnSource`
+ * set to "fallback" so the UI can label the quote approximate.
+ */
+router.get("/fx", async (_req, res) => {
+  const cached = getCached<FxRate>("fx");
+  if (cached) {
+    res.json(cached);
+    return;
+  }
+  try {
+    const rate = await readFxRate();
+    setCached("fx", rate, FX_TTL);
+    res.json(rate);
+  } catch (err) {
+    console.error("[api] failed to read fx rate:", err);
+    res.status(502).json({ error: "Failed to read the exchange rate" });
+  }
+});
+
+// Agent sales: the naira half of a purchase, recorded so an agent's book is
+// readable from any device rather than only from the browser that sold it.
+const agentStore = createAgentStore(config.agentSalesPath);
+
+/** An optional bounded text query parameter. */
+function boundedQuery(value: unknown, max: number): string | null {
+  if (value === undefined) return "";
+  if (typeof value !== "string" || value.length > max) return null;
+  return value.trim();
+}
+
+router.get("/agent/sales", async (req, res) => {
+  const agentId = boundedQuery(req.query.agentId, 64);
+  if (agentId === null) {
+    res.status(400).json({ error: "agentId must be text of at most 64 characters" });
+    return;
+  }
+  try {
+    res.json({ sales: await agentStore.list(agentId || undefined) });
+  } catch (err) {
+    console.error("[api] failed to read agent sales:", err);
+    res.status(500).json({ error: "Failed to read agent sales" });
+  }
+});
+
+router.get("/agent/sales/:policyId", async (req, res) => {
+  const policyId = Number(req.params.policyId);
+  if (!Number.isSafeInteger(policyId) || policyId < 0) {
+    res.status(400).json({ error: "policyId must be a policy number" });
+    return;
+  }
+  try {
+    const sale = await agentStore.findByPolicy(policyId);
+    if (!sale) {
+      res.status(404).json({ error: "No sale recorded for that policy" });
+      return;
+    }
+    res.json(sale);
+  } catch (err) {
+    console.error("[api] failed to read agent sale:", err);
+    res.status(500).json({ error: "Failed to read agent sales" });
+  }
+});
+
+// Capped like the SMS route: nothing stops a non-browser client from posting,
+// so a runaway loop cannot grow the ledger without bound.
+const MAX_SALE_WRITES_PER_HOUR = 120;
+let saleWriteHour = { start: 0, written: 0 };
+
+router.post("/agent/sales", async (req, res) => {
+  const now = Date.now();
+  if (now - saleWriteHour.start >= 3_600_000) saleWriteHour = { start: now, written: 0 };
+  if (saleWriteHour.written >= MAX_SALE_WRITES_PER_HOUR) {
+    res.status(429).json({ error: "Sale recording limit for this hour reached" });
+    return;
+  }
+
+  const parsed = parseSale(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+
+  try {
+    // Upsert: re-submitting the same policy corrects it instead of duplicating.
+    saleWriteHour.written++;
+    const sale = await agentStore.upsert(parsed.sale);
+    res.status(201).json(sale);
+  } catch (err) {
+    console.error("[api] failed to record agent sale:", err);
+    res.status(500).json({ error: "Failed to record the sale" });
+  }
+});
 
 // SMS notifications. Each one costs Termii credit and goes out under our sender
 // ID, so the endpoint is off unless NOTIFY_API_KEY is set, callers must send
