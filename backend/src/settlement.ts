@@ -10,6 +10,7 @@
 import { Contract, JsonRpcProvider, Wallet } from "ethers";
 import { config } from "./config.js";
 import { readPolicies, readReadings, readWindows } from "./utils/chain.js";
+import { withRpcRetry } from "./utils/rpcRetry.js";
 
 const aggregatorAbi = [
   "function finalizePeriod(uint256 period) returns (uint256)",
@@ -32,9 +33,9 @@ async function sendIfReady(contract: Contract, method: string, arg: number, done
     if (err.code !== "CALL_EXCEPTION") throw e;
     return err.reason ?? err.shortMessage ?? "reverted";
   }
-  // A dropped connection must not cost a policy another full tick: both methods
-  // are permissionless and idempotent, so re-sending a transaction that already
-  // landed simply comes back "not ready" on the dry run below.
+  // A dropped connection must not cost a policy another full tick. Both methods
+  // are permissionless and idempotent: if the first send actually landed, the
+  // re-send below reverts deterministically and is not retried again.
   const receipt = await withRpcRetry(async () => {
     const tx = await fn(arg);
     return tx.wait();
