@@ -15,11 +15,17 @@ export interface AgentSalesContextValue {
   error: string | null;
   salesFor: (policyId: number) => AgentSale | undefined;
   /**
-   * Records a sale. Resolves `{synced:false}` instead of throwing when the API
-   * is down: the policy has already been bought on-chain, so reporting the
-   * purchase as failed would be a lie. The sale queues for a later retry.
+   * Records a sale.
+   *
+   * `synced:false, retryable:true` means an outage: the sale is queued and
+   * pushed again later, because the policy really was bought on-chain and
+   * reporting the purchase as failed would be a lie.
+   *
+   * `synced:false, retryable:false` means the backend checked the receipt
+   * against the contract and it does not match — re-posting it unchanged can
+   * never succeed, so it is *not* queued and the agent needs to be told.
    */
-  record: (sale: AgentSale) => Promise<{ synced: boolean; error?: string }>;
+  record: (sale: AgentSale) => Promise<{ synced: boolean; retryable: boolean; error?: string }>;
   refresh: () => Promise<void>;
 }
 
@@ -50,6 +56,29 @@ async function fetchSales(agentId: string): Promise<AgentSale[]> {
   return Array.isArray(body.sales) ? (body.sales as AgentSale[]) : [];
 }
 
+/**
+ * Statuses where re-posting the same receipt can never succeed: the record is
+ * well-formed (400) or the backend checked it against the contract and it is
+ * not true of the chain (422). Everything else — a network failure (0), an
+ * outage (5xx), a rate limit (429) — can work on a later attempt.
+ */
+const PERMANENT_STATUSES = new Set([400, 422]);
+
+class SaleError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof SaleError) return !PERMANENT_STATUSES.has(err.status);
+  // Not a SaleError: the request never reached the server, so nothing was
+  // evaluated and trying again is the only sensible option.
+  return true;
+}
+
 async function postSale(sale: AgentSale): Promise<void> {
   const res = await fetch(`${API_URL}/api/agent/sales`, {
     method: 'POST',
@@ -58,7 +87,7 @@ async function postSale(sale: AgentSale): Promise<void> {
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `the sales ledger answered ${res.status}`);
+    throw new SaleError(body.error ?? `the sales ledger answered ${res.status}`, res.status);
   }
 }
 
@@ -80,14 +109,18 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
 
-  /** Pushes queued sales; returns the ones the API still would not take. */
+  /** Pushes queued sales; returns the ones worth trying again later. */
   const flush = useCallback(async (queued: AgentSale[]): Promise<AgentSale[]> => {
     const failed: AgentSale[] = [];
     for (const sale of queued) {
       try {
         await postSale(sale);
-      } catch {
-        failed.push(sale);
+      } catch (err) {
+        // A receipt the backend has judged false against the contract will be
+        // judged false forever. Dropping it keeps the banner honest — it would
+        // otherwise read "2 receipts not yet recorded" for a record that can
+        // never be recorded.
+        if (isRetryable(err)) failed.push(sale);
       }
     }
     writePending(failed);
@@ -133,25 +166,33 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
     void refresh();
   }, [agentId, refresh]);
 
-  const record = useCallback(async (sale: AgentSale): Promise<{ synced: boolean; error?: string }> => {
-    try {
-      await postSale(sale);
-      if (!mounted.current) return { synced: true };
-      setSaved((prev) => [...prev.filter((s) => s.policyId !== sale.policyId), sale]);
-      setPending((prev) => {
-        const next = prev.filter((s) => s.policyId !== sale.policyId);
-        writePending(next);
-        return next;
-      });
-      return { synced: true };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'The receipt could not be saved.';
-      const queued = [...readPending().filter((s) => s.policyId !== sale.policyId), sale];
-      writePending(queued);
-      if (mounted.current) setPending(queued);
-      return { synced: false, error: message };
-    }
-  }, []);
+  const record = useCallback(
+    async (sale: AgentSale): Promise<{ synced: boolean; retryable: boolean; error?: string }> => {
+      try {
+        await postSale(sale);
+        if (!mounted.current) return { synced: true, retryable: true };
+        setSaved((prev) => [...prev.filter((s) => s.policyId !== sale.policyId), sale]);
+        setPending((prev) => {
+          const next = prev.filter((s) => s.policyId !== sale.policyId);
+          writePending(next);
+          return next;
+        });
+        return { synced: true, retryable: true };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'The receipt could not be saved.';
+        if (!isRetryable(err)) {
+          // Queuing this would just fail the same way on every load. The policy
+          // exists on-chain either way, so surface it instead of hiding it.
+          return { synced: false, retryable: false, error: message };
+        }
+        const queued = [...readPending().filter((s) => s.policyId !== sale.policyId), sale];
+        writePending(queued);
+        if (mounted.current) setPending(queued);
+        return { synced: false, retryable: true, error: message };
+      }
+    },
+    []
+  );
 
   const value = useMemo<AgentSalesContextValue>(() => {
     const sales = [...saved, ...pending];

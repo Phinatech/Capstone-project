@@ -3,7 +3,7 @@
 **Date:** 2026-09-25 · **Scope:** `frontend/` (~140 files: React 18 + Vite 5 + TS + Tailwind + react-router 6)
 **Method:** manual review of auth/storage/config code, pattern sweeps (`dangerouslySetInnerHTML`, `eval`, storage, secrets, `_blank`), `npm audit`, typecheck + production build verification.
 
-**Summary: 0 critical, 2 high, 3 medium, 4 low findings.**
+**Summary: 0 critical, 2 high, 4 medium, 4 low findings.**
 The big picture: this is a **client-side demo app** — all authentication,
 users, and "payouts" live in the browser. That's fine for a capstone demo,
 but the auth *looks* real (Google button, Turnstile, password rules), which
@@ -19,6 +19,7 @@ toolchain has drifted from the template it came from.
 | F-3 | MEDIUM | Passwords "hashed" with FNV-1a (not a password hash) |
 | F-4 | MEDIUM | Build passes with failing typechecks (`tsc` not in build) |
 | F-5 | MEDIUM | 4 dependency advisories (1 high: Vite path traversal, dev-only) |
+| F-10 | MEDIUM | Agent sales ledger is written through an unauthenticated endpoint |
 | F-6 | LOW | Swapping in a real Turnstile key will hard-lock every user out |
 | F-7 | LOW | Template leftovers: wrong favicon, stale names, dead nested package.json |
 | F-8 | LOW | Lint script has no ESLint config; no test script |
@@ -144,6 +145,76 @@ another site — phishing risk at most).
 and react-router-dom 6 → 7.18.4 (no patched 6.x exists). All 17 routes were
 re-checked in a headless browser after the upgrade.
 
+### F-10 — Agent sales ledger is written through an unauthenticated endpoint
+
+**Location:** `src/contexts/AgentSalesContext.tsx` (the frontend's only caller) → `POST /api/agent/sales`, served by `backend/src/routes/api.ts` and `backend/src/utils/agentStore.ts`. The endpoint itself sits in `backend/`, outside this audit's nominal scope, but it is the frontend's data layer for the agent flow.
+
+Agent receipts used to live in `localStorage`, readable only from the browser
+that took them. They now go to the backend, so one agent's book reads the same
+from any device. That fixed the record's availability; **who may write it is not
+addressed anywhere**:
+
+- **Any client can post under any `agentId`.** `POST /api/agent/sales` carries
+  no session, token or signature — the only gate is CORS enforcement of
+  `CORS_ORIGINS`, which constrains browsers and nothing else. `GET` likewise
+  returns whichever agent's book is named in the query string, with nothing
+  tying that name to the caller. This is the concrete arrival of F-1's warning:
+  roles are still decided entirely in the browser, now with a write path behind
+  them.
+- **The naira figures are consistent only by courtesy.** `parseSale` validates
+  each field independently — `premiumNgn`, `premiumEth` and `ethNgnRate` are
+  each checked on their own, so `premiumNgn: 1` alongside `premiumEth: 0.01` at
+  a rate of 3,261,222 is accepted. Nothing reconciles a receipt against the
+  policy the chain actually recorded, which is the one source the agent cannot
+  edit.
+- **Receipts are overwritten, not appended.** The upsert keys on `policyId`, so
+  re-posting an existing policy silently replaces its payment method, reference,
+  amounts and timestamp. A correction leaves no trace of what it corrected.
+
+**Bounded impact.** None of these figures can be spent anywhere, writes are
+capped at 120/hour, and `commissionNgn` is recomputed server-side rather than
+accepted from the client — but that only stops a client setting the field
+directly. Inflating the `premiumNgn` it is derived from inflates the commission
+with it: verified, `premiumNgn: 1000000` is accepted (201) and stored as
+`commissionNgn: 100000`. So the record is exactly as trustworthy as the
+`premiumNgn` posted beside it, and nothing checks that against the chain. These
+are, however, precisely the figures a report would quote as evidence of agent
+activity — which is the claim this endpoint exists to support.
+
+**Recommendation:** (1) *the cheap half, do now* — have the server verify a
+posted sale against data it already reads: `policyId` must exist in
+`readPolicies`, `premiumEth`/`payoutEth` must match the values the contract
+recorded, and `premiumNgn` must equal `premiumEth × ethNgnRate` within rounding;
+(2) *the real half, tracked with F-1* — put these routes behind the server-side
+session that finding already calls for, so `agentId` comes from an
+authenticated principal instead of the request body; (3) make the ledger
+append-only, or retain superseded records, so a corrected receipt does not erase
+the original.
+
+**Status (2026-10-21): Partly resolved.** Recommendation (1) now lands. The
+route reads the policy a receipt claims and rejects it with **422** when the
+contract disagrees: `policyForSale` in `backend/src/routes/api.ts` resolves the
+id (re-reading the chain once if the shared cache predates the purchase, so an
+honest receipt is never refused for being new), and `verifySaleAgainstPolicy` in
+`backend/src/utils/saleVerification.ts` checks `premiumEth`, `payoutEth` and
+`thresholdMm` against what the contract recorded, plus that both naira figures
+follow from the ETH at the rate the sale quotes. 11 tests cover it in
+`backend/src/saleVerification.test.ts`, including the case that motivates it: a
+10× `premiumNgn` is caught, and since `commissionNgn` is derived server-side
+from `premiumNgn`, that is what closes the inflation path.
+
+Two behaviours are deliberate. A chain read that fails answers **503**, not
+**422** — nothing was written, so the client queues the receipt for a later
+retry (the `retryable` flag on `AgentSalesContext.record`), because reporting a
+real on-chain purchase as failed would be a lie. A receipt that fails
+verification is *not* queued: re-posting it unchanged can never succeed, so
+`AgentPurchaseForm` shows "receipt rejected" and asks the agent to escalate
+rather than leaving the sync banner stuck on a count it can never clear. Neither
+outcome writes to the ledger.
+
+Remainder: (2), authenticating the principal so `agentId` cannot be claimed, and
+(3), append-only records, are untouched — so the finding stays MEDIUM.
+
 ## Low severity
 
 ### F-6 — Swapping in a real Turnstile key will hard-lock every user out
@@ -249,5 +320,11 @@ data are simulated.
    honest UI before anything ships.
 3. **F-5** (1 hr): `npm audit fix`, bump vite 5.x.
 4. **F-6/F-7/F-9** (2 hr): cleanup pass before demo day.
-5. **F-1 for real** (when auth becomes real): server-side sessions, backend
-   endpoints in `backend/`, delete demo credentials from the bundle.
+5. ~~**F-10 cheap half** (1 hr): check posted sales against the chain
+   (`policyId` exists, `premiumEth`/`payoutEth` match `readPolicies`,
+   `premiumNgn = premiumEth × ethNgnRate`) — makes the agent ledger trustworthy
+   before real auth exists.~~ **Done 2026-10-21**, so the ledger can be trusted
+   against a malicious agent; the second half below is what remains.
+6. **F-1 for real** (when auth becomes real): server-side sessions, backend
+   endpoints in `backend/`, delete demo credentials from the bundle — F-10's
+   second half falls out of this.

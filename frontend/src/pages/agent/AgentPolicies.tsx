@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowUpRightIcon, FileTextIcon } from 'lucide-react';
 import { PageHeader } from '../../components/PageHeader';
 import { FxRateNote } from '../../components/FxRateNote';
+import { LedgerSyncBanner } from '../../components/LedgerSyncBanner';
 import { StatusBadge } from '../../components/StatusBadge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { FilterBar } from '../../components/ui/FilterBar';

@@ -9,6 +9,7 @@ import { I18nProvider, useI18n } from './contexts/I18nContext';
 import { PreferencesProvider, usePreferences } from './contexts/PreferencesContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { FxProvider } from './contexts/FxContext';
+import { AgentSalesProvider } from './contexts/AgentSalesContext';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { RequireRole, RoleRedirect } from './components/layout/RequireRole';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -153,13 +154,15 @@ export function App() {
             <ErrorBoundary fullScreen>
               <BrowserRouter>
                 <AuthProvider>
-                  <FxProvider>
-                    <NotificationProvider>
-                      <PolicyProvider>
-                        <AppRoutes />
-                      </PolicyProvider>
-                    </NotificationProvider>
-                  </FxProvider>
+                  <AgentSalesProvider>
+                    <FxProvider>
+                      <NotificationProvider>
+                        <PolicyProvider>
+                          <AppRoutes />
+                        </PolicyProvider>
+                      </NotificationProvider>
+                    </FxProvider>
+                  </AgentSalesProvider>
                 </AuthProvider>
               </BrowserRouter>
             </ErrorBoundary>

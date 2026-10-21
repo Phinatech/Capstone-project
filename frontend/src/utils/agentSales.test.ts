@@ -1,24 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   agentBook,
   commissionNgn,
-  getAgentSales,
-  getSaleForPolicy,
+  COMMISSION_RATE,
   newPaymentReference,
-  recordSale,
   summariseBook
 } from './agentSales';
 import type { AgentSale } from './agentSales';
 import type { Policy } from '../types/insurance';
-
-// The ledger persists to localStorage, which the node test environment lacks.
-const backing = new Map<string, string>();
-vi.stubGlobal('window', {
-  localStorage: {
-    getItem: (key: string) => backing.get(key) ?? null,
-    setItem: (key: string, value: string) => void backing.set(key, value)
-  }
-});
 
 function sale(overrides: Partial<AgentSale> = {}): AgentSale {
   return {
@@ -29,7 +18,7 @@ function sale(overrides: Partial<AgentSale> = {}): AgentSale {
     lga: 'Wamakko',
     crop: 'Millet',
     windowId: 'julaug',
-    thresholdMm: 85,
+    thresholdMm: 300,
     premiumEth: 0.01,
     payoutEth: 0.1,
     premiumNgn: 32_612,
@@ -37,85 +26,98 @@ function sale(overrides: Partial<AgentSale> = {}): AgentSale {
     commissionNgn: 3_261,
     ethNgnRate: 3_261_222,
     paymentMethod: 'cash',
-    paymentReference: 'SKT-1234',
+    paymentReference: 'SKT-4821',
     soldAt: '2026-10-20T10:00:00.000Z',
     ...overrides
   };
 }
 
-beforeEach(() => backing.clear());
+const policyOf = (id: number, status: Policy['status']) => ({ id, status }) as Policy;
 
-describe('agent sales ledger', () => {
-  it('takes ten percent of the premium as commission', () => {
+describe('commission', () => {
+  it('takes ten percent of the premium', () => {
     expect(commissionNgn(32_612)).toBeCloseTo(3_261.2);
     expect(commissionNgn(0)).toBe(0);
   });
 
-  it('reads a sale back by policy id, and hides it from other agents', () => {
-    recordSale(sale());
-    expect(getSaleForPolicy(1)?.farmerName).toBe('Amina Bello');
-    expect(getAgentSales('agent-1')).toHaveLength(1);
-    expect(getAgentSales('agent-2')).toHaveLength(0);
+  // The backend recomputes commission from its own rate rather than trusting
+  // the client, so a drift between the two would misreport every receipt.
+  it('uses the same rate the backend applies', () => {
+    expect(COMMISSION_RATE).toBe(0.1);
+  });
+});
+
+describe('newPaymentReference', () => {
+  it('produces codes an agent can read out loud', () => {
+    const refs = Array.from({ length: 300 }, () => newPaymentReference());
+    expect(refs.every((r) => /^SKT-\d{4}$/.test(r))).toBe(true);
+    expect(new Set(refs).size).toBeGreaterThan(1);
+  });
+});
+
+describe('agentBook', () => {
+  it('joins each sale to its live policy status', () => {
+    const book = agentBook(
+      [sale({ policyId: 7 }), sale({ policyId: 9 })],
+      [policyOf(7, 'paid')]
+    );
+    expect(book).toHaveLength(2);
+    expect(book.find((e) => e.sale.policyId === 7)?.policy?.status).toBe('paid');
+    expect(book.find((e) => e.sale.policyId === 9)?.policy).toBeUndefined();
   });
 
-  it('replaces a sale rather than duplicating it when the same policy is re-recorded', () => {
-    recordSale(sale());
-    recordSale(sale({ premiumNgn: 40_000 }));
-    expect(getAgentSales('agent-1')).toHaveLength(1);
-    expect(getSaleForPolicy(1)?.premiumNgn).toBe(40_000);
+  it('orders the newest sale first regardless of input order', () => {
+    const book = agentBook([
+      sale({ policyId: 1, soldAt: '2026-10-01T10:00:00.000Z' }),
+      sale({ policyId: 3, soldAt: '2026-10-25T10:00:00.000Z' }),
+      sale({ policyId: 2, soldAt: '2026-10-10T10:00:00.000Z' })
+    ], []);
+    expect(book.map((e) => e.sale.policyId)).toEqual([3, 2, 1]);
   });
 
-  it('lists the newest sale first', () => {
-    recordSale(sale({ policyId: 1, soldAt: '2026-10-01T10:00:00.000Z' }));
-    recordSale(sale({ policyId: 2, soldAt: '2026-10-20T10:00:00.000Z' }));
-    expect(getAgentSales('agent-1').map((s) => s.policyId)).toEqual([2, 1]);
-  });
-
-  it('hands out readable, unique payment references', () => {
-    const refs = new Set(Array.from({ length: 200 }, () => newPaymentReference()));
-    expect([...refs].every((r) => /^SKT-\d{4}$/.test(r))).toBe(true);
-    expect(refs.size).toBeGreaterThan(1);
+  it('does not mutate the sales it was handed', () => {
+    const sales = [sale({ policyId: 1, soldAt: '2026-10-01T10:00:00.000Z' }),
+      sale({ policyId: 2, soldAt: '2026-10-20T10:00:00.000Z' })];
+    agentBook(sales, []);
+    expect(sales.map((s) => s.policyId)).toEqual([1, 2]);
   });
 });
 
 describe('summariseBook', () => {
-  const policyOf = (status: Policy['status']) => ({ status }) as Policy;
-
   it('counts a farmer once however many policies they bought', () => {
-    recordSale(sale({ policyId: 1, farmerId: 'farmer-1', premiumNgn: 10_000, payoutNgn: 100_000 }));
-    recordSale(sale({ policyId: 2, farmerId: 'farmer-2', premiumNgn: 10_000, payoutNgn: 100_000 }));
-    recordSale(sale({ policyId: 3, farmerId: 'farmer-1', premiumNgn: 10_000, payoutNgn: 100_000 }));
+    // commissionNgn is stored per sale (the backend computes it), so the
+    // overrides keep it consistent with their premium.
+    const book = agentBook([
+      sale({ policyId: 1, farmerId: 'farmer-1', premiumNgn: 10_000, commissionNgn: 1_000, payoutNgn: 100_000 }),
+      sale({ policyId: 2, farmerId: 'farmer-2', premiumNgn: 10_000, commissionNgn: 1_000, payoutNgn: 100_000 }),
+      sale({ policyId: 3, farmerId: 'farmer-1', premiumNgn: 10_000, commissionNgn: 1_000, payoutNgn: 100_000 })
+    ], []);
 
-    const summary = summariseBook(agentBook([], 'agent-1'));
+    const summary = summariseBook(book);
     expect(summary.policiesSold).toBe(3);
     expect(summary.farmersInsured).toBe(2);
     expect(summary.premiumNgn).toBe(30_000);
     expect(summary.coverSoldNgn).toBe(300_000);
+    expect(summary.commissionNgn).toBeCloseTo(3_000);
   });
 
   it('only counts naira paid out once a policy has actually been paid', () => {
-    const book = [
-      { sale: sale({ policyId: 1, payoutNgn: 100 }), policy: policyOf('paid') },
-      { sale: sale({ policyId: 2, payoutNgn: 50 }), policy: policyOf('active') },
-      { sale: sale({ policyId: 3, payoutNgn: 25 }), policy: policyOf('no_payout') }
-    ];
-    expect(summariseBook(book).paidOutNgn).toBe(100);
-  });
+    const book = agentBook([
+      sale({ policyId: 1, payoutNgn: 100 }),
+      sale({ policyId: 2, payoutNgn: 50 }),
+      sale({ policyId: 3, payoutNgn: 25 })
+    ], [policyOf(1, 'paid'), policyOf(2, 'active'), policyOf(3, 'no_payout')]);
 
-  it('matches a policy to its ledger entry through agentBook', () => {
-    recordSale(sale({ policyId: 7, farmerId: 'farmer-4' }));
-    const policies = [{ id: 7, status: 'paid' }] as unknown as Policy[];
-    const book = agentBook(policies, 'agent-1');
-    expect(book).toHaveLength(1);
-    expect(book[0].policy?.status).toBe('paid');
-    expect(summariseBook(book).paidOutNgn).toBe(book[0].sale.payoutNgn);
+    expect(summariseBook(book).paidOutNgn).toBe(100);
   });
 
   it('reports zeroes rather than NaN for an empty book', () => {
     const summary = summariseBook([]);
     expect(summary.policiesSold).toBe(0);
     expect(summary.farmersInsured).toBe(0);
+    expect(summary.premiumEth).toBe(0);
     expect(summary.premiumNgn).toBe(0);
+    expect(summary.coverSoldNgn).toBe(0);
     expect(summary.paidOutNgn).toBe(0);
   });
 });

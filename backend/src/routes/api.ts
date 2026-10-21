@@ -11,6 +11,8 @@ import { config } from "../config.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { createAgentStore, parseSale } from "../utils/agentStore.js";
+import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
+import type { PolicyData } from "../utils/chain.js";
 import {
   headBlock,
   readPolicies,
@@ -134,6 +136,27 @@ router.get("/agent/sales/:policyId", async (req, res) => {
 const MAX_SALE_WRITES_PER_HOUR = 120;
 let saleWriteHour = { start: 0, written: 0 };
 
+/**
+ * The policy a sale claims to describe.
+ *
+ * Served from the shared cache first. A purchase can land after that cache was
+ * filled, so a miss re-reads the chain once — reporting "no such policy" for a
+ * policy the caller just bought would reject an honest receipt. The re-read is
+ * published back to the cache so repeated misses stop costing a round trip.
+ */
+async function policyForSale(policyId: number): Promise<PolicyData | undefined> {
+  const cached = await withCache("policies", POLICIES_TTL, readPolicies, { headBlock });
+  const known = cached.find((p) => p.id === policyId);
+  if (known) return known;
+
+  // Capture the head before reading: a block recorded after the read would
+  // claim coverage it does not have, which is the dangerous direction.
+  const block = await headBlock();
+  const fresh = await readPolicies();
+  setCached("policies", fresh, POLICIES_TTL, block);
+  return fresh.find((p) => p.id === policyId);
+}
+
 router.post("/agent/sales", async (req, res) => {
   const now = Date.now();
   if (now - saleWriteHour.start >= 3_600_000) saleWriteHour = { start: now, written: 0 };
@@ -148,9 +171,30 @@ router.post("/agent/sales", async (req, res) => {
     return;
   }
 
+  // Charged against the cap before the chain read, so the expensive step is
+  // the one the limit actually bounds.
+  saleWriteHour.written++;
+
+  let policy: PolicyData | undefined;
+  try {
+    policy = await policyForSale(parsed.sale.policyId);
+  } catch (err) {
+    // Nothing was written, so the caller can safely retry later.
+    console.error("[api] could not verify a sale against the chain:", err);
+    res.status(503).json({ error: "Could not verify this sale against the contract; try again shortly" });
+    return;
+  }
+
+  // 422, not 400: the record is well-formed but not true of the chain. Retrying
+  // unchanged will never make it accepted, so the client must not queue it.
+  const verified = verifySaleAgainstPolicy(parsed.sale, policy);
+  if (!verified.ok) {
+    res.status(422).json({ error: verified.error });
+    return;
+  }
+
   try {
     // Upsert: re-submitting the same policy corrects it instead of duplicating.
-    saleWriteHour.written++;
     const sale = await agentStore.upsert(parsed.sale);
     res.status(201).json(sale);
   } catch (err) {

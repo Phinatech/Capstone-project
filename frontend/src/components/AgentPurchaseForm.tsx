@@ -22,6 +22,7 @@ export function AgentPurchaseForm() {
   const { balanceOf, purchasePolicy } = usePolicies();
   const { user } = useAuth();
   const { ethToNgn, approximate, rate } = useFx();
+  const { record } = useAgentSales();
   const balanceEth = user ? balanceOf(user.id) : 0;
   const navigate = useNavigate();
   const farmers = getFarmers();
@@ -75,8 +76,8 @@ export function AgentPurchaseForm() {
     setError(null);
     setSubmitting(true);
     purchasePolicy(selectedFarmer.id, { lga, crop, windowId, thresholdMm, premiumEth, payoutEth }).
-    then((policy) => {
-      recordSale({
+    then(async (policy) => {
+      const saved = await record({
         policyId: policy.id,
         agentId: user.id,
         farmerId: selectedFarmer.id,
@@ -95,9 +96,26 @@ export function AgentPurchaseForm() {
         paymentReference: paymentReference.trim(),
         soldAt: new Date().toISOString()
       });
-      toast.success(`Policy #${policy.id} confirmed`, {
-        description: `${formatNgn(premiumNgn)} collected from ${selectedFarmer.name}.`
-      });
+
+      // The policy is on-chain either way, so only the receipt's fate differs.
+      if (saved.synced) {
+        toast.success(`Policy #${policy.id} confirmed`, {
+          description: `${formatNgn(premiumNgn)} collected from ${selectedFarmer.name}.`
+        });
+      } else if (saved.retryable) {
+        toast.warning(`Policy #${policy.id} bought — receipt pending sync`, {
+          description: `Saved on this device and retried automatically. ${saved.error ?? ''}`,
+          duration: 12_000
+        });
+      } else {
+        // The backend checked the receipt against the contract and it did not
+        // match. The cover is real, so do not pretend the sale failed — but the
+        // agent must escalate rather than quietly move on.
+        toast.error(`Policy #${policy.id} bought — receipt rejected`, {
+          description: `${saved.error ?? 'The receipt did not match the contract.'} The cover exists on-chain; tell your supervisor.`,
+          duration: 20_000
+        });
+      }
       navigate(`/agent/policies/${policy.id}`);
     }).
     catch((err: unknown) => setError(err instanceof Error ? err.message : 'The purchase failed. Try again.')).
