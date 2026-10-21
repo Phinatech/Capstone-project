@@ -41,6 +41,39 @@ services:
       # The frontend's address, e.g. https://sokoto-cover.pages.dev
       - key: CORS_ORIGINS
         sync: false
+      # --- Server-side auth (F-1) ---
+      # The site is served over HTTPS, so the session cookie must carry Secure.
+      # With this false the cookie still works but would also be sent over
+      # plain HTTP, which nothing in production should allow.
+      - key: SECURE_COOKIES
+        value: "true"
+      # ID tokens are verified against this audience, so it must be the same
+      # OAuth client the frontend renders the Google button for. A client id is
+      # public by design — it ships in every page that renders the button — so
+      # this is not a secret and is safe in the file.
+      - key: GOOGLE_CLIENT_ID
+        value: "207080296274-lh5pae0hs5svb7tf22p5fldlfrtinsk8.apps.googleusercontent.com"
+      # DEMO AFFORDANCES. Both default to *off* in the code, so a fresh clone of
+      # this repository seeds no accounts and serves no credentials — which is
+      # what you want by default, and is also what breaks a deployed demo if
+      # you forget. This project ships as a demo, so both are on here.
+      #   ACCOUNTS seeds the six demo logins and serves
+      #     GET /api/demo-credentials to the sign-in panel.
+      #   CODES returns verification codes and reset tokens in the response,
+      #     because no mail service sends them. Turning it off means a new
+      #     sign-up cannot get past /verify-email at all. Never enable on
+      #     anything a real user signs in to: anyone could then complete a
+      #     password reset for any account without touching that inbox.
+      - key: AUTH_DEMO_ACCOUNTS
+        value: "true"
+      - key: AUTH_DEMO_CODES
+        value: "true"
+      # Deliberately not set: USERS_PATH / SESSIONS_PATH / SESSION_COOKIE_NAME
+      # all have working defaults (backend/data/*.json, sokoto_cover_session).
+      # Render's free plan has an ephemeral disk, so both files are recreated on
+      # every deploy and every15-minute sleep. That is survivable by design:
+      # seeding runs at boot, so the demo accounts come back on their own, and
+      # anyone who was signed in simply signs in again.
       # Optional: leave empty to keep the demo Turnstile key and SMS off
       - key: TURNSTILE_SECRET_KEY
         sync: false
