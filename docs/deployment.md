@@ -34,6 +34,17 @@ every push.
    | `CORS_ORIGINS` | `http://localhost:5173` for now; step 3 changes it |
    | `TURNSTILE_SECRET_KEY`, `NOTIFY_API_KEY`, `TERMINII_API_KEY`, `TERMINII_SENDER_ID` | leave empty for now |
 
+   The auth variables — `SECURE_COOKIES`, `GOOGLE_CLIENT_ID`,
+   `AUTH_DEMO_ACCOUNTS`, `AUTH_DEMO_CODES` — are plain values written into
+   `render.yaml`, so they come across with the Blueprint and you are not asked
+   for them. Both demo flags are **on** there, and that is what makes the
+   deployed demo usable: with `AUTH_DEMO_ACCOUNTS` off nothing is seeded, so
+   the sign-in panel is empty and no account exists to sign in with; with
+   `AUTH_DEMO_CODES` off a new sign-up has no way to read its verification
+   code, because there is no mail service to send one. If the live site starts
+   refusing every sign-in, check those two first — they default to off in the
+   code, which is the safe choice for a clone and the wrong one for this demo.
+
 4. **Apply**. The first build takes a few minutes. The service's **Logs** should
    show `[api] listening on …` and
    `[relayer] started: 3 source(s) and settlement, every 60 min`.
@@ -58,19 +69,39 @@ every push.
    | Variable | Value |
    |----------|-------|
    | `NODE_VERSION` | `22` |
-   | `VITE_API_URL` | the Render URL from step 1, without a trailing slash |
+   | `VITE_API_URL` | **leave empty** — see the note below |
+   | `API_URL` | the Render URL from step 1, without a trailing slash |
    | `VITE_RPC_URL` | `https://ethereum-sepolia-rpc.publicnode.com` (keyless, so no API key ends up in the public site) |
    | `VITE_ORACLE_AGGREGATOR_ADDRESS` | `0x1b595A484A0a26eaC8764307c19bbfDaA2E4aDE1` |
    | `VITE_WEATHER_INDEX_INSURANCE_ADDRESS` | `0x8520A0697D018a380a91CB65096AB50F5B65D6D5` |
+
+   **Why `VITE_API_URL` is empty.** It used to hold the Render URL, which made
+   every API call cross-origin — and a cross-origin call does not carry a
+   `SameSite=Lax` session cookie, so sign-in would return 200, drop the cookie,
+   and bounce you straight back to the sign-in page. It is empty now so the
+   frontend calls relative paths, which `functions/api/[[path]].js` forwards to
+   Render over Cloudflare's own network. The browser only ever sees
+   `*.pages.dev`, the cookie stays first-party, and the session works.
+
+   If you ever set `VITE_API_URL` again, you bypass that function and
+   reintroduce the problem — leave it empty.
 
 4. **Save and Deploy**. The site is at `https://<project>.pages.dev`.
 
 ## 3. Connect them
 
-In Render, open the service's **Environment**, set `CORS_ORIGINS` to the
-Pages address (e.g. `https://sokoto-cover.pages.dev`) and save; Render
-redeploys. Open the site and sign in: the sidebar should say **Sepolia
-testnet**, not "Simulated data".
+`CORS_ORIGINS` no longer carries the connection. The Pages Function forwards
+server-to-server, so the browser never talks to Render and the API's CORS list
+is not involved; leave the variable as it is, since it only matters again if
+you start calling the API directly from a browser.
+
+Open the site and sign in with an account from the panel on the sign-in page.
+The sidebar should say **Sepolia testnet**, not "Simulated data".
+
+**Only one relayer may run.** The Blueprint turns `RELAYER_ENABLED` on for the
+Render service, so your local backend must have `RELAYER_ENABLED=false` and be
+stopped. Two relayers submitting with the same keeper key is how nonce
+conflicts happen, and it looks exactly like a stuck oracle.
 
 ## 4. Keep the backend awake
 
