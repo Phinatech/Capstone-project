@@ -14,7 +14,7 @@ import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useCaptcha } from '../hooks/useCaptcha';
 import { homePath, isValidEmail } from '../utils/users';
-import type { DemoCredential } from '../data/demoCredentials';
+import type { DemoCredential } from '../components/auth/DemoCredentials';
 import type { TranslationKey } from '../data/translations';
 
 type FieldErrors = Partial<Record<'email' | 'password' | 'captcha', TranslationKey>>;
@@ -30,7 +30,9 @@ export function SignIn() {
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [formError, setFormError] = useState<TranslationKey | null>(null);
+  // `AuthError.key` is a key when we have one and the server's own wording
+  // when we do not, so this holds either.
+  const [formError, setFormError] = useState<TranslationKey | string | null>(null);
   const captcha = useCaptcha(() => setErrors((e) => ({ ...e, captcha: undefined })));
 
   if (user && !submitting) return <Navigate to={homePath(user)} replace />;

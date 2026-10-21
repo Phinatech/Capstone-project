@@ -66,8 +66,42 @@ export const config = {
   meteostatApiKey: process.env.METEOSTAT_API_KEY?.trim() ?? "",
   /** Cloudflare Turnstile secret key; without it the verify endpoint answers 503. */
   turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY?.trim() ?? "",
+  /**
+   * Server-side auth (F-1).
+   *
+   * Users, sessions and password hashes live here rather than in the
+   * browser's localStorage. The two `demo*` flags default to **off** so a
+   * fresh clone is safe by default; they are switched on in `backend/.env`
+   * for the demo, and must be off for anything a real user touches.
+   */
+  usersPath:
+    process.env.USERS_PATH?.trim() ||
+    fileURLToPath(new URL("../data/users.json", import.meta.url)),
+  sessionsPath:
+    process.env.SESSIONS_PATH?.trim() ||
+    fileURLToPath(new URL("../data/sessions.json", import.meta.url)),
+  sessionCookieName: process.env.SESSION_COOKIE_NAME?.trim() || "sokoto_cover_session",
+  /**
+   * Session cookies carry the id, so over HTTPS they must be Secure. In
+   * development the UI is served from Vite's dev server over plain http and
+   * the cookie is same-origin through the proxy, where Lax alone is enough.
+   */
+  secureCookies: process.env.SECURE_COOKIES?.trim().toLowerCase() === "true",
+  /** Google Client ID; without it Google sign-in answers 503. */
+  googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() ?? "",
+  /** Returns verification codes and reset tokens in the response (no mail service). */
+  demoAuthCodes: process.env.AUTH_DEMO_CODES?.trim().toLowerCase() === "true",
+  /** Serves GET /api/demo-credentials so the sign-in page can list demo logins. */
+  demoAccounts: process.env.AUTH_DEMO_ACCOUNTS?.trim().toLowerCase() === "true",
+  /** Minimum length accepted at sign-up and on password change. */
+  minPasswordLength: wholeNumber("MIN_PASSWORD_LENGTH", 8, 6),
   /** Secret callers of POST /api/notify/sms must send; empty keeps SMS off. */
   notifyApiKey: process.env.NOTIFY_API_KEY?.trim() ?? "",
+  /** Telegram bot (from @BotFather) and chat that get a message for every policy bought or settled. */
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN?.trim() ?? "",
+  telegramChatId: process.env.TELEGRAM_CHAT_ID?.trim() ?? "",
+  /** Block explorer the notifications link transactions to. */
+  explorerUrl: (process.env.EXPLORER_URL?.trim() || "https://sepolia.etherscan.io").replace(/\/+$/, ""),
   /** Browser origins allowed to call the API, comma-separated. */
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
     .split(",")

@@ -3,27 +3,34 @@
 **Date:** 2026-09-25 · **Scope:** `frontend/` (~140 files: React 18 + Vite 5 + TS + Tailwind + react-router 6)
 **Method:** manual review of auth/storage/config code, pattern sweeps (`dangerouslySetInnerHTML`, `eval`, storage, secrets, `_blank`), `npm audit`, typecheck + production build verification.
 
-**Summary: 0 critical, 2 high, 4 medium, 4 low findings.**
-The big picture: this is a **client-side demo app** — all authentication,
-users, and "payouts" live in the browser. That's fine for a capstone demo,
-but the auth *looks* real (Google button, Turnstile, password rules), which
-is itself a risk. Two genuine high-severity issues: **demo auth pretending to
-be production auth** and **the Turnstile CAPTCHA is Cloudflare's always-pass
-test key**. Separately, the build ships with **failing typechecks** and the
-toolchain has drifted from the template it came from.
+**Summary: 0 critical, 2 high, 4 medium, 4 low findings. 7 resolved, 3 partly
+resolved — each finding carries its own dated status below.**
 
-| ID | Severity | Title |
-|------|----------|-------|
-| F-1 | HIGH | Client-side mock auth controls "production" role gating |
-| F-2 | HIGH | CAPTCHA is Cloudflare's always-pass test key |
-| F-3 | MEDIUM | Passwords "hashed" with FNV-1a (not a password hash) |
-| F-4 | MEDIUM | Build passes with failing typechecks (`tsc` not in build) |
-| F-5 | MEDIUM | 4 dependency advisories (1 high: Vite path traversal, dev-only) |
-| F-10 | MEDIUM | Agent sales ledger is written through an unauthenticated endpoint |
-| F-6 | LOW | Swapping in a real Turnstile key will hard-lock every user out |
-| F-7 | LOW | Template leftovers: wrong favicon, stale names, dead nested package.json |
-| F-8 | LOW | Lint script has no ESLint config; no test script |
-| F-9 | LOW | Root docs describe a different frontend than the one on disk |
+The big picture when this was written: a **client-side demo app** — all
+authentication, users, and "payouts" lived in the browser. The auth *looked*
+real (Google button, Turnstile, password rules), which is itself a risk. Two
+genuine high-severity issues: **demo auth pretending to be production auth**
+and **the Turnstile CAPTCHA being Cloudflare's always-pass test key**.
+
+The headline change since: **F-1 closed on 2026-10-21.** Sessions, passwords,
+roles and Google ID-token verification all moved into `backend/`, the demo
+credentials left the JS bundle, and the agent ledger took its identity from the
+same session (F-10's second half). What remains open is narrower: server-side
+Turnstile on sign-in (F-2), frontend tests for auth and `RequireRole` (F-8),
+and append-only agent records (F-10's third half).
+
+| ID | Severity | Title | Status |
+|------|----------|-------|--------|
+| F-1 | HIGH | Client-side mock auth controls "production" role gating | **Resolved 2026-10-21** |
+| F-2 | HIGH | CAPTCHA is Cloudflare's always-pass test key | Partly resolved |
+| F-3 | MEDIUM | Passwords "hashed" with FNV-1a (not a password hash) | **Resolved 2026-10-21** |
+| F-4 | MEDIUM | Build passes with failing typechecks (`tsc` not in build) | Resolved 2026-09-28 |
+| F-5 | MEDIUM | 4 dependency advisories (1 high: Vite path traversal, dev-only) | Resolved 2026-09-28 |
+| F-10 | MEDIUM | Agent sales ledger is written through an unauthenticated endpoint | Partly resolved |
+| F-6 | LOW | Swapping in a real Turnstile key will hard-lock every user out | Resolved 2026-10-10 |
+| F-7 | LOW | Template leftovers: wrong favicon, stale names, dead nested package.json | Resolved 2026-09-28 |
+| F-8 | LOW | Lint script has no ESLint config; no test script | Partly resolved |
+| F-9 | LOW | Root docs describe a different frontend than the one on disk | Resolved 2026-09-28 |
 
 ---
 
@@ -61,6 +68,68 @@ this), store httpOnly session cookies server-side, verify Google ID tokens
 server-side, delete `demoCredentials.ts` from the production bundle, and keep
 `RequireRole` purely as UX (real authorization must live server-side).
 
+**Status (2026-10-21): Resolved.** Every part of that recommendation landed:
+
+- **Users are a server-side store, not localStorage.**
+  `backend/src/utils/userStore.ts` keeps accounts in `backend/data/users.json`
+  (gitignored), written atomically through a serialised queue.
+  `frontend/src/utils/users.ts` is now display only — a directory fetched from
+  `GET /api/users/directory` plus pure helpers. It has no write path, cannot
+  set a role, and holds no credential. `StoredUser` and its `passwordHash`
+  field were deleted from `types/user.ts`.
+- **Sessions are opaque 256-bit ids in httpOnly cookies**
+  (`backend/src/utils/sessions.ts`, `backend/src/middleware/auth.ts`),
+  `SameSite=Lax`, backed by a revocable store with 12-hour / 30-day lifetimes.
+  Nothing in JavaScript can read one, write one, or lose one to XSS.
+  `login`, `logout`, `register`, `verify-email`, `reset/*` and `password` all
+  sit under `/auth/*`, and the identity on every request comes from that
+  cookie — never from the request body.
+- **`RequireRole` is now routing UX only**, as recommended. It decides which
+  page a signed-in user sees; `requireAuth` and `requireRole` on the server
+  decide what they may do. Writing `{"role":"admin"}` into DevTools now
+  changes a redirect and nothing else.
+- **Demo credentials left the bundle.** `data/demoCredentials.ts` is deleted;
+  the sign-in panel fetches `GET /api/demo-credentials`, which answers only
+  while `AUTH_DEMO_ACCOUNTS=true`. That endpoint also supplies `agent-1`'s
+  password — an account the old hardcoded list omitted, which had made the
+  agent flow impossible to sign into from a clean browser.
+- **Reset tokens and verification codes are server-side**, single-use and
+  TTL-bound (`backend/src/utils/authCodes.ts`). The localStorage twin
+  `authTokens.ts` is deleted, and `AuthContext.currentVerificationCode()` —
+  the function that handed any visitor the "emailed" code — is gone with it.
+- **Google ID tokens are verified, not decoded.**
+  `backend/src/utils/googleAuth.ts` checks RS256 against Google's JWKS with a
+  `kid` lookup and `iss`/`aud`/`exp`/`email_verified` checks. The frontend's
+  `utils/jwt.ts` is deleted, and the demo Google path that pushed a
+  *fabricated* identity straight into the callback was removed too — the
+  button now passes only the opaque token.
+
+Two affordances make the demo usable without weakening a clone of the repo:
+`AUTH_DEMO_ACCOUNTS` and `AUTH_DEMO_CODES` both **default to off**, so a fresh
+checkout seeds no accounts and serves no credentials. With codes off,
+`/auth/reset/request` answers `200 {}` for every address; with them on — as
+this demo runs — the response *does* distinguish a registered address, since a
+token can only be minted for an account that exists. That trade is exactly why
+the flag is not a default.
+
+**Verification.** 23 integration tests in `backend/src/authRoutes.test.ts` run
+a real Express app against a real cookie jar over HTTP: a forged cookie
+resolves to signed out, a wrong password and an unknown address are byte-identical
+failures, a role-escalation PATCH leaves the role unchanged on disk, and
+sign-out revokes a session that was copied to a second client. Checked live
+against the running backend: `agent-1` signs in (200, `role: agent`), the
+session cookie comes back `Path=/; HttpOnly; SameSite=Lax`, `POST
+/api/agent/sales` answers 401 with no session and 403 for a farmer, and no
+auth or directory response contains `passwordHash`.
+
+**Closes alongside it:** `POST /api/agent/sales` now overwrites `agentId` with
+the session's user id (F-10's second half), and `/auth/register` verifies its
+Turnstile token server-side (F-2's half).
+
+**Deployment note:** this demo runs on localhost over plain HTTP, so passwords
+travel unencrypted to `/auth/*`. A real deployment needs HTTPS in front, which
+is what `SECURE_COOKIES` exists to switch on.
+
 ### F-2 — CAPTCHA is Cloudflare's always-pass test key
 
 **Location:** `src/data/authConfig.ts` → `TURNSTILE_SITE_KEY = '1x00000000000000000000AA'`,
@@ -77,12 +146,23 @@ real site key (and verify the token server-side at the backend before any
 sign-up/sign-in endpoint — a client-side Turnstile check alone is trivially
 bypassed).
 
-**Status (2026-10-10): Partly resolved.** The site key now comes from
-`VITE_TURNSTILE_SITE_KEY`; left empty, the demo keeps the test key. With a real
-key, sign-in, sign-up and password reset send each token to the backend's
-`POST /auth/turnstile/verify`, which checks it with Cloudflare's siteverify
-using `TURNSTILE_SECRET_KEY`. Still open: the sign-in itself runs in the
-browser (F-1), so the check gates the forms rather than a server-side session.
+**Status (2026-10-10, updated 2026-10-21): Partly resolved.** The site key now
+comes from `VITE_TURNSTILE_SITE_KEY`; left empty, the demo keeps the test key.
+The backend exposes `POST /auth/turnstile/verify`, which checks a token with
+Cloudflare's siteverify using `TURNSTILE_SECRET_KEY`, and `useCaptcha` sends it
+before sign-in and password reset.
+
+**Sign-up no longer trusts the browser for this.** Since F-1 closed, `SignUp`
+sends the token in the request body and `/auth/register` verifies it with
+Cloudflare itself before creating an account — so the client-side
+`captcha.check()` call was dropped from that path. That was necessary as well
+as correct: a Turnstile token is accepted only once, and spending it on a
+pre-check would leave nothing for the request to verify.
+
+Still open: **sign-in and password reset have no server-side check of their
+own.** The CAPTCHA verdict on those is made in the browser and never re-checked
+on submission, so with a real key a scripted login attempt would be gated only
+by the password and the per-account rate limit.
 
 ## Medium severity
 
@@ -99,6 +179,23 @@ ciphertext-free plaintext demo passwords anyway.
 **Recommendation:** demo only — fine if labeled. For anything real: bcrypt/
 argon2id on the server, never in the browser. If you want a better demo
 fidelity cheaply, use PBKDF2 via `crypto.subtle` with a per-user salt.
+
+**Status (2026-10-21): Resolved.** `hashPassword`, `users.ts`'s per-user
+override maps and `localStorage['sokoto-cover-password-overrides']` are all
+deleted, along with the `passwordHash` field on the frontend's `User` type.
+
+Passwords are now hashed in the backend with **scrypt** from `node:crypto`
+(`backend/src/utils/passwords.ts`) — `scrypt$32768$8$1$salt$hash`, a per-user
+salt and an honest work factor, which is the argon2id recommendation one KDF
+further down the same road. Comparison uses `timingSafeEqual`, login is
+timing-equalised against a dummy verify so a wrong password and an unknown
+address cost the same, and a malformed or absurd-cost record fails *closed*
+rather than opening the door. Only one path writes credentials — a private
+`setPasswordHash` — and `userStore.update()` refuses to touch `id`, `role`,
+`email` or `provider` at all.
+
+Nothing password-shaped remains in the browser: the password appears only in
+the body of a request to `/auth/*`.
 
 ### F-4 — Build passes with failing typechecks (`tsc` not in build)
 
@@ -212,8 +309,18 @@ verification is *not* queued: re-posting it unchanged can never succeed, so
 rather than leaving the sync banner stuck on a count it can never clear. Neither
 outcome writes to the ledger.
 
-Remainder: (2), authenticating the principal so `agentId` cannot be claimed, and
-(3), append-only records, are untouched — so the finding stays MEDIUM.
+**Status (2026-10-21, updated): recommendation (2) lands too.** `GET` and `POST
+/api/agent/sales` now sit behind `requireAuth` + `requireRole("agent",
+"admin")`, and the route overwrites `agentId` with the session's user id
+*before* `parseSale` runs — so the value in the request body is never the one
+that decides whose book gets written. `AgentSalesContext` sends no `agentId` at
+all any more, and every call carries `credentials: 'include'`: the cookie is
+the identity. Verified live — 401 with no session, 403 for a farmer, 200 for
+`agent-1`, and requesting another agent's book by query parameter answers 403.
+
+Remainder: (3), append-only records, is untouched — a corrected receipt still
+replaces the original in place, leaving no trace of what it corrected — so the
+finding stays MEDIUM.
 
 ## Low severity
 
@@ -268,10 +375,20 @@ and the route guards would catch real regressions.
 installed), wire `lint` into CI, add Vitest with tests for auth flows and
 `RequireRole`.
 
-**Status (2026-09-28): Partly resolved.** ESLint 9 + typescript-eslint 8 flat
-config (0 errors; 9 `react-refresh` warnings), root `npm run lint`. Vitest
-added with 11 tests for `utils/oracle.ts` (aggregation, reputation, backtest).
-Auth-flow and `RequireRole` tests are still to do.
+**Status (2026-09-28, updated 2026-10-21): Partly resolved.** ESLint 9 +
+typescript-eslint 8 flat config (0 errors; 9 `react-refresh` warnings), root
+`npm run lint`. Vitest added with 20 tests across `utils/oracle.ts`
+(aggregation, reputation, backtest) and `utils/agentSales.test.ts`.
+
+The auth-flow half of this moved to the backend with F-1: that logic is no
+longer in the frontend to test, and `backend/src/authRoutes.test.ts` runs 23
+integration tests against a real Express app and a real cookie jar — session
+issue and revocation, wrong-password/unknown-address equivalence, privilege
+escalation, login rate limiting, and the `requireAuth`/`requireRole`
+middleware itself.
+
+Still to do: the frontend's own remainder — component tests for `AuthContext`
+and `RequireRole`.
 
 ### F-9 — Root docs describe a different frontend than the one on disk
 
@@ -325,6 +442,13 @@ data are simulated.
    `premiumNgn = premiumEth × ethNgnRate`) — makes the agent ledger trustworthy
    before real auth exists.~~ **Done 2026-10-21**, so the ledger can be trusted
    against a malicious agent; the second half below is what remains.
-6. **F-1 for real** (when auth becomes real): server-side sessions, backend
+6. ~~**F-1 for real** (when auth becomes real): server-side sessions, backend
    endpoints in `backend/`, delete demo credentials from the bundle — F-10's
-   second half falls out of this.
+   second half falls out of this.~~ **Done 2026-10-21**: `/auth/*` on the
+   backend, scrypt passwords, httpOnly sessions, server-side Google ID-token
+   verification, demo credentials out of the bundle, `agentId` taken from the
+   session, and `AUTH_DEMO_ACCOUNTS` / `AUTH_DEMO_CODES` defaulting off.
+7. **What is left, in order:** server-side Turnstile on sign-in (F-2's
+   remainder), auth and `RequireRole` tests in the frontend (F-8), append-only
+   agent records so a corrected receipt keeps its original (F-10's third
+   half), then chain-read availability for the settlement pipeline.

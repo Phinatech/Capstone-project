@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useScript } from '../../hooks/useScript';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useI18n } from '../../contexts/I18nContext';
-import { GOOGLE_CLIENT_ID, demoGoogleIdentities } from '../../data/authConfig';
+import { GOOGLE_CLIENT_ID } from '../../data/authConfig';
 
 export const GOOGLE_PENDING_KEY = 'sokoto-cover-google-pending';
 
@@ -31,9 +31,17 @@ export function GoogleButton({ mode }: GoogleButtonProps) {
   const { status } = useScript(useGis ? 'https://accounts.google.com/gsi/client' : null);
   const label = mode === 'signup' ? t('auth.googleSignUp') : t('auth.googleSignIn');
 
-  function goToCallback(payload: {credential?: string;identity?: object;}) {
+  /**
+   * Hands the raw ID token to the callback page.
+   *
+   * Only the token travels — never a decoded identity. The server verifies
+   * the signature and claims against Google's keys; had this passed a parsed
+   * payload instead, an attacker could supply any account they liked, which
+   * is the bypass F-1 is about.
+   */
+  function goToCallback(credential: string) {
     try {
-      window.sessionStorage.setItem(GOOGLE_PENDING_KEY, JSON.stringify(payload));
+      window.sessionStorage.setItem(GOOGLE_PENDING_KEY, JSON.stringify({ credential }));
     } catch {
 
       /* storage unavailable */}
@@ -46,7 +54,9 @@ export function GoogleButton({ mode }: GoogleButtonProps) {
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       ux_mode: 'popup',
-      callback: (response) => goToCallback({ credential: response.credential })
+      callback: (response) => {
+        if (response.credential) goToCallback(response.credential);
+      }
     });
     el.innerHTML = '';
     window.google.accounts.id.renderButton(el, {
@@ -65,15 +75,21 @@ export function GoogleButton({ mode }: GoogleButtonProps) {
     return <div ref={container} className="flex min-h-[44px] w-full justify-center" aria-label={label} />;
   }
 
+  // No Client ID configured, so there is no button Google can issue a token
+  // for. This used to fall back to pushing a *fabricated* identity into the
+  // callback — the exact spoof F-1 describes, one click away from the admin
+  // account. Offering nothing is the only honest option; the control stays in
+  // place and disabled so the layout does not shift.
   return (
     <button
       type="button"
-      onClick={() => goToCallback({ identity: demoGoogleIdentities[mode] })}
-      className="flex h-11 w-full items-center justify-center gap-3 rounded-md border border-line bg-surface px-4 text-sm font-medium text-ink transition-colors duration-150 ease-out hover:border-muted hover:bg-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.99]">
-      
+      disabled
+      aria-disabled="true"
+      className="flex h-11 w-full cursor-not-allowed items-center justify-center gap-3 rounded-md border border-line bg-surface px-4 text-sm font-medium text-ink opacity-60 transition-colors duration-150 ease-out">
+
       <GoogleMark />
       <span className="truncate">{label}</span>
-      <span className="sr-only">({t('auth.googleDemo')})</span>
+      <span className="sr-only">({t('error.googleFailed')})</span>
     </button>);
 
 }

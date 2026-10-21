@@ -8,7 +8,15 @@ interface I18nContextValue {
   language: Language;
   locale: string;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+  /**
+   * Resolves a translation key, or passes a plain string through untouched.
+   *
+   * Auth errors now arrive from the backend as machine-readable codes, and
+   * only some of them have a key of our own. The ones that do not are shown
+   * in the server's wording rather than being dropped on the floor — so `t`
+   * has to accept a bare string as well as a known key.
+   */
+  t: (key: TranslationKey | string, vars?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -36,8 +44,12 @@ export function I18nProvider({ children }: {children: React.ReactNode;}) {
   }, [language]);
 
   const t = useCallback(
-    (key: TranslationKey, vars?: Record<string, string | number>) => {
-      let text: string = translations[language][key] ?? translations.en[key] ?? key;
+    (key: TranslationKey | string, vars?: Record<string, string | number>) => {
+      // Indexed as a plain string map so an unrecognised value falls through
+      // to itself, which is what lets a server message render as written.
+      const table = translations[language] as Record<string, string>;
+      const english = translations.en as Record<string, string>;
+      let text: string = table[key] ?? english[key] ?? key;
       if (vars) Object.entries(vars).forEach(([k, v]) => text = text.replace(`{${k}}`, String(v)));
       return text;
     },

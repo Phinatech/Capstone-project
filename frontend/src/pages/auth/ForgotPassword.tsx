@@ -7,7 +7,7 @@ import { TextField } from '../../components/auth/TextField';
 import { TurnstileWidget } from '../../components/auth/TurnstileWidget';
 import { submitButtonClass } from '../../components/auth/AuthDivider';
 import { btnSecondary } from '../../components/ui/buttons';
-import { useAuth } from '../../contexts/AuthContext';
+import { AuthError, useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { useCaptcha } from '../../hooks/useCaptcha';
 import { isValidEmail } from '../../utils/users';
@@ -17,7 +17,8 @@ export function ForgotPassword() {
   const { requestPasswordReset } = useAuth();
   const { t } = useI18n();
   const [email, setEmail] = useState('');
-  const [error, setError] = useState<TranslationKey | null>(null);
+  // A translation key, or the server's own wording where no key exists.
+  const [error, setError] = useState<TranslationKey | string | null>(null);
   const [captchaError, setCaptchaError] = useState<TranslationKey | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState<{email: string;resetToken: string | null;} | null>(null);
@@ -31,15 +32,21 @@ export function ForgotPassword() {
     setError(null);
     if (!captcha.token) return setCaptchaError('error.completeCheck');
     setSubmitting(true);
-    const checkError = await captcha.check();
-    if (checkError) {
-      setCaptchaError(checkError);
+    const captchaCheck = await captcha.check();
+    if (captchaCheck) {
+      setCaptchaError(captchaCheck);
       setSubmitting(false);
       return;
     }
-    const resetToken = await requestPasswordReset(email);
+    try {
+      // Null here just means the server is not disclosing tokens — the email
+      // still "sent", and the account state was not revealed either way.
+      const resetToken = await requestPasswordReset(email);
+      setSent({ email: email.trim(), resetToken });
+    } catch (err) {
+      setError(err instanceof AuthError ? err.key : null);
+    }
     setSubmitting(false);
-    setSent({ email: email.trim(), resetToken });
   }
 
   const backLink =
@@ -73,7 +80,10 @@ export function ForgotPassword() {
           className="space-y-3">
           
             {sent.resetToken &&
-          <Link to={`/reset-password?token=${sent.resetToken}`} className={`${submitButtonClass}`}>
+          <Link
+              to={`/reset-password?token=${encodeURIComponent(sent.resetToken)}&email=${encodeURIComponent(sent.email)}`}
+              className={`${submitButtonClass}`}>
+
                 {t('forgot.openDemo')}
               </Link>
           }

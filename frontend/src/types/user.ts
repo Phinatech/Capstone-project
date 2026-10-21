@@ -23,9 +23,10 @@ export interface User {
   twoFactor?: boolean;
 }
 
-export interface StoredUser extends User {
-  passwordHash?: string;
-}
+// There is deliberately no `StoredUser` here. It used to pair with a
+// `passwordHash` field, which meant the browser was storing credential
+// material at all — F-3. Passwords now live only in the backend's user store,
+// so `User` is the whole shape the frontend is ever allowed to see.
 
 export interface SignUpInput {
   name: string;

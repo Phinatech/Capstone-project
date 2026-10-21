@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2Icon, Loader2Icon, LockKeyholeIcon, TimerOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { ApiError } from '../../api/client';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { PasswordField } from '../../components/auth/PasswordField';
 import { PasswordStrength } from '../../components/auth/PasswordStrength';
@@ -9,7 +10,6 @@ import { submitButtonClass } from '../../components/auth/AuthDivider';
 import { btnSecondary } from '../../components/ui/buttons';
 import { AuthError, useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
-import { readResetToken } from '../../utils/authTokens';
 import type { TranslationKey } from '../../data/translations';
 
 const iconBox = (Icon: typeof LockKeyholeIcon, tone = 'bg-accent-soft text-accent-strong') =>
@@ -24,14 +24,19 @@ export function ResetPassword() {
   const { resetPassword } = useAuth();
   const { t } = useI18n();
   const token = params.get('token') ?? '';
-  const entry = useMemo(() => token ? readResetToken(token) : null, [token]);
+  const email = params.get('email') ?? '';
+  // Reset tokens are checked by the server now rather than read out of
+  // localStorage, so this page cannot know a link is bad before trying it.
+  // Only a link with no token at all can be rejected up front; an expired or
+  // spent one is caught when it is submitted.
+  const [rejected, setRejected] = useState(!token);
   const [password, setPasswordValue] = useState('');
   const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<{password?: TranslationKey;confirm?: TranslationKey;}>({});
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  if (!entry && !done) {
+  if (rejected && !done) {
     return (
       <AuthLayout
         icon={iconBox(TimerOffIcon, 'bg-danger-soft text-danger')}
@@ -77,6 +82,13 @@ export function ResetPassword() {
       setDone(true);
       toast.success(t('reset.successTitle'));
     } catch (err) {
+      // The server refused the token: expired, spent, or never issued. Swap
+      // to the expired-link screen, which is a more useful answer than a
+      // toast over a form that will keep failing.
+      if (err instanceof ApiError && err.code === 'token_invalid') {
+        setRejected(true);
+        return;
+      }
       toast.error(err instanceof AuthError ? t(err.key) : t('reset.invalidTitle'));
       setSubmitting(false);
     }
@@ -86,7 +98,10 @@ export function ResetPassword() {
     <AuthLayout
       icon={iconBox(LockKeyholeIcon)}
       title={t('reset.title')}
-      subtitle={<span className="break-words">{t('reset.subtitle', { email: entry!.email })}</span>}
+      subtitle={
+      email ?
+        <span className="break-words">{t('reset.subtitle', { email })}</span> :
+        undefined}
       footer={
       <Link to="/sign-in" className="font-medium text-accent hover:underline">
           {t('callback.back')}

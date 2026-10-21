@@ -32,7 +32,9 @@ export function SignOutDialog({ open, onClose }: {open: boolean;onClose: () => v
           data-autofocus
           onClick={() => {
             onClose();
-            signOut();
+            // Revokes server-side as well as clearing the cookie. Not awaited:
+            // the request is already in flight by the time React unmounts.
+            void signOut();
             navigate('/sign-in', { replace: true });
           }}
           className={btnDanger}>

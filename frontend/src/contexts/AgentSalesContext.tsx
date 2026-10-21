@@ -2,7 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useAuth } from './AuthContext';
 import type { AgentSale } from '../utils/agentSales';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+// Empty by default so requests go through Vite's proxy and share the UI's
+// origin, which is what lets the session cookie travel with them.
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 const PENDING_KEY = 'sokoto-cover-agent-sales-pending';
 
 export interface AgentSalesContextValue {
@@ -49,8 +51,16 @@ function writePending(sales: AgentSale[]): void {
     /* storage unavailable */}
 }
 
-async function fetchSales(agentId: string): Promise<AgentSale[]> {
-  const res = await fetch(`${API_URL}/api/agent/sales?agentId=${encodeURIComponent(agentId)}`);
+/**
+ * Reads the signed-in agent's book.
+ *
+ * No `agentId` is sent: the session cookie is the identity, and the server
+ * answers only for the account it belongs to. Before F-1 the agent id came
+ * from a query parameter, so reading anyone else's book was a matter of
+ * editing a string in the URL.
+ */
+async function fetchSales(): Promise<AgentSale[]> {
+  const res = await fetch(`${API_URL}/api/agent/sales`, { credentials: 'include' });
   if (!res.ok) throw new Error(`the sales ledger answered ${res.status}`);
   const body = (await res.json()) as { sales?: unknown };
   return Array.isArray(body.sales) ? (body.sales as AgentSale[]) : [];
@@ -79,9 +89,15 @@ function isRetryable(err: unknown): boolean {
   return true;
 }
 
+/**
+ * Posts one receipt. The `agentId` it sends is advisory — the server
+ * overwrites it with the session's account before validating and storing, so
+ * filing a sale under another agent's name is not possible from here.
+ */
 async function postSale(sale: AgentSale): Promise<void> {
   const res = await fetch(`${API_URL}/api/agent/sales`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(sale)
   });
@@ -133,7 +149,7 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
     const failed = await flush(queued);
 
     try {
-      const sales = await fetchSales(agentId);
+      const sales = await fetchSales();
       if (!mounted.current) return;
       setSaved(sales);
       setError(null);

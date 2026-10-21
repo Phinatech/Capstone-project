@@ -29,6 +29,17 @@ dekad can finalize, so with NASA POWER and Meteostat both live, a dekad can
 finalize once both have reported and the reporting window has passed. If
 either feed has a gap, that dekad can't finalize until a third source reports.
 
+### Telegram notifications
+
+With `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` set, the backend that runs
+the relayer (`RELAYER_ENABLED=true`) also checks the insurance contract every
+15 seconds and sends a Telegram message for every policy bought and every
+policy settled, with or without a payout, linking the transaction on
+Etherscan (`src/notifier.ts`). It reacts to the transaction itself, so it
+doesn't matter whether the keeper, the admin's Settle button or a farmer sent
+it. It starts from the newest block when the backend starts, so a restart
+never resends old messages, and events while the backend is down aren't sent.
+
 ### Settlement
 
 After reporting, each run also settles what is ready (`src/settlement.ts`),

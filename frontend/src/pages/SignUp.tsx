@@ -27,7 +27,9 @@ export function SignUp() {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [formError, setFormError] = useState<TranslationKey | null>(null);
+  // Holds a translation key or, when the server sent wording of its own, a
+  // bare string — `t()` accepts both.
+  const [formError, setFormError] = useState<TranslationKey | string | null>(null);
   const captcha = useCaptcha(() => setErrors((e) => ({ ...e, captcha: undefined })));
 
   if (user && !submitting) return <Navigate to={homePath(user)} replace />;
@@ -51,14 +53,13 @@ export function SignUp() {
     if (Object.keys(next).length) return;
 
     setSubmitting(true);
-    const captchaError = await captcha.check();
-    if (captchaError) {
-      setErrors({ captcha: captchaError });
-      setSubmitting(false);
-      return;
-    }
+    // The widget is confirmed by the server, not here. Checking it in the
+    // browser and then trusting the outcome is precisely the bypass this
+    // replaces — and a Turnstile token is accepted only once, so it cannot be
+    // spent on a pre-check and then reused on the request itself.
+    const turnstileToken = captcha.token ?? undefined;
     try {
-      const created = await signUp({ ...form });
+      const created = await signUp({ ...form }, turnstileToken);
       toast.success(t('toast.accountCreated'), { description: t('toast.welcome', { name: created.name.split(' ')[0] }) });
       navigate(homePath(created), { replace: true });
     } catch (err) {

@@ -284,6 +284,54 @@ export async function readReadings(): Promise<ReadingData[]> {
   return readings;
 }
 
+/** A policy bought or settled, for notifications. Rainfall and thresholds in mm. */
+export type InsuranceActivity =
+  | { kind: "purchase"; policyId: number; windowPeriods: number[]; thresholdMm: number; payoutEth: string; premiumEth: string; txHash: string }
+  | { kind: "payout"; policyId: number; rainfallMm: number; thresholdMm: number; payoutEth: string; txHash: string }
+  | { kind: "no_payout"; policyId: number; rainfallMm: number; thresholdMm: number; txHash: string };
+
+/** Policies bought and settled in blocks fromBlock to toBlock, oldest first. */
+export async function readInsuranceActivity(fromBlock: number, toBlock: number): Promise<InsuranceActivity[]> {
+  const insurance = new Contract(config.insuranceAddress, insuranceAbi, provider);
+  const logs = [];
+  for (const [from, to] of blockChunks(fromBlock, toBlock, config.logsBlockRange)) {
+    logs.push(...(await logsProvider.getLogs({ address: config.insuranceAddress, fromBlock: from, toBlock: to })));
+  }
+  const mm = (hundredths: bigint) => Number(hundredths) / 100; // the contract stores mm x 100
+  const activity: InsuranceActivity[] = [];
+  for (const log of logs) {
+    const event = insurance.interface.parseLog(log);
+    if (!event) continue; // windows added, pool funded, ownership changes
+    const policyId = Number(event.args.policyId);
+    const txHash = log.transactionHash;
+    if (event.name === "PolicyCreated") {
+      const window = await insurance.getFunction("getCoverageWindow")(event.args.windowId);
+      activity.push({
+        kind: "purchase",
+        policyId,
+        windowPeriods: (window.periods as bigint[]).map(Number),
+        thresholdMm: mm(event.args.droughtThresholdMm),
+        payoutEth: formatEther(event.args.payoutAmount),
+        premiumEth: formatEther(event.args.premiumPaid),
+        txHash,
+      });
+    } else if (event.name === "PayoutTriggered") {
+      const policy = await insurance.getFunction("policies")(policyId);
+      activity.push({
+        kind: "payout",
+        policyId,
+        rainfallMm: mm(event.args.windowRainfallMm),
+        thresholdMm: mm(policy.droughtThresholdMm),
+        payoutEth: formatEther(event.args.payoutAmount),
+        txHash,
+      });
+    } else if (event.name === "PayoutSkipped") {
+      activity.push({ kind: "no_payout", policyId, rainfallMm: mm(event.args.windowRainfallMm), thresholdMm: mm(event.args.droughtThresholdMm), txHash });
+    }
+  }
+  return activity;
+}
+
 export async function readPolicyEvaluations(): Promise<PolicyEvaluation[]> {
   const aggregator = new Contract(config.aggregatorAddress, aggregatorAbi, provider);
 

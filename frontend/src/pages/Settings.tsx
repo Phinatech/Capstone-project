@@ -324,8 +324,15 @@ export function Settings() {
             <button
             type="button"
             disabled={confirmText !== 'DELETE'}
-            onClick={() => {
-              deleteAccount();
+            onClick={async () => {
+              try {
+                await deleteAccount();
+              } catch (err) {
+                // Stay put and say why — navigating away from a failed delete
+                // would leave the account exactly where it was.
+                toast.error(err instanceof AuthError ? t(err.key) : 'Could not delete account');
+                return;
+              }
               toast('Account deleted');
               navigate('/sign-in', { replace: true });
             }}

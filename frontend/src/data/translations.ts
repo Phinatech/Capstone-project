@@ -45,6 +45,7 @@ export const en = {
 
   'role.farmer': 'Farmer',
   'role.admin': 'Administrator',
+  'role.agent': 'Field agent',
 
   'menu.yourProfile': 'Your profile',
   'menu.payoutHistory': 'Payout history',
@@ -247,6 +248,7 @@ export const ha: Dictionary = {
 
   'role.farmer': 'Manomi',
   'role.admin': 'Mai gudanarwa',
+  'role.agent': 'Wakili',
 
   'menu.yourProfile': 'Bayananka',
   'menu.payoutHistory': 'Tarihin biyan kuɗi',
@@ -446,6 +448,7 @@ export const fr: Dictionary = {
 
   'role.farmer': 'Agriculteur',
   'role.admin': 'Administrateur',
+  'role.agent': 'Agent de terrain',
 
   'menu.yourProfile': 'Votre profil',
   'menu.payoutHistory': 'Historique des paiements',

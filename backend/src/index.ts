@@ -1,8 +1,13 @@
 import express from "express";
 import { config } from "./config.js";
+import { startNotifier } from "./notifier.js";
+import { attachSession } from "./middleware/auth.js";
 import { startRelayer } from "./relayer.js";
+import { authCodeStore, sessionStore, userStore } from "./authServices.js";
+import { demoAccounts } from "./utils/demoAccounts.js";
 import { MAX_TOKEN_LENGTH, verifyTurnstileToken } from "./turnstile.js";
 import apiRouter from "./routes/api.js";
+import { createAuthRouter } from "./routes/auth.js";
 
 const app = express();
 
@@ -17,8 +22,11 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && config.corsOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    // Without this the browser drops the session cookie from cross-origin
+    // responses, which would silently sign everyone out.
+    res.setHeader("Access-Control-Allow-Credentials", "true");
   }
   res.setHeader("Vary", "Origin");
   if (req.method === "OPTIONS") {
@@ -50,12 +58,45 @@ app.post("/auth/turnstile/verify", async (req, res) => {
   }
 });
 
+// Server-side auth (F-1). The stores live on disk so a restart does not sign
+// everyone out mid-demo, and every request that carries a session cookie gets
+// a `principal` resolved before any route sees it.
+app.use(attachSession({ sessions: sessionStore, users: userStore, cookieName: config.sessionCookieName }));
+
+app.use("/auth", createAuthRouter({ users: userStore, sessions: sessionStore, authCodes: authCodeStore }));
+
 // Cached chain-data API for the frontend
 app.use("/api", apiRouter);
 
+if (config.demoAccounts) {
+  // Seeding hashes each password, so it happens once at boot rather than
+  // blocking the first sign-in.
+  void userStore.ensureSeeded(demoAccounts).then(
+    () => console.log(`[auth] ${demoAccounts.length} demo accounts available`),
+    (err) => console.error("[auth] could not seed demo accounts:", err)
+  );
+}
+
+void sessionStore.sweep().then(
+  (dropped) => {
+    if (dropped > 0) console.log(`[auth] dropped ${dropped} expired session(s)`);
+  },
+  (err) => console.error("[auth] could not sweep sessions:", err)
+);
+
 const server = app.listen(config.port, () => {
   console.log(`[api] listening on http://localhost:${config.port}`);
+  if (!config.demoAuthCodes) {
+    console.log("[auth] AUTH_DEMO_CODES is off: verification codes go to this log, not to the client");
+  }
+  if (!config.demoAccounts) {
+    console.log("[auth] AUTH_DEMO_ACCOUNTS is off: no demo accounts are seeded");
+  }
+  if (!config.secureCookies) {
+    console.log("[auth] SECURE_COOKIES is off: set it for any HTTPS deployment");
+  }
   startRelayer(config.oracleSources, config.relayerIntervalMinutes);
+  startNotifier();
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

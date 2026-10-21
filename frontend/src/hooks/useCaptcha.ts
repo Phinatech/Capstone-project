@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { TURNSTILE_ENFORCED } from '../data/authConfig';
 import type { TranslationKey } from '../data/translations';
 
-const API_URL = import.meta.env.VITE_API_URL?.trim() || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL?.trim() || '';
 
 async function verifyWithBackend(token: string): Promise<'ok' | 'failed' | 'unavailable'> {
   try {

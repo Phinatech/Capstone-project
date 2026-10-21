@@ -8,7 +8,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
+import { userStore } from "../authServices.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
+import { demoCredentialList } from "../utils/demoAccounts.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { createAgentStore, parseSale } from "../utils/agentStore.js";
 import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
@@ -87,6 +90,37 @@ router.get("/fx", async (_req, res) => {
   }
 });
 
+/**
+ * The user directory the UI renders against (names, LGAs, wallets).
+ *
+ * Password hashes never leave the store — `directory()` maps through
+ * `toPublicUser`. Before F-1 this list came from `data/users.ts` compiled
+ * into the bundle plus whatever a visitor had written to localStorage.
+ */
+router.get("/users/directory", async (_req, res) => {
+  try {
+    res.json({ users: await userStore.directory() });
+  } catch (err) {
+    console.error("[api] failed to read the user directory:", err);
+    res.status(500).json({ error: "Failed to read the user directory" });
+  }
+});
+
+/**
+ * Demo logins for the sign-in panel, replacing the credential list that used
+ * to ship inside the production JS bundle.
+ *
+ * Answers only while `AUTH_DEMO_ACCOUNTS` is on, so a deployment that turns
+ * it off tells the panel to stay empty rather than advertising accounts.
+ */
+router.get("/demo-credentials", (_req, res) => {
+  if (!config.demoAccounts) {
+    res.json({ credentials: [] });
+    return;
+  }
+  res.json({ credentials: demoCredentialList() });
+});
+
 // Agent sales: the naira half of a purchase, recorded so an agent's book is
 // readable from any device rather than only from the browser that sold it.
 const agentStore = createAgentStore(config.agentSalesPath);
@@ -98,21 +132,40 @@ function boundedQuery(value: unknown, max: number): string | null {
   return value.trim();
 }
 
-router.get("/agent/sales", async (req, res) => {
-  const agentId = boundedQuery(req.query.agentId, 64);
-  if (agentId === null) {
+/**
+ * Reads an agent's book.
+ *
+ * The agentId comes from the session, not the query string: an agent can only
+ * read their own sales, and a claimed id in the URL is ignored rather than
+ * trusted. Only an admin may read someone else's book, because reconciliation
+ * is an admin job.
+ */
+router.get("/agent/sales", requireAuth, async (req, res) => {
+  const principal = req.principal!;
+  const requested = boundedQuery(req.query.agentId, 64);
+  if (requested === null) {
     res.status(400).json({ error: "agentId must be text of at most 64 characters" });
     return;
   }
+  const isAdmin = principal.user.role === "admin";
+  if (requested && !isAdmin && requested !== principal.user.id) {
+    res.status(403).json({ error: "You can only read your own book" });
+    return;
+  }
+  const agentId = isAdmin ? requested || undefined : principal.user.id;
   try {
-    res.json({ sales: await agentStore.list(agentId || undefined) });
+    res.json({ sales: await agentStore.list(agentId) });
   } catch (err) {
     console.error("[api] failed to read agent sales:", err);
     res.status(500).json({ error: "Failed to read agent sales" });
   }
 });
 
-router.get("/agent/sales/:policyId", async (req, res) => {
+// A single receipt, same audience as the collection above. It has no caller
+// today, but leaving an unauthenticated read into the agent ledger would hand
+// out payment references and naira amounts to anyone who guessed a policy id
+// (F-10), so it carries the same gate as its siblings.
+router.get("/agent/sales/:policyId", requireAuth, requireRole("agent", "admin"), async (req, res) => {
   const policyId = Number(req.params.policyId);
   if (!Number.isSafeInteger(policyId) || policyId < 0) {
     res.status(400).json({ error: "policyId must be a policy number" });
@@ -157,7 +210,15 @@ async function policyForSale(policyId: number): Promise<PolicyData | undefined> 
   return fresh.find((p) => p.id === policyId);
 }
 
-router.post("/agent/sales", async (req, res) => {
+/**
+ * Records a sale.
+ *
+ * Requires an agent (or admin) session. The `agentId` in the body is
+ * **overwritten** with the session's user id before validation, so a client
+ * cannot file a sale under someone else's name — the whole point of F-1 is
+ * that identity is what the server says it is.
+ */
+router.post("/agent/sales", requireAuth, requireRole("agent", "admin"), async (req, res) => {
   const now = Date.now();
   if (now - saleWriteHour.start >= 3_600_000) saleWriteHour = { start: now, written: 0 };
   if (saleWriteHour.written >= MAX_SALE_WRITES_PER_HOUR) {
@@ -165,7 +226,10 @@ router.post("/agent/sales", async (req, res) => {
     return;
   }
 
-  const parsed = parseSale(req.body);
+  const principal = req.principal!;
+  // Spread the body first so any agentId the client sent is dropped, not
+  // merged — and so the value that gets validated is the one that is stored.
+  const parsed = parseSale({ ...(req.body as Record<string, unknown>), agentId: principal.user.id });
   if (!parsed.ok) {
     res.status(400).json({ error: parsed.error });
     return;

@@ -35,3 +35,11 @@ backend/data/chirps-daily-cache.json
 # Runtime data written by the API (never commit farmer/agent records)
 backend/data/agent-sales.json
 backend/data/agent-sales.json.tmp
+
+# Accounts and live sessions — server-side since F-1. The user file holds
+# password hashes and the session file holds unexpired session ids; neither
+# belongs in git, and both are rebuilt by seeding if lost.
+backend/data/users.json
+backend/data/users.json.tmp
+backend/data/sessions.json
+backend/data/sessions.json.tmp

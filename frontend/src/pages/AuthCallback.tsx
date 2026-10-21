@@ -6,22 +6,27 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { GOOGLE_PENDING_KEY } from '../components/auth/GoogleButton';
-import { decodeGoogleCredential } from '../utils/jwt';
-import type { GoogleIdentity } from '../utils/jwt';
 import { homePath } from '../utils/users';
 import type { TranslationKey } from '../data/translations';
 
 const steps: TranslationKey[] = ['callback.step1', 'callback.step2', 'callback.step3'];
 const STEP_MS = 480;
 
-function readPending(): GoogleIdentity | null {
+/**
+ * Reads the ID token Google handed us, clearing it on the way out.
+ *
+ * Deliberately returns the *token*, not a decoded payload: decoding happened
+ * here before F-1, which meant whatever the page trusted was whatever the
+ * page wrote. The server verifies the signature and claims, so only the
+ * opaque token has to make this round trip.
+ */
+function readPendingCredential(): string | null {
   try {
     const raw = window.sessionStorage.getItem(GOOGLE_PENDING_KEY);
     window.sessionStorage.removeItem(GOOGLE_PENDING_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as {credential?: string;identity?: GoogleIdentity;};
-    if (data.credential) return decodeGoogleCredential(data.credential);
-    return data.identity ?? null;
+    const data = JSON.parse(raw) as { credential?: unknown };
+    return typeof data.credential === 'string' && data.credential ? data.credential : null;
   } catch {
     return null;
   }
@@ -45,8 +50,8 @@ export function AuthCallback() {
       setError('error.accessDenied');
       return;
     }
-    const identity = params.get('provider') === 'google' ? readPending() : null;
-    if (!identity) {
+    const credential = params.get('provider') === 'google' ? readPendingCredential() : null;
+    if (!credential) {
       setError('error.noCredential');
       return;
     }
@@ -55,7 +60,7 @@ export function AuthCallback() {
     timers.push(
       window.setTimeout(async () => {
         try {
-          const user = await completeGoogleSignIn(identity);
+          const user = await completeGoogleSignIn(credential);
           setStep(2);
           timers.push(
             window.setTimeout(() => {

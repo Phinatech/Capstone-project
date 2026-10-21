@@ -13,7 +13,7 @@ const LENGTH = 6;
 const RESEND_SECONDS = 30;
 
 export function VerifyEmail() {
-  const { user, verifyEmail, resendVerification, currentVerificationCode, signOut } = useAuth();
+  const { user, verifyEmail, resendVerification, signOut } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
   const [digits, setDigits] = useState<string[]>(Array(LENGTH).fill(''));
@@ -24,7 +24,21 @@ export function VerifyEmail() {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    setDemoCode(currentVerificationCode() ?? resendVerification());
+    let cancelled = false;
+    (async () => {
+      try {
+        // Issues a fresh code. The response carries it back only when the
+        // server has demo disclosure switched on; otherwise it went to the
+        // server log and this stays null, which just hides the hint box.
+        const code = await resendVerification();
+        if (!cancelled) setDemoCode(code);
+      } catch {
+        if (!cancelled) setDemoCode(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -89,8 +103,8 @@ export function VerifyEmail() {
       footer={
       <button
         type="button"
-        onClick={() => {
-          signOut();
+        onClick={async () => {
+          await signOut();
           navigate('/sign-in', { replace: true });
         }}
         className="font-medium text-accent hover:underline">
@@ -152,10 +166,17 @@ export function VerifyEmail() {
           <button
             type="button"
             disabled={cooldown > 0}
-            onClick={() => {
-              setDemoCode(resendVerification());
+            onClick={async () => {
               setCooldown(RESEND_SECONDS);
-              toast(t('verify.sent'));
+              try {
+                const code = await resendVerification();
+                // Null simply means the server kept it in its own log.
+                setDemoCode(code);
+                toast(t('verify.sent'));
+              } catch (err) {
+                setCooldown(0);
+                toast.error(err instanceof AuthError ? t(err.key) : t('verify.sent'));
+              }
             }}
             className="text-sm font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-muted disabled:no-underline">
             
