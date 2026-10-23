@@ -4,7 +4,7 @@
  * Cloudflare Pages and Render are different sites (`*.pages.dev` vs
  * `*.onrender.com`), and the session cookie minted by `/auth/login` is
  * `SameSite=Lax` — so a browser pointed straight at Render would drop it on
- * every request, and every visitor would appear signed out no matter what they
+ * every request and every visitor would appear signed out, no matter what they
  * typed. Rather than weaken the cookie to `SameSite=None` (which is what it
  * takes to cross origins, and which gives up the CSRF protection the Lax
  * setting was there for), the request is proxied from the same site the page
@@ -12,16 +12,25 @@
  *
  * From the browser's point of view everything is one origin: it posts to
  * `/auth/login` on `*.pages.dev`, gets a cookie for `*.pages.dev`, and sends
- * it back with each call. This function is the only place that knows Render is
- * involved.
+ * it back with each call. This file is the only place that knows Render is
+ * involved. Everything not matching a prefix below — the app, its bundles, the
+ * favicon — is left to Pages to serve as a static file.
  *
- * Requires `API_URL` to be set on the Pages project to the Render service URL,
- * with no trailing slash. `VITE_API_URL` must be left *empty* — if it is set,
- * the frontend bypasses this function and calls Render directly, which is the
- * cross-origin problem this file exists to avoid.
+ * Requires `API_URL` on the Pages project, set to the Render service URL with
+ * no trailing slash. `VITE_API_URL` must be left *empty*: if it is set the
+ * frontend calls Render directly and this function is bypassed, which is the
+ * cross-origin problem it exists to avoid.
+ *
+ * Both prefixes matter. The first version of this shim forwarded only `/api`
+ * and missed `/auth`, which is where every login, session and reset call
+ * lives — the site looked deployed and sign-in returned the HTML page instead
+ * of a session.
  */
 
-/** Headers that describe the hop, not the request; forwarding them only confuses the next server. */
+/** Both halves of the backend the browser talks to. */
+const PROXIED_PREFIXES = ['/api', '/auth'];
+
+/** Headers describing the hop, not the request; forwarding them only confuses the next server. */
 const STRIP_REQUEST = [
   'host',
   'origin',
@@ -40,15 +49,18 @@ const STRIP_REQUEST = [
 ];
 
 /** Copied straight through unless they describe the wire rather than the content. */
-const STRIP_RESPONSE = [
-  'content-encoding',
-  'content-length',
-  // Let Pages own these; echoing Render's back would contradict the shim.
-  'strict-transport-security'
-];
+const STRIP_RESPONSE = ['content-encoding', 'content-length'];
+
+function shouldProxy(pathname) {
+  return PROXIED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
 export async function onRequest(context) {
   const { request, env } = context;
+  const incoming = new URL(request.url);
+
+  // Static asset, SPA route, favicon: nothing to do, hand it back untouched.
+  if (!shouldProxy(incoming.pathname)) return context.next();
 
   const apiUrl = (env.API_URL ?? '').trim().replace(/\/+$/, '');
   if (!apiUrl) {
@@ -58,23 +70,15 @@ export async function onRequest(context) {
     );
   }
 
-  const incoming = new URL(request.url);
   const target = new URL(`${incoming.pathname}${incoming.search}`, `${apiUrl}/`);
 
   const headers = new Headers(request.headers);
   for (const name of STRIP_REQUEST) headers.delete(name);
-  // No Origin on the upstream call: this is server-to-server, so the API's CORS
-  // list is not involved. The browser never talks to Render directly.
-  headers.delete('origin');
 
   // Buffered rather than streamed: these bodies are JSON receipts and form
   // submissions, and a `ReadableStream` body needs a `duplex` option that not
   // every runtime agrees on.
-  const init = {
-    method: request.method,
-    headers,
-    redirect: 'manual'
-  };
+  const init = { method: request.method, headers, redirect: 'manual' };
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     init.body = await request.arrayBuffer();
   }
@@ -83,7 +87,7 @@ export async function onRequest(context) {
   try {
     upstream = await fetch(target.toString(), init);
   } catch (err) {
-    // Reported as502 rather than thrown, so the browser shows the API's own
+    // 502 rather than a thrown error, so the browser shows the app's own
     // offline handling instead of a Cloudflare error page.
     return new Response(
       `Could not reach the API at ${apiUrl}: ${err instanceof Error ? err.message : String(err)}`,
@@ -95,8 +99,8 @@ export async function onRequest(context) {
   for (const name of STRIP_RESPONSE) responseHeaders.delete(name);
 
   // `getSetCookie` returns every `Set-Cookie` rather than a comma-joined mess,
-  // which matters: a session cookie and a logout clear must both arrive intact
-  // or a sign-out would quietly leave the old session usable.
+  // which matters: a session cookie and a logout clear must both arrive intact,
+  // or signing out would quietly leave the old session usable.
   const setCookies = typeof upstream.headers.getSetCookie === 'function' ? upstream.headers.getSetCookie() : [];
   responseHeaders.delete('set-cookie');
   for (const cookie of setCookies) responseHeaders.append('set-cookie', cookie);
