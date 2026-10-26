@@ -19,7 +19,10 @@ const REPUTATION_SCALE = 0.1;
 export type ReputationTable = Record<SourceId, {score: number;weight: number;meanDeviation: number;}>;
 
 export function getWindow(windowId: string) {
-  return coverageWindows.find((w) => w.id === windowId) ?? coverageWindows[0];
+  // Chain policies carry the contract's numeric window id, which has no entry in
+  // the simulated list. Say so rather than showing an unrelated window's name.
+  return coverageWindows.find((w) => w.id === windowId) ??
+    { id: windowId, label: `Window #${windowId}`, start: 0, end: 0 };
 }
 
 export function windowTotal(key: SourceId | 'reference', start: number, end: number): number {

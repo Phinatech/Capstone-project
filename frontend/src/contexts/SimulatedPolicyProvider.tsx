@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { contractPoolStartEth, seedPolicies, seedSettlements, startingBalanceEth } from '../data/policies';
+import { contractPoolStartEth, coverageWindows, seedPolicies, seedSettlements, startingBalanceEth } from '../data/policies';
 import { getFarmers } from '../utils/users';
 import { evaluatePolicy } from '../utils/oracle';
 import { portfolioStats } from '../utils/analytics';
@@ -87,6 +87,7 @@ export function SimulatedPolicyProvider({ children, reason }: {children: React.R
     return {
       source: { kind: 'simulated', reason },
       policies: state.policies,
+      windows: coverageWindows.map((w) => ({ id: w.id, label: w.label, open: true })),
       poolEth: contractPoolStartEth + stats.premiums - stats.payouts,
       balanceOf,
       walletOf: (user: User) => user.wallet,

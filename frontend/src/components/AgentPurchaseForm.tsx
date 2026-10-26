@@ -19,17 +19,19 @@ const fieldClass =
   'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
 
 export function AgentPurchaseForm() {
-  const { balanceOf, purchasePolicy } = usePolicies();
+  const { balanceOf, purchasePolicy, windows } = usePolicies();
   const { user } = useAuth();
   const { ethToNgn, approximate, rate } = useFx();
   const { record } = useAgentSales();
   const balanceEth = user ? balanceOf(user.id) : 0;
   const navigate = useNavigate();
   const farmers = getFarmers();
+  // Only windows the contract would still accept a purchase for.
+  const sellable = useMemo(() => windows.filter((w) => w.open), [windows]);
   const [farmerId, setFarmerId] = useState(farmers[0]?.id ?? '');
   const [lga, setLga] = useState(lgas[0]);
   const [crop, setCrop] = useState(crops[0]);
-  const [windowId, setWindowId] = useState(coverageWindows[1].id);
+  const [windowId, setWindowId] = useState(sellable[0]?.id ?? '');
   const [threshold, setThreshold] = useState('85');
   const [payoutEth, setPayoutEth] = useState(payoutOptionsEth[1]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -37,9 +39,10 @@ export function AgentPurchaseForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const coverage = coverageWindows.find((w) => w.id === windowId) ?? coverageWindows[0];
+  // The 2023 averages only describe the simulated data; contract windows have no entry.
+  const coverage = coverageWindows.find((w) => w.id === windowId);
   const typical = useMemo(
-    () => SOURCE_IDS.reduce((s, id) => s + windowTotal(id, coverage.start, coverage.end), 0) / SOURCE_IDS.length,
+    () => coverage ? SOURCE_IDS.reduce((s, id) => s + windowTotal(id, coverage.start, coverage.end), 0) / SOURCE_IDS.length : null,
     [coverage]
   );
   const premiumEth = payoutEth * premiumRate;
@@ -71,6 +74,10 @@ export function AgentPurchaseForm() {
     }
     if (!paymentReference.trim()) {
       setError('Enter the payment reference the farmer settled with.');
+      return;
+    }
+    if (!windowId) {
+      setError('There is no coverage window open for sale right now.');
       return;
     }
     setError(null);
@@ -182,7 +189,7 @@ export function AgentPurchaseForm() {
       <label className="mt-4 block text-sm font-medium">
         Coverage window
         <select className={fieldClass} value={windowId} onChange={(e) => setWindowId(e.target.value)}>
-          {coverageWindows.map((w) =>
+          {sellable.map((w) =>
           <option key={w.id} value={w.id}>
               {w.label}
             </option>
@@ -203,9 +210,11 @@ export function AgentPurchaseForm() {
             aria-describedby="threshold-hint" />
           <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">mm</span>
         </div>
+        {typical !== null &&
         <span id="threshold-hint" className="mt-1.5 block text-xs font-normal text-muted">
           2023 three-source average for this window: <span className="font-mono">{typical.toFixed(0)} mm</span>
         </span>
+        }
       </label>
 
       <fieldset className="mt-4">

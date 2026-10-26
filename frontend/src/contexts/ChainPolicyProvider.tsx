@@ -4,11 +4,10 @@ import { toast } from 'sonner';
 import abi from '../chain/abi.json';
 import { LOCAL_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { coverageWindows } from '../data/policies';
 import { findUser, getFarmers } from '../utils/users';
 import { useAuth } from './AuthContext';
 import { useNotifications } from './NotificationContext';
-import { PolicyContext, type PolicyContextValue, type PurchaseInput } from './policyContextCore';
+import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
 import { notifyPurchase, notifySettlement } from './policyNotifications';
 import { SimulatedPolicyProvider } from './SimulatedPolicyProvider';
 import type { EvaluationResult, Policy, SourceReading } from '../types/insurance';
@@ -115,6 +114,13 @@ interface Snapshot {
   balances: Record<string, number>;
   poolEth: number;
   windowCount: number;
+  windows: WindowOption[];
+}
+
+/** Human label for a contract window: the id, plus when sales close. */
+function windowLabel(id: number, salesCloseAt: number): string {
+  const closes = new Date(salesCloseAt * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `Window #${id} · closes ${closes}`;
 }
 
 interface OracleInfo {
@@ -281,6 +287,11 @@ function ChainData({
 
     const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label, registered: o.registered }));
     const windows = rawWindows.map((w) => w.periods.map(BigInt));
+    const windowOptions: WindowOption[] = rawWindows.map((w) => ({
+      id: String(w.id),
+      label: windowLabel(w.id, w.salesCloseAt),
+      open: w.salesCloseAt * 1000 > Date.now()
+    }));
     const readings = new Map<string, bigint>();
     for (const r of rawEvaluations.flatMap((e) => e.readings)) {
       readings.set(`${r.period}:${r.oracle.toLowerCase()}`, BigInt(r.rainfallMm));
@@ -313,7 +324,7 @@ function ChainData({
         farmerId,
         lga: saved?.lga ?? farmer?.lga ?? '—',
         crop: saved?.crop ?? farmer?.primaryCrop ?? 'Millet',
-        windowId: coverageWindows[windowIndex]?.id ?? coverageWindows[0].id,
+        windowId: String(windowIndex),
         thresholdMm: p.droughtThresholdMm / 100,
         premiumEth: Number(p.premiumPaid),
         payoutEth: Number(p.payoutAmount),
@@ -355,7 +366,7 @@ function ChainData({
       })
     );
     const poolEth = Number(await (await fetch(`${apiUrl}/api/pool${fresh}`)).json().then((r: { balance: string }) => r.balance));
-    return { policies, balances, poolEth, windowCount: windows.length };
+    return { policies, balances, poolEth, windowCount: windows.length, windows: windowOptions };
   }, [user, addressOf, insurance, aggregator, provider, config.insuranceAddress]);
 
   // Reload on every new block; overlapping reloads collapse into one follow-up.
@@ -394,8 +405,11 @@ function ChainData({
     async (farmerId: string, input: PurchaseInput) => {
       const from = addressOf(farmerId);
       if (!from) throw new Error('Buying cover on this network needs a browser wallet. Connect MetaMask and try again.');
-      const windowIndex = coverageWindows.findIndex((w) => w.id === input.windowId);
-      if (windowIndex < 0 || windowIndex >= (snapshotRef.current?.windowCount ?? 0)) {
+      // The form passes the contract's own window id, so there is no lookup
+      // table to translate through — that was how the wrong window got bought.
+      const windowId = Number(input.windowId);
+      const option = (snapshotRef.current?.windows ?? []).find((w) => w.id === input.windowId);
+      if (!Number.isInteger(windowId) || !option || !option.open) {
         throw new Error('This coverage window is not on sale on the contract.');
       }
       let id: number;
@@ -405,7 +419,7 @@ function ChainData({
         const signer = await provider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
         premium = await insurance.quotePremium(payout);
-        const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowIndex, Math.round(input.thresholdMm * 100), payout, {
+        const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowId, Math.round(input.thresholdMm * 100), payout, {
           value: premium
         });
         const receipt = await tx.wait();
@@ -463,6 +477,7 @@ function ChainData({
     snapshot && {
       source: { kind: 'chain', chainId, local },
       policies: snapshot.policies,
+      windows: snapshot.windows,
       poolEth: snapshot.poolEth,
       balanceOf: (userId: string) => snapshot.balances[userId] ?? 0,
       walletOf: (u: User) => addressOf(u.id) ?? u.wallet,

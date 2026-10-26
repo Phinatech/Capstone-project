@@ -11,6 +11,15 @@ export interface PurchaseInput {
   payoutEth: number;
 }
 
+/** A coverage window the app can sell: the contract's windows in chain mode, the seed list otherwise. */
+export interface WindowOption {
+  /** Selectable id. The on-chain window id as a string in chain mode. */
+  id: string;
+  label: string;
+  /** False once the contract would reject a purchase (`sales closed for window`). */
+  open: boolean;
+}
+
 /** Where policy data comes from: in-browser seed data, or the deployed contracts. */
 export type DataSource =
 {kind: 'simulated';reason?: string;} |
@@ -19,6 +28,8 @@ export type DataSource =
 export interface PolicyContextValue {
   source: DataSource;
   policies: Policy[];
+  /** Coverage windows on sale, from the contract in chain mode. */
+  windows: WindowOption[];
   /** ETH held by the insurance contract's payout pool. */
   poolEth: number;
   balanceOf: (userId: string) => number;
