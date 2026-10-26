@@ -13,6 +13,7 @@ import { AuthDivider, submitButtonClass } from '../components/auth/AuthDivider';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useCaptcha } from '../hooks/useCaptcha';
+import { TURNSTILE_ENFORCED } from '../data/authConfig';
 import { homePath, isValidEmail } from '../utils/users';
 import type { DemoCredential } from '../components/auth/DemoCredentials';
 import type { TranslationKey } from '../data/translations';
@@ -42,7 +43,9 @@ export function SignIn() {
     if (!nextEmail.trim()) nextErrors.email = 'error.required';else
     if (!isValidEmail(nextEmail)) nextErrors.email = 'error.invalidEmail';
     if (!nextPassword) nextErrors.password = 'error.required';
-    if (!captcha.token) nextErrors.captcha = 'error.completeCheck';
+    // With no real site key there is no widget to complete, so demanding a
+    // token would block sign-in for a check that is not running.
+    if (TURNSTILE_ENFORCED && !captcha.token) nextErrors.captcha = 'error.completeCheck';
     setErrors(nextErrors);
     setFormError(null);
     if (Object.keys(nextErrors).length) return;
@@ -144,7 +147,8 @@ export function SignIn() {
           </Link>
         </div>
 
-        <TurnstileWidget {...captcha.widget} error={errors.captcha && t(errors.captcha)} />
+        {TURNSTILE_ENFORCED &&
+        <TurnstileWidget {...captcha.widget} error={errors.captcha && t(errors.captcha)} />}
 
         <button type="submit" disabled={submitting} className={submitButtonClass}>
           {submitting && <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />}

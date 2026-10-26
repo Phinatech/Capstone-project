@@ -12,6 +12,7 @@ import { AuthDivider, submitButtonClass } from '../components/auth/AuthDivider';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useCaptcha } from '../hooks/useCaptcha';
+import { TURNSTILE_ENFORCED } from '../data/authConfig';
 import { lgas } from '../data/policies';
 import { homePath, isValidEmail } from '../utils/users';
 import type { TranslationKey } from '../data/translations';
@@ -47,7 +48,9 @@ export function SignUp() {
     if (form.password.length < 8) next.password = 'error.passwordShort';
     if (form.confirm !== form.password) next.confirm = 'error.passwordMismatch';
     if (!agreed) next.terms = 'error.mustAgree';
-    if (!captcha.token) next.captcha = 'error.completeCheck';
+    // With no real site key there is no widget to complete, so demanding a
+    // token would block sign-up for a check that is not running.
+    if (TURNSTILE_ENFORCED && !captcha.token) next.captcha = 'error.completeCheck';
     setErrors(next);
     setFormError(null);
     if (Object.keys(next).length) return;
@@ -176,7 +179,8 @@ export function SignUp() {
           {errors.terms && <p className="mt-1.5 text-xs text-danger">{t(errors.terms)}</p>}
         </div>
 
-        <TurnstileWidget {...captcha.widget} error={err('captcha')} />
+        {TURNSTILE_ENFORCED &&
+        <TurnstileWidget {...captcha.widget} error={err('captcha')} />}
 
         <button type="submit" disabled={submitting} className={submitButtonClass}>
           {submitting && <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />}

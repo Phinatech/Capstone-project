@@ -10,6 +10,7 @@ import { btnSecondary } from '../../components/ui/buttons';
 import { AuthError, useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { useCaptcha } from '../../hooks/useCaptcha';
+import { TURNSTILE_ENFORCED } from '../../data/authConfig';
 import { isValidEmail } from '../../utils/users';
 import type { TranslationKey } from '../../data/translations';
 
@@ -30,7 +31,9 @@ export function ForgotPassword() {
     if (!email.trim()) return setError('error.required');
     if (!isValidEmail(email)) return setError('error.invalidEmail');
     setError(null);
-    if (!captcha.token) return setCaptchaError('error.completeCheck');
+    // With no real site key there is no widget to complete, so demanding a
+    // token would block a password reset for a check that is not running.
+    if (TURNSTILE_ENFORCED && !captcha.token) return setCaptchaError('error.completeCheck');
     setSubmitting(true);
     const captchaCheck = await captcha.check();
     if (captchaCheck) {
@@ -114,7 +117,8 @@ export function ForgotPassword() {
             error={error ? t(error) : undefined}
             placeholder="you@example.com" />
           
-            <TurnstileWidget {...captcha.widget} error={captchaError ? t(captchaError) : undefined} />
+            {TURNSTILE_ENFORCED &&
+            <TurnstileWidget {...captcha.widget} error={captchaError ? t(captchaError) : undefined} />}
             <button type="submit" disabled={submitting} className={submitButtonClass}>
               {submitting && <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />}
               {submitting ? t('forgot.sending') : t('forgot.submit')}
