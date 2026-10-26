@@ -51,23 +51,38 @@ export function computeReputation(): ReputationTable {
 
 export const reputation = computeReputation();
 
-/** Per-dekad relative deviation of each source from the mean of its two peers (null when peers report < 5 mm). */
-export function dekadDeviations(): Record<SourceId, (number | null)[]> {
+/** A dekad of rainfall, in mm. A source is null when it did not report. */
+export interface RainfallSeriesRow {
+  label: string;
+  chirps: number | null;
+  nasa: number | null;
+  meteostat: number | null;
+}
+
+/** Per-dekad relative deviation of each source from the mean of its peers (null when peers report < 5 mm). */
+export function deviationsFrom(rows: RainfallSeriesRow[]): Record<SourceId, (number | null)[]> {
   const out = {} as Record<SourceId, (number | null)[]>;
   SOURCE_IDS.forEach((id) => {
     const peers = SOURCE_IDS.filter((p) => p !== id);
-    out[id] = dekadalRainfall.map((row) => {
-      const peerMean = (row[peers[0]] + row[peers[1]]) / 2;
-      return peerMean >= 5 ? Math.abs(row[id] - peerMean) / peerMean : null;
+    out[id] = rows.map((row) => {
+      if (row[id] === null) return null;
+      const [a, b] = peers.map((p) => row[p]);
+      if (a === null || b === null) return null;
+      const peerMean = (a + b) / 2;
+      return peerMean >= 5 ? Math.abs(row[id] as number - peerMean) / peerMean : null;
     });
   });
   return out;
 }
 
+export function dekadDeviations(): Record<SourceId, (number | null)[]> {
+  return deviationsFrom(dekadalRainfall);
+}
+
 /** Reputation score as it would have stood after each dekad of the season (cumulative). */
-export function reputationTrend(): {label: string;chirps: number;nasa: number;meteostat: number;}[] {
-  const devs = dekadDeviations();
-  return dekadalRainfall.map((row, i) => {
+export function reputationTrendFrom(rows: RainfallSeriesRow[]): {label: string;chirps: number;nasa: number;meteostat: number;}[] {
+  const devs = deviationsFrom(rows);
+  return rows.map((row, i) => {
     const point = { label: row.label } as {label: string;chirps: number;nasa: number;meteostat: number;};
     SOURCE_IDS.forEach((id) => {
       const seen = devs[id].slice(0, i + 1).filter((d): d is number => d !== null);
@@ -76,6 +91,11 @@ export function reputationTrend(): {label: string;chirps: number;nasa: number;me
     });
     return point;
   });
+}
+
+/** Reputation score as it would have stood after each dekad of the season (cumulative). */
+export function reputationTrend(): {label: string;chirps: number;nasa: number;meteostat: number;}[] {
+  return reputationTrendFrom(dekadalRainfall);
 }
 
 /** Reads a coverage window from every source, optionally corrupting one reading. */

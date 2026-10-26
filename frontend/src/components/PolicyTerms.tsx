@@ -1,13 +1,14 @@
-import { dekadalRainfall } from '../data/rainfall';
-import { getWindow } from '../utils/oracle';
+import { usePolicies } from '../contexts/PolicyContext';
 import { formatDate, formatEth } from '../utils/format';
 import type { Policy } from '../types/insurance';
 
 export function PolicyTerms({ policy }: {policy: Policy;}) {
-  const coverage = getWindow(policy.windowId);
+  // Contract windows carry the dekads they insure; the simulated list does too.
+  const { windows } = usePolicies();
+  const window = windows.find((w) => w.id === policy.windowId);
   const terms = [
   { label: 'Pays if rainfall below', value: `${policy.thresholdMm} mm` },
-  { label: 'Coverage window', value: `${dekadalRainfall[coverage.start].label} – ${dekadalRainfall[coverage.end].label}` },
+  { label: 'Coverage window', value: window ? window.covers : '—' },
   { label: 'Premium paid', value: formatEth(policy.premiumEth) },
   { label: 'Payout', value: formatEth(policy.payoutEth) },
   { label: 'Purchased', value: formatDate(policy.purchasedAt) }];

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { DatabaseIcon, FlaskConicalIcon } from 'lucide-react';
 import { PageHeader } from '../../components/PageHeader';
 import { RainfallChart } from '../../components/RainfallChart';
+import { useRainfallSeries } from '../../hooks/useRainfallSeries';
 import { TrustOverview } from '../../components/oracles/TrustOverview';
 import { SourceRegistry } from '../../components/oracles/SourceRegistry';
 import { AgreementHeatmap } from '../../components/oracles/AgreementHeatmap';
@@ -10,6 +11,7 @@ import { ConsensusSimulator } from '../../components/oracles/ConsensusSimulator'
 import { btnSecondary } from '../../components/ui/buttons';
 
 export function Oracles() {
+  const { live } = useRainfallSeries();
   return (
     <div>
       <PageHeader
@@ -37,9 +39,13 @@ export function Oracles() {
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <section aria-labelledby="rainfall-heading" className="min-w-0 rounded-lg border border-line bg-surface p-4 sm:p-6">
             <h2 id="rainfall-heading" className="text-base font-semibold">
-              Dekadal rainfall, Jun – Oct 2023
+              {live ? 'Dekadal rainfall submitted on-chain' : 'Dekadal rainfall, Jun – Oct 2023'}
             </h2>
-            <p className="text-xs text-muted sm:text-sm">Ten-day totals for Sokoto. Dashed line is the validation gauge.</p>
+            <p className="text-xs text-muted sm:text-sm">
+              {live ?
+              'Ten-day totals the oracle relayer recorded for Sokoto. The dashed line is the mean of the sources that reported.' :
+              'Ten-day totals for Sokoto. Dashed line is the validation gauge.'}
+            </p>
             <div className="mt-3 sm:mt-4">
               <RainfallChart />
             </div>
@@ -57,7 +63,7 @@ export function Oracles() {
 
         <ConsensusSimulator />
 
-        <p className="text-[11px] text-muted">Rainfall figures, response times and uptime are illustrative until replaced with pulled data and measured Sepolia runs.</p>
+        <p className="text-[11px] text-muted">Source response times and uptime are illustrative until measured against Sepolia runs.</p>
       </div>
     </div>);
 
