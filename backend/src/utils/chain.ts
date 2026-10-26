@@ -285,10 +285,11 @@ export async function readReadings(): Promise<ReadingData[]> {
 }
 
 /** A policy bought or settled, for notifications. Rainfall and thresholds in mm. */
-export type InsuranceActivity =
-  | { kind: "purchase"; policyId: number; windowPeriods: number[]; thresholdMm: number; payoutEth: string; premiumEth: string; txHash: string }
-  | { kind: "payout"; policyId: number; rainfallMm: number; thresholdMm: number; payoutEth: string; txHash: string }
-  | { kind: "no_payout"; policyId: number; rainfallMm: number; thresholdMm: number; txHash: string };
+export type InsuranceActivity = { policyId: number; farmer: string; txHash: string } & (
+  | { kind: "purchase"; windowPeriods: number[]; thresholdMm: number; payoutEth: string; premiumEth: string }
+  | { kind: "payout"; rainfallMm: number; thresholdMm: number; payoutEth: string }
+  | { kind: "no_payout"; rainfallMm: number; thresholdMm: number }
+);
 
 /** Policies bought and settled in blocks fromBlock to toBlock, oldest first. */
 export async function readInsuranceActivity(fromBlock: number, toBlock: number): Promise<InsuranceActivity[]> {
@@ -309,6 +310,7 @@ export async function readInsuranceActivity(fromBlock: number, toBlock: number):
       activity.push({
         kind: "purchase",
         policyId,
+        farmer: event.args.farmer,
         windowPeriods: (window.periods as bigint[]).map(Number),
         thresholdMm: mm(event.args.droughtThresholdMm),
         payoutEth: formatEther(event.args.payoutAmount),
@@ -320,13 +322,22 @@ export async function readInsuranceActivity(fromBlock: number, toBlock: number):
       activity.push({
         kind: "payout",
         policyId,
+        farmer: event.args.farmer,
         rainfallMm: mm(event.args.windowRainfallMm),
         thresholdMm: mm(policy.droughtThresholdMm),
         payoutEth: formatEther(event.args.payoutAmount),
         txHash,
       });
     } else if (event.name === "PayoutSkipped") {
-      activity.push({ kind: "no_payout", policyId, rainfallMm: mm(event.args.windowRainfallMm), thresholdMm: mm(event.args.droughtThresholdMm), txHash });
+      const policy = await insurance.getFunction("policies")(policyId);
+      activity.push({
+        kind: "no_payout",
+        policyId,
+        farmer: policy.farmer,
+        rainfallMm: mm(event.args.windowRainfallMm),
+        thresholdMm: mm(event.args.droughtThresholdMm),
+        txHash,
+      });
     }
   }
   return activity;

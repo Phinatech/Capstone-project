@@ -1,14 +1,18 @@
 /**
- * Telegram notifications: every policy bought and every policy settled,
- * sent within seconds of the transaction, whoever sent it (the keeper, the
- * admin's Settle button or a farmer). It watches only new blocks, starting
+ * Notifications for every policy bought and every policy settled, by SMS
+ * (Africa's Talking or Termii) and/or Telegram, sent within seconds of the
+ * transaction, whoever sent it (the keeper, the admin's Settle button or a
+ * farmer). An SMS goes to the farmer whose profile wallet owns the policy,
+ * if they have a phone number, and to every NOTIFY_SMS_TO number. It watches only new blocks, starting
  * from the chain head when the backend starts, so restarts don't replay
  * history. It runs in the backend that runs the relayer (RELAYER_ENABLED=true),
  * so a local copy doesn't send the same messages twice.
  */
+import { userStore } from "./authServices.js";
 import { config } from "./config.js";
 import { headBlock, readInsuranceActivity, type InsuranceActivity } from "./utils/chain.js";
 import { dekadDays } from "./utils/period.js";
+import { nigerianMobile, payoutMessage, policyPurchasedMessage, sendSms, settlementMessage, smsConfigured, smsName } from "./utils/sms.js";
 import { sendTelegram } from "./utils/telegram.js";
 
 const POLL_MS = 15_000;
@@ -49,11 +53,55 @@ export function activityMessage(a: InsuranceActivity, explorerUrl: string): stri
   }
 }
 
+/** The SMS for a policy event: plain text with no emoji, so it fits in one 160-character SMS. */
+export function activitySms(a: InsuranceActivity, farmerName?: string): string {
+  switch (a.kind) {
+    case "purchase":
+      return policyPurchasedMessage(a.policyId, smsName(farmerName));
+    case "payout":
+      return payoutMessage(a.policyId, Number(a.payoutEth));
+    case "no_payout":
+      return settlementMessage(a.policyId, Math.round(a.rainfallMm * 100)); // takes mm x 100, as the contract stores it
+  }
+}
+
+/** The policy owner's phone (matched by profile wallet) and the NOTIFY_SMS_TO numbers, deduplicated. */
+async function smsRecipients(farmer: string): Promise<{ phones: string[]; farmerName?: string }> {
+  const owner = (await userStore.list()).find((u) => u.wallet.toLowerCase() === farmer.toLowerCase());
+  const phones = new Set<string>();
+  for (const raw of [owner?.phone, ...config.notifySmsTo]) {
+    const phone = raw ? nigerianMobile(raw) : null;
+    if (phone) phones.add(phone);
+  }
+  return { phones: [...phones], farmerName: owner?.name };
+}
+
+async function notify(activity: InsuranceActivity, channels: { telegram: boolean; sms: boolean }): Promise<void> {
+  const what = `${activity.kind} for policy #${activity.policyId}`;
+  const report = (channel: string, e: unknown) =>
+    console.log(`[notify] could not send ${what} by ${channel}: ${e instanceof Error ? e.message : String(e)}`);
+  if (channels.telegram) {
+    await sendTelegram(config.telegramBotToken, config.telegramChatId, activityMessage(activity, config.explorerUrl)).then(
+      () => console.log(`[notify] sent ${what} by Telegram`),
+      (e) => report("Telegram", e)
+    );
+  }
+  if (channels.sms) {
+    const { phones, farmerName } = await smsRecipients(activity.farmer);
+    const text = activitySms(activity, farmerName);
+    for (const phone of phones) {
+      const result = await sendSms(phone, text);
+      if (result.success) console.log(`[notify] sent ${what} by SMS to ${phone.slice(0, 6)}…`);
+      else report(`SMS to ${phone.slice(0, 6)}…`, result.error);
+    }
+  }
+}
+
 export function startNotifier(): void {
-  const { telegramBotToken: token, telegramChatId: chatId } = config;
   if (!config.relayerEnabled) return; // only the backend that runs the relayer notifies
-  if (!token || !chatId) {
-    console.log("[notify] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set; Telegram notifications off");
+  const channels = { telegram: Boolean(config.telegramBotToken && config.telegramChatId), sms: smsConfigured() };
+  if (!channels.telegram && !channels.sms) {
+    console.log("[notify] no SMS provider key and no Telegram bot configured; notifications off");
     return;
   }
 
@@ -68,14 +116,7 @@ export function startNotifier(): void {
         cursor ??= head;
         return;
       }
-      for (const activity of await readInsuranceActivity(cursor + 1, head)) {
-        try {
-          await sendTelegram(token, chatId, activityMessage(activity, config.explorerUrl));
-          console.log(`[notify] sent ${activity.kind} for policy #${activity.policyId}`);
-        } catch (e) {
-          console.log(`[notify] could not send ${activity.kind} for policy #${activity.policyId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }
+      for (const activity of await readInsuranceActivity(cursor + 1, head)) await notify(activity, channels);
       cursor = head;
     } catch (e) {
       console.log(`[notify] check failed, retrying: ${e instanceof Error ? e.message : String(e)}`);
@@ -86,5 +127,6 @@ export function startNotifier(): void {
 
   void poll();
   setInterval(poll, POLL_MS);
-  console.log(`[notify] Telegram notifications on, checking every ${POLL_MS / 1000} s`);
+  const on = [channels.sms && `SMS (${config.smsProvider})`, channels.telegram && "Telegram"].filter(Boolean).join(" and ");
+  console.log(`[notify] notifications by ${on} on, checking every ${POLL_MS / 1000} s`);
 }

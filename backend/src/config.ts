@@ -95,6 +95,18 @@ export const config = {
   demoAccounts: process.env.AUTH_DEMO_ACCOUNTS?.trim().toLowerCase() === "true",
   /** Minimum length accepted at sign-up and on password change. */
   minPasswordLength: wholeNumber("MIN_PASSWORD_LENGTH", 8, 6),
+  /** SMS provider for notifications and POST /api/notify/sms: "africastalking" (default) or "termii". */
+  smsProvider: smsProvider(process.env.SMS_PROVIDER),
+  /** Africa's Talking app username; "sandbox" delivers free to their online simulator, not real phones. */
+  africasTalkingUsername: process.env.AFRICASTALKING_USERNAME?.trim() || "sandbox",
+  africasTalkingApiKey: process.env.AFRICASTALKING_API_KEY?.trim() ?? "",
+  /** An approved alphanumeric sender ID; empty uses Africa's Talking's default. */
+  africasTalkingSenderId: process.env.AFRICASTALKING_SENDER_ID?.trim() ?? "",
+  /** Numbers that get an SMS for every policy bought or settled (e.g. the demo phone), comma-separated. */
+  notifySmsTo: (process.env.NOTIFY_SMS_TO ?? "")
+    .split(",")
+    .map((phone) => phone.trim())
+    .filter(Boolean),
   /** Secret callers of POST /api/notify/sms must send; empty keeps SMS off. */
   notifyApiKey: process.env.NOTIFY_API_KEY?.trim() ?? "",
   /** Telegram bot (from @BotFather) and chat that get a message for every policy bought or settled. */
@@ -136,6 +148,14 @@ function coordinate(name: string, fallback: number, limit: number): number {
   const value = Number(raw);
   if (!Number.isFinite(value) || Math.abs(value) > limit) {
     throw new Error(`${name} must be a number between -${limit} and ${limit}, got "${raw}"`);
+  }
+  return value;
+}
+
+function smsProvider(raw: string | undefined): "africastalking" | "termii" {
+  const value = raw?.trim().toLowerCase() || "africastalking";
+  if (value !== "africastalking" && value !== "termii") {
+    throw new Error(`SMS_PROVIDER must be "africastalking" or "termii", got "${raw}"`);
   }
   return value;
 }

@@ -79,6 +79,16 @@ services:
         sync: false
       - key: NOTIFY_API_KEY
         sync: false
+      # SMS notifications for policies bought and settled (Africa's Talking;
+      # username "sandbox" delivers free to their online simulator)
+      - key: SMS_PROVIDER
+        value: africastalking
+      - key: AFRICASTALKING_USERNAME
+        sync: false
+      - key: AFRICASTALKING_API_KEY
+        sync: false
+      - key: NOTIFY_SMS_TO
+        sync: false
       # Telegram notifications for policies bought and settled
       - key: TELEGRAM_BOT_TOKEN
         sync: false

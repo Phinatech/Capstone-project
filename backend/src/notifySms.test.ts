@@ -3,10 +3,11 @@ import type { AddressInfo } from "node:net";
 import { after, describe, it } from "node:test";
 import express from "express";
 
-// Set before the config loads. No Termii key, so nothing can really be sent:
-// a request that gets past every check ends in Termii's "not configured" 502.
+// Set before the config loads. No SMS provider key, so nothing can really be
+// sent: a request that gets past every check ends in a "not configured" 502.
 process.env.NOTIFY_API_KEY = "test-secret";
 process.env.TERMINII_API_KEY = "";
+process.env.AFRICASTALKING_API_KEY = "";
 const { config } = await import("./config.js");
 const { default: router } = await import("./routes/api.js");
 
@@ -56,6 +57,6 @@ describe("POST /api/notify/sms", () => {
   it("hands a valid request to the SMS provider", async () => {
     const res = await post(valid, "Bearer test-secret");
     assert.equal(res.status, 502);
-    assert.match(res.body.error ?? "", /TERMINII_API_KEY is not configured/);
+    assert.match(res.body.error ?? "", /API_KEY is not configured/);
   });
 });

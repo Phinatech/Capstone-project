@@ -1,9 +1,13 @@
 /**
- * SMS notifications via Termii (Nigerian SMS provider).
+ * SMS notifications through Africa's Talking (SMS_PROVIDER=africastalking, the
+ * default) or Termii (SMS_PROVIDER=termii).
  *
- * Sends transactional SMS to farmers when their policy pays out.
- * Configure with TERMINII_API_KEY in .env (get a free key at termii.com).
+ * Sends transactional SMS to farmers about their policies. Africa's Talking
+ * needs AFRICASTALKING_API_KEY (and AFRICASTALKING_USERNAME for a live app);
+ * Termii needs TERMINII_API_KEY and an approved TERMINII_SENDER_ID.
  */
+import { config } from "../config.js";
+import { sendAfricasTalkingSms } from "./africastalking.js";
 
 export interface SmsResult {
   success: boolean;
@@ -11,7 +15,24 @@ export interface SmsResult {
   error?: string;
 }
 
-export async function sendSms(
+/** Sends one SMS through the configured provider. */
+export async function sendSms(phoneNumber: string, message: string): Promise<SmsResult> {
+  if (config.smsProvider === "termii") return sendTermiiSms(phoneNumber, message);
+  return sendAfricasTalkingSms({
+    username: config.africasTalkingUsername,
+    apiKey: config.africasTalkingApiKey,
+    senderId: config.africasTalkingSenderId,
+    to: `+${formatPhoneNumber(phoneNumber)}`,
+    message,
+  });
+}
+
+/** True when the configured provider has the key it needs. */
+export function smsConfigured(): boolean {
+  return config.smsProvider === "termii" ? Boolean(process.env.TERMINII_API_KEY?.trim()) : Boolean(config.africasTalkingApiKey);
+}
+
+async function sendTermiiSms(
   phoneNumber: string,
   message: string,
   apiKey: string = process.env.TERMINII_API_KEY ?? ""
