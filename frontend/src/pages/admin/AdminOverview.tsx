@@ -8,12 +8,15 @@ import { usePolicies } from '../../contexts/PolicyContext';
 import { oracleSources } from '../../data/rainfall';
 import { buildActivity } from '../../utils/activity';
 import { portfolioStats } from '../../utils/analytics';
-import { getWindow, reputation } from '../../utils/oracle';
+import { getWindow } from '../../utils/oracle';
+import { useOracleTrust } from '../../hooks/useOracleTrust';
 import { findUser, getFarmers } from '../../utils/users';
 import { formatEth } from '../../utils/format';
 
 export function AdminOverview() {
   const { policies, poolEth: pool } = usePolicies();
+  const { sources: oracleTrust } = useOracleTrust();
+  const byId = new Map(oracleTrust.map((s) => [s.sourceId, s]));
   const stats = portfolioStats(policies);
   const active = policies.filter((p) => p.status === 'active');
 
@@ -94,10 +97,10 @@ export function AdminOverview() {
                       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
                       <span className="truncate">{s.name}</span>
                     </span>
-                    <span className="font-mono">{(reputation[s.id].score * 100).toFixed(0)}</span>
+                    <span className="font-mono">{((byId.get(s.id)?.score ?? 0) * 100).toFixed(0)}</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-canvas">
-                    <div className="h-full rounded-full" style={{ width: `${reputation[s.id].score * 100}%`, background: s.color }} />
+                    <div className="h-full rounded-full" style={{ width: `${(byId.get(s.id)?.score ?? 0) * 100}%`, background: s.color }} />
                   </div>
                 </li>
               )}

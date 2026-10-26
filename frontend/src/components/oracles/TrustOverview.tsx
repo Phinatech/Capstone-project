@@ -1,15 +1,25 @@
 import { motion } from 'framer-motion';
 import { ArrowDownIcon, CpuIcon, FileCode2Icon, RadioTowerIcon } from 'lucide-react';
 import { oracleSources } from '../../data/rainfall';
-import { oracleMeta } from '../../data/oracleMeta';
-import { reputation, SOURCE_IDS } from '../../utils/oracle';
+import { useOracleTrust } from '../../hooks/useOracleTrust';
+import { useRainfallSeries } from '../../hooks/useRainfallSeries';
+import { SOURCE_IDS } from '../../utils/oracle';
 
 const ease = [0.23, 1, 0.32, 1] as const;
 
 export function TrustOverview() {
-  const meanDeviation = SOURCE_IDS.reduce((s, id) => s + reputation[id].meanDeviation, 0) / SOURCE_IDS.length;
-  const leader = [...oracleSources].sort((a, b) => reputation[b.id].weight - reputation[a.id].weight)[0];
-  const slowest = Math.max(...SOURCE_IDS.map((id) => oracleMeta[id].responseSec));
+  const { sources } = useOracleTrust();
+  const { dekads } = useRainfallSeries();
+  const byId = new Map(sources.map((s) => [s.sourceId, s]));
+  const scored = sources.filter((s) => s.meanDeviation !== null);
+  const meanDeviation = scored.length ?
+  scored.reduce((sum, s) => sum + (s.meanDeviation ?? 0), 0) / scored.length :
+  null;
+  const leader = [...sources].sort((a, b) => b.weight - a.weight)[0];
+  const reporting = sources.filter((s) => s.registered && s.dekadsReported > 0).length;
+  const healthy = reporting === sources.length && sources.length > 0;
+  // Every source reporting on the same dekad is what leaves room above quorum.
+  const fullCoverage = dekads.filter((d) => SOURCE_IDS.every((id) => d[id] !== null)).length;
 
   const pipeline = [
   { icon: RadioTowerIcon, title: 'Oracle relayer', text: 'Fetches the 3 rainfall APIs and submits each reading' },
@@ -26,20 +36,22 @@ export function TrustOverview() {
               Trust distribution
             </h2>
             <p className="mt-1 text-lg font-semibold leading-snug sm:text-xl">
-              Sources agree within <span className="font-mono text-accent-strong">{(meanDeviation * 100).toFixed(1)}%</span> of each other on average
+              {meanDeviation === null ?
+              'Not enough readings to compare the sources yet' :
+              <>Sources agree within <span className="font-mono text-accent-strong">{(meanDeviation * 100).toFixed(1)}%</span> of each other on average</>}
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-success">
-            <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />3 of 3 feeds healthy
+          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${healthy ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${healthy ? 'bg-success' : 'bg-danger'}`} aria-hidden />{reporting} of {sources.length} feeds reporting
           </span>
         </div>
 
-        <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full bg-canvas" role="img" aria-label="Base weight of each source">
+        <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full bg-canvas" role="img" aria-label="Reputation weight of each source on the contract">
           {oracleSources.map((s, i) =>
           <motion.span
             key={s.id}
             initial={{ width: 0 }}
-            animate={{ width: `${reputation[s.id].weight * 100}%` }}
+            animate={{ width: `${(byId.get(s.id)?.weight ?? 0) * 100}%` }}
             transition={{ duration: 0.3, delay: i * 0.05, ease }}
             className="h-full first:rounded-l-full last:rounded-r-full [&:not(:first-child)]:border-l-2 [&:not(:first-child)]:border-surface"
             style={{ background: s.color }} />
@@ -53,19 +65,19 @@ export function TrustOverview() {
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
                 <span className="truncate">{s.name}</span>
               </p>
-              <p className="mt-0.5 font-mono text-base font-semibold sm:text-lg">{(reputation[s.id].weight * 100).toFixed(1)}%</p>
+              <p className="mt-0.5 font-mono text-base font-semibold sm:text-lg">{((byId.get(s.id)?.weight ?? 0) * 100).toFixed(1)}%</p>
             </li>
           )}
         </ul>
 
         <dl className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-md border border-line bg-line text-sm">
           <div className="min-w-0 bg-surface px-3 py-2.5">
-            <dt className="truncate text-[11px] text-muted">Most trusted</dt>
-            <dd className="mt-0.5 truncate font-medium">{leader.name}</dd>
+            <dt className="truncate text-[11px] text-muted">Most weight</dt>
+            <dd className="mt-0.5 truncate font-medium">{leader?.name ?? '—'}</dd>
           </div>
           <div className="min-w-0 bg-surface px-3 py-2.5">
-            <dt className="truncate text-[11px] text-muted">Slowest API</dt>
-            <dd className="mt-0.5 truncate font-mono">{slowest.toFixed(1)} s</dd>
+            <dt className="truncate text-[11px] text-muted">Dekads with all 3</dt>
+            <dd className="mt-0.5 truncate font-mono">{fullCoverage} of {dekads.length}</dd>
           </div>
           <div className="min-w-0 bg-surface px-3 py-2.5">
             <dt className="truncate text-[11px] text-muted">Weighting</dt>

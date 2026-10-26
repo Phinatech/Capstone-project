@@ -7,14 +7,12 @@ export interface OracleMeta {
   cadence: string;
   method: string;
   endpoint: string;
-  /** Modelled response time from the oracle relayer to the source API, seconds. */
-  responseSec: number;
-  /** Illustrative request success rate over the backtest window. */
-  uptime: number;
   licence: string;
 }
 
-// Illustrative metadata for the prototype. Replace response time and uptime with measured Sepolia values.
+// Descriptive facts about each provider's public product. Measured values —
+// reputation weight, how far a source sat from its peers, and how many dekads
+// it has submitted — come from the contract and its readings, not from here.
 export const oracleMeta: Record<SourceId, OracleMeta> = {
   chirps: {
     provider: 'Climate Hazards Center, UC Santa Barbara',
@@ -23,8 +21,6 @@ export const oracleMeta: Record<SourceId, OracleMeta> = {
     cadence: 'Daily · final release ≈3 weeks after month end',
     method: 'Infrared satellite estimates blended with station records',
     endpoint: 'data.chc.ucsb.edu/products/CHIRPS-2.0',
-    responseSec: 1.8,
-    uptime: 0.992,
     licence: 'Public domain'
   },
   nasa: {
@@ -34,8 +30,6 @@ export const oracleMeta: Record<SourceId, OracleMeta> = {
     cadence: 'Daily · near real time',
     method: 'MERRA-2 reanalysis, bias-corrected',
     endpoint: 'power.larc.nasa.gov/api/temporal/daily/point',
-    responseSec: 1.2,
-    uptime: 0.997,
     licence: 'Open, attribution requested'
   },
   meteostat: {
@@ -45,8 +39,6 @@ export const oracleMeta: Record<SourceId, OracleMeta> = {
     cadence: 'Daily',
     method: 'Ground station observations (Sokoto airport)',
     endpoint: 'meteostat.p.rapidapi.com/point/daily',
-    responseSec: 0.9,
-    uptime: 0.984,
     licence: 'CC BY-NC 4.0'
   }
 };

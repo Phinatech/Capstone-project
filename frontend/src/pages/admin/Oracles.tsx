@@ -62,8 +62,6 @@ export function Oracles() {
         </div>
 
         <ConsensusSimulator />
-
-        <p className="text-[11px] text-muted">Source response times and uptime are illustrative until measured against Sepolia runs.</p>
       </div>
     </div>);
 

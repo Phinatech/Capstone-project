@@ -5,7 +5,9 @@ import { ScoreRing } from './ScoreRing';
 import { Modal } from '../ui/Modal';
 import { oracleSources } from '../../data/rainfall';
 import { oracleMeta } from '../../data/oracleMeta';
-import { dekadDeviations, reputation } from '../../utils/oracle';
+import { useOracleTrust } from '../../hooks/useOracleTrust';
+import { useRainfallSeries } from '../../hooks/useRainfallSeries';
+import { deviationsFrom } from '../../utils/oracle';
 import { formatPct } from '../../utils/format';
 import type { OracleSource } from '../../types/insurance';
 
@@ -28,8 +30,12 @@ function Sparkline({ values, color }: {values: (number | null)[];color: string;}
 
 export function SourceRegistry() {
   const [selected, setSelected] = useState<OracleSource | null>(null);
-  const devs = dekadDeviations();
-  const ranked = [...oracleSources].sort((a, b) => reputation[b.id].score - reputation[a.id].score);
+  const { sources } = useOracleTrust();
+  const { dekads } = useRainfallSeries();
+  const devs = deviationsFrom(dekads);
+  const byId = new Map(sources.map((s) => [s.sourceId, s]));
+  const ranked = [...oracleSources].sort((a, b) => (byId.get(b.id)?.score ?? 0) - (byId.get(a.id)?.score ?? 0));
+  const selectedTrust = selected ? byId.get(selected.id) : undefined;
 
   return (
     <section aria-labelledby="registry-heading" className="min-w-0">
@@ -48,13 +54,12 @@ export function SourceRegistry() {
           <span>Score</span>
           <span className="text-right">Base weight</span>
           <span className="text-right">Mean deviation</span>
-          <span className="text-right">Response</span>
-          <span>Deviation, Jun → Oct</span>
+          <span className="text-right">Reported</span>
+          <span>Deviation, first → last dekad</span>
           <span />
         </li>
         {ranked.map((s, i) => {
-          const rep = reputation[s.id];
-          const meta = oracleMeta[s.id];
+          const rep = byId.get(s.id);
           return (
             <motion.li
               key={s.id}
@@ -70,7 +75,7 @@ export function SourceRegistry() {
                 
                 <span className="flex min-w-0 items-center gap-3 lg:col-auto">
                   <span className="lg:hidden">
-                    <ScoreRing value={rep.score * 100} color={s.color} size={44} />
+                    <ScoreRing value={(rep?.score ?? 0) * 100} color={s.color} size={44} />
                   </span>
                   <span className="hidden h-8 w-1 shrink-0 rounded-full lg:block" style={{ background: s.color }} aria-hidden />
                   <span className="min-w-0">
@@ -86,24 +91,24 @@ export function SourceRegistry() {
                 <span className="grid w-[9.5rem] grid-cols-3 gap-2 text-right sm:w-56 lg:hidden">
                   <span className="min-w-0">
                     <span className="block truncate text-[10px] text-muted">Weight</span>
-                    <span className="block truncate font-mono text-xs">{formatPct(rep.weight)}</span>
+                    <span className="block truncate font-mono text-xs">{formatPct(rep?.weight ?? 0)}</span>
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-[10px] text-muted">Dev.</span>
-                    <span className="block truncate font-mono text-xs">{formatPct(rep.meanDeviation)}</span>
+                    <span className="block truncate font-mono text-xs">{rep?.meanDeviation == null ? '—' : formatPct(rep.meanDeviation)}</span>
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[10px] text-muted">Resp.</span>
-                    <span className="block truncate font-mono text-xs">{meta.responseSec.toFixed(1)}s</span>
+                    <span className="block truncate text-[10px] text-muted">Reported</span>
+                    <span className="block truncate font-mono text-xs">{rep?.dekadsReported ?? 0}/{rep?.dekadsTotal ?? 0}</span>
                   </span>
                 </span>
 
                 <span className="hidden lg:block">
-                  <ScoreRing value={rep.score * 100} color={s.color} size={40} />
+                  <ScoreRing value={(rep?.score ?? 0) * 100} color={s.color} size={40} />
                 </span>
-                <span className="hidden text-right font-mono text-sm lg:block">{formatPct(rep.weight)}</span>
-                <span className="hidden text-right font-mono text-sm lg:block">{formatPct(rep.meanDeviation)}</span>
-                <span className="hidden text-right font-mono text-sm lg:block">{meta.responseSec.toFixed(1)} s</span>
+                <span className="hidden text-right font-mono text-sm lg:block">{formatPct(rep?.weight ?? 0)}</span>
+                <span className="hidden text-right font-mono text-sm lg:block">{rep?.meanDeviation == null ? '—' : formatPct(rep.meanDeviation)}</span>
+                <span className="hidden text-right font-mono text-sm lg:block">{rep?.dekadsReported ?? 0} / {rep?.dekadsTotal ?? 0}</span>
                 <span className="hidden min-w-0 lg:block">
                   <Sparkline values={devs[s.id]} color={s.color} />
                 </span>
@@ -118,7 +123,7 @@ export function SourceRegistry() {
         open={!!selected}
         onClose={() => setSelected(null)}
         size="md"
-        icon={selected ? <ScoreRing value={reputation[selected.id].score * 100} color={selected.color} size={44} /> : undefined}
+        icon={selected ? <ScoreRing value={(selectedTrust?.score ?? 0) * 100} color={selected.color} size={44} /> : undefined}
         title={selected?.name}
         description={selected ? oracleMeta[selected.id].provider : undefined}>
         
@@ -126,9 +131,9 @@ export function SourceRegistry() {
         <div className="space-y-4">
             <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line">
               {[
-            { label: 'Reputation', value: `${(reputation[selected.id].score * 100).toFixed(1)}` },
-            { label: 'Base weight', value: formatPct(reputation[selected.id].weight) },
-            { label: 'Uptime', value: formatPct(oracleMeta[selected.id].uptime) }].
+            { label: 'Reputation', value: `${((selectedTrust?.score ?? 0) * 100).toFixed(1)}` },
+            { label: 'Contract weight', value: formatPct(selectedTrust?.weight ?? 0) },
+            { label: 'Dekads reported', value: `${selectedTrust?.dekadsReported ?? 0} / ${selectedTrust?.dekadsTotal ?? 0}` }].
             map((m) =>
             <div key={m.label} className="min-w-0 bg-surface px-3 py-2.5">
                   <p className="truncate text-[11px] text-muted">{m.label}</p>
@@ -148,8 +153,8 @@ export function SourceRegistry() {
             ['Method', oracleMeta[selected.id].method],
             ['Resolution', oracleMeta[selected.id].resolution],
             ['Update cadence', oracleMeta[selected.id].cadence],
-            ['Mean deviation', formatPct(reputation[selected.id].meanDeviation)],
-            ['Response time', `${oracleMeta[selected.id].responseSec.toFixed(1)} s (modelled)`],
+            ['Mean deviation', selectedTrust?.meanDeviation == null ? '—' : formatPct(selectedTrust.meanDeviation)],
+            ['Registered on-chain', selectedTrust?.registered ? 'Yes' : 'No — every address deactivated'],
             ['Licence', oracleMeta[selected.id].licence]].
             map(([k, v]) =>
             <div key={k} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 px-3 py-2.5">
