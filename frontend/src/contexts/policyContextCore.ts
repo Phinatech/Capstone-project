@@ -18,6 +18,10 @@ export interface WindowOption {
   label: string;
   /** False once the contract would reject a purchase (`sales closed for window`). */
   open: boolean;
+  /** Part of the season this window insures, e.g. "Sep D2 – Oct D1". */
+  covers: string;
+  /** Human close date, e.g. "19 Nov 2026". */
+  closes: string;
 }
 
 /** Where policy data comes from: in-browser seed data, or the deployed contracts. */

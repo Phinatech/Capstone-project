@@ -117,10 +117,23 @@ interface Snapshot {
   windows: WindowOption[];
 }
 
-/** Human label for a contract window: the id, plus when sales close. */
-function windowLabel(id: number, salesCloseAt: number): string {
-  const closes = new Date(salesCloseAt * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  return `Window #${id} · closes ${closes}`;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A period id is YYYYMMD: 2026092 is 2026, September, second dekad. */
+function dekadLabel(period: number): string {
+  const month = Math.floor(period / 10) % 100;
+  return `${MONTHS[month - 1] ?? month} D${period % 10}`;
+}
+
+function windowCloses(salesCloseAt: number): string {
+  return new Date(salesCloseAt * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** Which dekads a window insures, e.g. "Sep D2 – Oct D1". */
+function windowCovers(periods: number[]): string {
+  if (periods.length === 0) return '—';
+  if (periods.length === 1) return dekadLabel(periods[0]);
+  return `${dekadLabel(periods[0])} – ${dekadLabel(periods[periods.length - 1])}`;
 }
 
 interface OracleInfo {
@@ -287,11 +300,16 @@ function ChainData({
 
     const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label, registered: o.registered }));
     const windows = rawWindows.map((w) => w.periods.map(BigInt));
-    const windowOptions: WindowOption[] = rawWindows.map((w) => ({
-      id: String(w.id),
-      label: windowLabel(w.id, w.salesCloseAt),
-      open: w.salesCloseAt * 1000 > Date.now()
-    }));
+    const windowOptions: WindowOption[] = rawWindows.map((w) => {
+      const closes = windowCloses(w.salesCloseAt);
+      return {
+        id: String(w.id),
+        label: `Window #${w.id} · closes ${closes}`,
+        open: w.salesCloseAt * 1000 > Date.now(),
+        covers: windowCovers(w.periods),
+        closes
+      };
+    });
     const readings = new Map<string, bigint>();
     for (const r of rawEvaluations.flatMap((e) => e.readings)) {
       readings.set(`${r.period}:${r.oracle.toLowerCase()}`, BigInt(r.rainfallMm));

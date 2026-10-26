@@ -1,8 +1,6 @@
 import { PageHeader } from '../../components/PageHeader';
 import { PurchaseForm } from '../../components/PurchaseForm';
-import { coverageWindows } from '../../data/policies';
-import { dekadalRainfall } from '../../data/rainfall';
-import { SOURCE_IDS, windowTotal } from '../../utils/oracle';
+import { WindowCoverageTable } from '../../components/WindowCoverageTable';
 
 export function BuyCover() {
   return (
@@ -22,34 +20,11 @@ export function BuyCover() {
               Choosing a threshold
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-muted">
-              A threshold just below typical rainfall pays out in a dry spell. The 2023 three-source averages are a
-              useful guide.
+              Set the threshold a little below the rainfall you expect. Each window insures a fixed run of dekads,
+              and the contract compares your threshold against the total recorded across them — so a total below it
+              pays out.
             </p>
-            <table className="mt-4 w-full text-sm">
-              <caption className="sr-only">2023 average rainfall by coverage window</caption>
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="py-2 font-medium">Window</th>
-                  <th className="py-2 text-right font-medium">2023 average</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coverageWindows.map((w) => {
-                  const avg = SOURCE_IDS.reduce((s, id) => s + windowTotal(id, w.start, w.end), 0) / SOURCE_IDS.length;
-                  return (
-                    <tr key={w.id} className="border-b border-line last:border-0">
-                      <td className="py-2.5">
-                        <span className="block">{w.label}</span>
-                        <span className="text-xs text-muted">
-                          {dekadalRainfall[w.start].label} – {dekadalRainfall[w.end].label}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-right font-mono">{avg.toFixed(0)} mm</td>
-                    </tr>);
-
-                })}
-              </tbody>
-            </table>
+            <WindowCoverageTable />
           </section>
         </aside>
       </div>
