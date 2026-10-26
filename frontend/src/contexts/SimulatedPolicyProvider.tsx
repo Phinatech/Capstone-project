@@ -93,7 +93,10 @@ export function SimulatedPolicyProvider({ children, reason }: {children: React.R
         label: w.label,
         open: true,
         covers: `${dekadalRainfall[w.start].label} – ${dekadalRainfall[w.end].label}`,
-        closes: '—'
+        closes: '—',
+        // The seed windows span table rows, not contract dekad ids, so they
+        // carry no periods to total. Rainfall stays unknown rather than guessed.
+        periods: []
       })),
       poolEth: contractPoolStartEth + stats.premiums - stats.payouts,
       balanceOf,

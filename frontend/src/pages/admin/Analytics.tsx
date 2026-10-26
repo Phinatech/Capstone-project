@@ -5,6 +5,7 @@ import { FilterTabs } from '../../components/FilterTabs';
 import { ChartCard, tooltipStyle } from '../../components/analytics/ChartCard';
 import { KpiStrip } from '../../components/analytics/KpiStrip';
 import { usePolicies } from '../../contexts/PolicyContext';
+import { useWindowRainfall } from '../../hooks/useWindowRainfall';
 import { configurationProfiles } from '../../data/configurations';
 import { byCrop, byLga, byStatus, byWindow, portfolioStats, triggerMargins } from '../../utils/analytics';
 import { runBacktest } from '../../utils/oracle';
@@ -14,16 +15,17 @@ type Crop = 'all' | 'Millet' | 'Sorghum';
 const axis = { fontSize: 10, fill: 'var(--muted)' };
 
 export function Analytics() {
-  const { policies, poolEth: pool } = usePolicies();
+  const { policies, windows: windowOptions, poolEth: pool } = usePolicies();
+  const rainfallOf = useWindowRainfall();
   const [crop, setCrop] = useState<Crop>('all');
   const scoped = crop === 'all' ? policies : policies.filter((p) => p.crop === crop);
 
   const stats = portfolioStats(scoped);
-  const windows = byWindow(scoped);
+  const windows = byWindow(scoped, windowOptions, rainfallOf);
   const lgaRows = byLga(scoped);
   const status = byStatus(scoped);
   const crops = byCrop(policies);
-  const margins = triggerMargins(scoped);
+  const margins = triggerMargins(scoped, windowOptions, rainfallOf);
   const wouldPay = margins.filter((m) => m.ratio > 1).length;
   const backtest = useMemo(
     () =>
@@ -65,7 +67,12 @@ export function Analytics() {
                   <CartesianGrid stroke="var(--line)" vertical={false} />
                   <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={{ stroke: 'var(--line)' }} interval={0} tickFormatter={(v: string) => v.split(' ')[0]} />
                   <YAxis tick={axis} tickLine={false} axisLine={false} width={48} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--canvas)' }} formatter={(v) => formatEth(Number(v))} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    cursor={{ fill: 'var(--canvas)' }}
+                    formatter={(value, name) =>
+                    name === 'Rainfall' ? `${Number(value).toFixed(1)} mm` : formatEth(Number(value))}
+                    />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="active" name="Open exposure" stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} isAnimationActive={false} />
                   <Bar dataKey="paid" name="Paid out" stackId="a" fill="var(--clay)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
@@ -146,14 +153,17 @@ export function Analytics() {
         </div>
 
         <ChartCard
-          title="Trigger vs 2023 rainfall"
-          hint="Each policy's trigger as a share of the gauge total for its window. Above 100% means the 2023 season would have paid."
+          title="Trigger vs recorded rainfall"
+          hint="Each policy's trigger as a share of the rainfall its window has recorded. Above 100% means that window pays out."
           action={
           <span className="shrink-0 rounded-full bg-clay-soft px-2 py-0.5 text-[11px] font-medium text-clay">
               {wouldPay}/{margins.length} would pay
             </span>
           }>
           
+          {margins.length === 0 ?
+          <p className="py-8 text-center text-sm text-muted">No policy's window has finished collecting readings yet.</p> :
+
           <ul className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
             {margins.map((m) => {
               const pct = Math.min(m.ratio, 1.5) / 1.5;
@@ -169,6 +179,7 @@ export function Analytics() {
 
             })}
           </ul>
+          }
         </ChartCard>
       </div>
     </div>);

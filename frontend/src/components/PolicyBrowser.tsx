@@ -7,7 +7,8 @@ import { FilterSelect } from './ui/FilterSelect';
 import { ViewToggle } from './ui/ViewToggle';
 import type { ViewMode } from './ui/ViewToggle';
 import { usePersistentState } from '../hooks/usePersistentState';
-import { coverageWindows, crops, lgas } from '../data/policies';
+import { crops, lgas } from '../data/policies';
+import { usePolicies } from '../contexts/PolicyContext';
 import { findUser } from '../utils/users';
 import type { Policy, PolicyStatus } from '../types/insurance';
 
@@ -30,6 +31,9 @@ const sortOptions: {value: Sort;label: string;}[] = [
 
 export function PolicyBrowser({ policies, basePath, showFarmer = false, storageKey }: PolicyBrowserProps) {
   const [params, setParams] = useSearchParams();
+  // The contract's windows in chain mode, the seed list otherwise — never the
+  // five simulated ones this filter used to offer.
+  const { windows } = usePolicies();
   const [view, setView] = usePersistentState<ViewMode>(`sokoto-cover-view-${storageKey}-v2`, 'grid');
   const [status, setStatus] = useState<StatusFilter>(params.get('status') as StatusFilter ?? 'all');
   const [crop, setCrop] = useState('all');
@@ -94,7 +98,7 @@ export function PolicyBrowser({ policies, basePath, showFarmer = false, storageK
           label="Coverage window"
           value={windowId}
           onChange={setWindowId}
-          options={[{ value: 'all', label: 'All windows' }, ...coverageWindows.map((w) => ({ value: w.id, label: w.label }))]} />
+          options={[{ value: 'all', label: 'All windows' }, ...windows.map((w) => ({ value: w.id, label: `#${w.id} · ${w.covers}` }))]} />
         
         {showFarmer &&
         <FilterSelect

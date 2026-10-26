@@ -4,8 +4,8 @@ import { Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePolicies } from '../contexts/PolicyContext';
 import { useAuth } from '../contexts/AuthContext';
-import { coverageWindows, crops, lgas, payoutOptionsEth, premiumRate } from '../data/policies';
-import { SOURCE_IDS, windowTotal } from '../utils/oracle';
+import { useWindowRainfall } from '../hooks/useWindowRainfall';
+import { crops, lgas, payoutOptionsEth, premiumRate } from '../data/policies';
 import { formatEth } from '../utils/format';
 import { formatNgn } from '../utils/currency';
 import { useFx } from '../contexts/FxContext';
@@ -29,11 +29,12 @@ export function PurchaseForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The 2023 averages only describe the simulated data; contract windows have no entry.
-  const coverage = coverageWindows.find((w) => w.id === windowId);
-  const typical = useMemo(
-    () => coverage ? SOURCE_IDS.reduce((s, id) => s + windowTotal(id, coverage.start, coverage.end), 0) / SOURCE_IDS.length : null,
-    [coverage]
+  // Rainfall this window has actually recorded, aggregated the way the contract
+  // will settle it, so the trigger can be set against something real.
+  const rainfallOf = useWindowRainfall();
+  const windowRainfall = useMemo(
+    () => rainfallOf(windows.find((w) => w.id === windowId)?.periods ?? []),
+    [rainfallOf, windows, windowId]
   );
   const premiumEth = payoutEth * premiumRate;
 
@@ -121,11 +122,12 @@ export function PurchaseForm() {
           
           <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">mm</span>
         </div>
-        {typical !== null &&
         <span id="threshold-hint" className="mt-1.5 block text-xs font-normal text-muted">
-          2023 three-source average for this window: <span className="font-mono">{typical.toFixed(0)} mm</span>
+          Rainfall recorded for this window:{' '}
+          <span className="font-mono">
+            {windowRainfall === null ? 'not finalised yet' : `${windowRainfall.toFixed(1)} mm`}
+          </span>
         </span>
-        }
       </label>
 
       <fieldset className="mt-4">

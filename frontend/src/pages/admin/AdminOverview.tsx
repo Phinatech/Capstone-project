@@ -14,7 +14,7 @@ import { findUser, getFarmers } from '../../utils/users';
 import { formatEth } from '../../utils/format';
 
 export function AdminOverview() {
-  const { policies, poolEth: pool } = usePolicies();
+  const { policies, source, poolEth: pool } = usePolicies();
   const { sources: oracleTrust } = useOracleTrust();
   const byId = new Map(oracleTrust.map((s) => [s.sourceId, s]));
   const stats = portfolioStats(policies);
@@ -24,7 +24,7 @@ export function AdminOverview() {
     <div>
       <PageHeader
         title="Overview"
-        description={`2023 season · ${getFarmers().length} farmers · ${policies.length} policies`}
+        description={`${source.kind === 'chain' ? 'On-chain' : '2023 season'} · ${getFarmers().length} farmers · ${policies.length} policies`}
         actions={
         <Link to="/admin/analytics" className={`${btnSecondary} h-9 px-3 sm:h-10 sm:px-4`}>
             <BarChart3Icon className="h-4 w-4" aria-hidden />

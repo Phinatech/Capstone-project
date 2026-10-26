@@ -1,6 +1,9 @@
-import { coverageWindows, lgas } from '../data/policies';
-import { getWindow, windowTotal } from './oracle';
+import { lgas } from '../data/policies';
+import type { WindowOption } from '../contexts/policyContextCore';
 import type { Policy } from '../types/insurance';
+
+/** Rainfall a window's periods total, in mm; null until every dekad has a reading. */
+export type RainfallOf = (periods: number[]) => number | null;
 
 export interface PortfolioStats {
   premiums: number;
@@ -34,16 +37,23 @@ export function portfolioStats(policies: Policy[]): PortfolioStats {
   };
 }
 
-export function byWindow(policies: Policy[]) {
-  return coverageWindows.map((w) => {
+/**
+ * Cover written per window, with the rainfall the oracles actually recorded
+ * for it. Windows nobody has bought are left out rather than drawn as empty
+ * bars, and rainfall stays null until every dekad in the window has a reading.
+ */
+export function byWindow(policies: Policy[], windows: WindowOption[], rainfallOf: RainfallOf) {
+  return windows.
+  filter((w) => policies.some((p) => p.windowId === w.id)).
+  map((w) => {
     const mine = policies.filter((p) => p.windowId === w.id);
     return {
       id: w.id,
-      label: w.label,
+      label: `#${w.id} · ${w.covers}`,
       active: mine.filter((p) => p.status === 'active').reduce((s, p) => s + p.payoutEth, 0),
       paid: mine.filter((p) => p.status === 'paid').reduce((s, p) => s + p.payoutEth, 0),
       count: mine.length,
-      rainfall: windowTotal('reference', w.start, w.end)
+      rainfall: rainfallOf(w.periods)
     };
   });
 }
@@ -76,11 +86,18 @@ export function byCrop(policies: Policy[]) {
   return crops.map((crop) => ({ crop, count: policies.filter((p) => p.crop === crop).length }));
 }
 
-/** How close each trigger sits to the 2023 gauge total for its window (below 1 = would pay). */
-export function triggerMargins(policies: Policy[]) {
-  return policies.map((p) => {
-    const w = getWindow(p.windowId);
-    const rain = windowTotal('reference', w.start, w.end);
-    return { id: p.id, ratio: rain > 0 ? p.thresholdMm / rain : 0, thresholdMm: p.thresholdMm, rainfall: rain };
-  });
+/**
+ * Each policy's trigger against the rainfall its window actually recorded,
+ * above 1 = the window would pay out. Policies whose window is still missing
+ * a reading are left out, since there is no total to compare against yet.
+ */
+export function triggerMargins(policies: Policy[], windows: WindowOption[], rainfallOf: RainfallOf) {
+  const periodsById = new Map(windows.map((w) => [w.id, w.periods]));
+  const rows: { id: number;ratio: number;thresholdMm: number;rainfall: number;}[] = [];
+  for (const p of policies) {
+    const rain = rainfallOf(periodsById.get(p.windowId) ?? []);
+    if (rain === null || rain <= 0) continue;
+    rows.push({ id: p.id, ratio: p.thresholdMm / rain, thresholdMm: p.thresholdMm, rainfall: rain });
+  }
+  return rows;
 }

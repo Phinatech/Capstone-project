@@ -22,6 +22,8 @@ export interface WindowOption {
   covers: string;
   /** Human close date, e.g. "19 Nov 2026". */
   closes: string;
+  /** Contract dekad ids this window sums, e.g. [2026092, 2026093, 2026101]. Empty where the window is not on-chain. */
+  periods: number[];
 }
 
 /** Where policy data comes from: in-browser seed data, or the deployed contracts. */

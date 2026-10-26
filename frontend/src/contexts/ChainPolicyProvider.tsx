@@ -307,7 +307,8 @@ function ChainData({
         label: `Window #${w.id} · closes ${closes}`,
         open: w.salesCloseAt * 1000 > Date.now(),
         covers: windowCovers(w.periods),
-        closes
+        closes,
+        periods: w.periods
       };
     });
     const readings = new Map<string, bigint>();

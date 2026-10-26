@@ -98,6 +98,36 @@ export function reputationTrend(): {label: string;chirps: number;nasa: number;me
   return reputationTrendFrom(dekadalRainfall);
 }
 
+/**
+ * Rainfall a window insures, in mm, aggregated the way the deployed aggregator
+ * does it: each dekad is the reputation-weighted mean across the sources that
+ * reported for it, and the window is the sum of its dekads. Window 19 comes to
+ * 78.35 mm, matching the contract's own total.
+ *
+ * Null when any dekad in the window has no reading, so a half-finished season
+ * is never presented as a total. The 2023 prototype table this used to read
+ * has no bearing on the deployed windows.
+ */
+export function windowRainfallMm(
+  periods: number[],
+  dekads: ({ period: number } & RainfallSeriesRow)[],
+  rep: ReputationTable
+): number | null {
+  if (periods.length === 0) return null;
+  let total = 0;
+  for (const period of periods) {
+    const row = dekads.find((d) => d.period === period);
+    if (!row) return null;
+    // A source with no reading is left out and the weights renormalise over
+    // those that reported, which is what the aggregator does on-chain.
+    const reported = SOURCE_IDS.filter((id) => row[id] !== null && rep[id].weight > 0);
+    const weightSum = reported.reduce((s, id) => s + rep[id].weight, 0);
+    if (reported.length === 0 || weightSum <= 0) return null;
+    total += reported.reduce((s, id) => s + rep[id].weight * (row[id] as number), 0) / weightSum;
+  }
+  return total;
+}
+
 /** Reads a coverage window from every source, optionally corrupting one reading. */
 export function readSources(windowId: string, corruption: Corruption | null): Record<SourceId, number> {
   const w = getWindow(windowId);
