@@ -12,26 +12,57 @@ The real risk concentrates in **centralization/trust** — a single EOA controls
 oracle registration, reputation weights, and policy creation — and in
 **unbounded payout timing**, plus one **high-severity dependency CVE**.
 
+**Status as of 2026-10-27:** 6 resolved (H-3, M-2, M-4, M-5, L-4, L-5), 1
+resolved with a live operational caveat (M-1 — quorum is enforced, but there
+is no margin while CHIRPS stays silent), 2 partly resolved (H-2, L-3), 1
+reopened (L-6, advisory count grew and is no longer dev-only), 3 open
+(H-1, M-3, L-2), and L-1 documented as a non-issue.
+
 | ID | Severity | Title | Location |
 |------|----------|--------------------------------------------------------|------------------------------------------|
 | H-1 | HIGH | Fully centralized admin: owner controls payouts, oracles, and weights | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
 | H-2 | HIGH | Payout can be settled late, after drought relief is already committed — **partly resolved 2026-10-14** | `WeatherIndexInsurance.sol#checkAndSettle` |
 | H-3 | HIGH | `serialize-javascript` ≤7.0.4 — RCE (GHSA-5c6j-r48x-rmvq) — **resolved 2026-09-28** | `package-lock.json` (dev, via mocha) |
-| M-1 | MEDIUM | Manipulable finalization race: anyone can finalize a half-reported period — **resolved 2026-09-30** | `OracleAggregator.sol#finalizePeriod` |
+| M-1 | MEDIUM | Manipulable finalization race: anyone can finalize a half-reported period — **resolved 2026-09-30** (quorum enforced); **zero operational margin as of 2026-10-27**, see note below | `OracleAggregator.sol#finalizePeriod` |
 | M-2 | MEDIUM | Owner can unilaterally rewrite reputation weights after readings are in — **resolved 2026-09-30** | `OracleAggregator.sol#updateReputation` |
 | M-3 | MEDIUM | Last-second reentrancy griefing of the payout pool | `WeatherIndexInsurance.sol#fundPool` |
 | M-4 | MEDIUM | Payouts silently skipped when the pool is underfunded (no fund accounting) — **resolved 2026-09-28** | `WeatherIndexInsurance.sol#checkAndSettle` |
-| M-5 | MEDIUM | No bounds/sanity checks on submitted rainfall readings — **partly resolved 2026-09-30** | `OracleAggregator.sol#submitReading` |
+| M-5 | MEDIUM | No bounds/sanity checks on submitted rainfall readings — **resolved 2026-10-27** | `OracleAggregator.sol#submitReading` |
 | L-1 | LOW | `finalizePeriod` can permanently brick a period before any reading exists* | `OracleAggregator.sol#finalizePeriod` |
 | L-2 | LOW | Truncation in weighted-average division | `OracleAggregator.sol#finalizePeriod` |
 | L-3 | LOW | Owner key = single point of failure; no timelock/multisig — **partly resolved 2026-09-30** | `WeatherIndexInsurance.sol`, `OracleAggregator.sol` |
-| L-4 | LOW | Sepolia key in `hardhat.config.ts` via `configVariable` (config hygiene) | `hardhat.config.ts` |
+| L-4 | LOW | Sepolia key in `hardhat.config.ts` via `configVariable` (config hygiene) — **resolved; verified 2026-10-27** | `hardhat.config.ts` |
 | L-5 | LOW | `oracleList` can only grow; no deregistration path — **resolved 2026-09-30** | `OracleAggregator.sol` |
-| L-6 | LOW | 14 npm advisories (12 low, 1 moderate, 1 high) in dev toolchain — **partly resolved 2026-09-28** | `package-lock.json` |
+| L-6 | LOW | npm advisories (was 14; **29 as of 2026-10-27 — 17 high, some in shipped runtime deps**, cross-ref frontend-audit F-5) — **reopened 2026-10-27** | `package-lock.json` |
 
 \* L-1 was initially flagged as a griefing vector but re-classified low after
 re-reading `finalizePeriod`: the `submitters.length > 0` guard means an empty
 period cannot be finalized at all — see the finding text.
+
+---
+
+## Operational status — 2026-10-27
+
+Live conditions on the deployed contracts. These are not code findings, and
+the status column above cannot carry them.
+
+**M-1 has no margin.** `minQuorum` is 2 and CHIRPS has never submitted a
+valid reading, so every period finalises on exactly two sources — the minimum,
+with nothing to spare. One rejected reading stalls the window. CHIRPS also
+holds the largest reputation weight at 42.1%, so the heaviest source is the
+silent one. The contract fix for M-1 is sound; the deployment does not
+currently benefit from it.
+
+**19 of 20 windows cannot settle.** Windows #0–#18 cover 2027 dekads, which
+have no readings yet. Window #19 (Sep D2 – Oct D1) is the only one with a
+complete set, totalling 78.35 mm.
+
+**Nothing has been proven end-to-end.** 0 policies, 0 settlements, 0
+evaluations on Sepolia. The contracts have never bought and settled a policy
+in a single cycle, so `checkAndSettle` and the payout path have not been
+exercised against the deployed addresses. This is the largest single gap in
+the project as of this writing, and no amount of audit closure substitutes
+for it.
 
 ---
 
@@ -535,11 +566,18 @@ fuzz invariant are all genuinely valuable. Missing adversarial cases:
 
 ## Priority remediation order
 
-1. **Now (before any testnet deployment with real users):** M-1 (quorum +
-   reporting window) and M-2 (weight snapshots) — these are what actually
-   protect the payout decision. H-2 (settlement window) follows directly.
-2. **Before mainnet / real funds:** H-1 + L-3 (multisig owner, timelock,
+1. **Now, ahead of everything else:** run the end-to-end test. Buy a policy on
+   window #19, settle it, confirm the payout. As of 2026-10-27 the contracts
+   have never completed that cycle, so the settlement path is untested against
+   the deployed addresses. This costs one transaction and closes the largest
+   gap in the project.
+2. **Now, before real users:** give quorum a margin. M-1's fix is in place but
+   every period finalises on exactly `minQuorum` sources because CHIRPS has
+   never reported — while holding the largest weight at 42.1%. Fix CHIRPS or
+   register redundant addresses per source.
+3. **Before mainnet / real funds:** H-1 + L-3 (multisig owner, timelock,
    transferable two-step ownership), M-3 (explicit reserves + reentrancy
-   guard), M-4 (escrow or retryable underfunded claims).
-3. **Hygiene, any time:** ~~H-3/L-6 (`npm audit fix`), commit `package-lock.json`~~ (done 2026-09-28; `elliptic` accepted),
-   M-5 (input bounds), L-5 (oracle deactivation), the NatSpec/doc fixes.
+   guard on `fundPool`, still unguarded), H-2 (settlement window).
+4. **Hygiene, any time:** ~~H-3 (`serialize-javascript`)~~ done 2026-09-28;
+   L-6/F-5 **reopened** — 29 advisories as of 2026-10-27, 17 high, and no
+   longer dev-only; the NatSpec/doc fixes.

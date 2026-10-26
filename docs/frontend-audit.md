@@ -3,8 +3,8 @@
 **Date:** 2026-09-25 · **Scope:** `frontend/` (~140 files: React 18 + Vite 5 + TS + Tailwind + react-router 6)
 **Method:** manual review of auth/storage/config code, pattern sweeps (`dangerouslySetInnerHTML`, `eval`, storage, secrets, `_blank`), `npm audit`, typecheck + production build verification.
 
-**Summary: 0 critical, 2 high, 4 medium, 4 low findings. 7 resolved, 3 partly
-resolved — each finding carries its own dated status below.**
+**Summary: 0 critical, 2 high, 4 medium, 4 low findings. 6 resolved, 3 partly
+resolved, 1 reopened — each finding carries its own dated status below.**
 
 The big picture when this was written: a **client-side demo app** — all
 authentication, users, and "payouts" lived in the browser. The auth *looked*
@@ -19,13 +19,34 @@ same session (F-10's second half). What remains open is narrower: server-side
 Turnstile on sign-in (F-2), frontend tests for auth and `RequireRole` (F-8),
 and append-only agent records (F-10's third half).
 
+**Second headline — the UI shows no simulated figures on any deployed path**
+(2026-10-26/27). The buy forms, threshold tables, rainfall charts, oracle
+trust figures, analytics and consensus simulator all read the contract and the
+readings it has accepted. The 2023 season table is confined to simulated mode
+and to the Backtest/EvaluationRunner pages, which label themselves
+illustrative. Window rainfall is totalled the way the aggregator settles it —
+reputation-weighted, renormalised over the sources that reported — so the
+figure on screen matches the contract's.
+
+**F-5 reopened 2026-10-27.** The advisory count grew from 4 to 29 (17 high).
+By workspace: 23 (14 high) sit in the Hardhat toolchain and are dev-only; 5
+(2 high) are in the frontend, where vite 6.4.3 has picked up a new advisory —
+both have fixes available; and 1 high is `body-parser`, transitive via Express
+in the **backend runtime**. That last one is what makes "dev-only" no longer
+hold, and why the 2026-09-28 closure was premature.
+
+**Still unproven end-to-end (2026-10-27):** 0 policies, 0 settlements, 0
+evaluations on Sepolia. Every finding above is a code or configuration
+question; none of them is evidence that a policy can be bought and settled.
+That test has not been run.
+
 | ID | Severity | Title | Status |
 |------|----------|-------|--------|
 | F-1 | HIGH | Client-side mock auth controls "production" role gating | **Resolved 2026-10-21** |
 | F-2 | HIGH | CAPTCHA is Cloudflare's always-pass test key | Partly resolved |
 | F-3 | MEDIUM | Passwords "hashed" with FNV-1a (not a password hash) | **Resolved 2026-10-21** |
 | F-4 | MEDIUM | Build passes with failing typechecks (`tsc` not in build) | Resolved 2026-09-28 |
-| F-5 | MEDIUM | 4 dependency advisories (1 high: Vite path traversal, dev-only) | Resolved 2026-09-28 |
+| F-5 | MEDIUM | Dependency advisories (4 when written; **29 as of 2026-10-27 — 17 high, 5 in shipped runtime deps**) | **Reopened 2026-10-27** |
 | F-10 | MEDIUM | Agent sales ledger is written through an unauthenticated endpoint | Partly resolved |
 | F-6 | LOW | Swapping in a real Turnstile key will hard-lock every user out | Resolved 2026-10-10 |
 | F-7 | LOW | Template leftovers: wrong favicon, stale names, dead nested package.json | Resolved 2026-09-28 |
@@ -218,7 +239,7 @@ then set `"build": "tsc --noEmit && vite build"` and add `"typecheck":
 `React` imports; root `overrides` now pin one React 18 (runtime and types).
 `build` is `tsc --noEmit && vite build`, and `typecheck` exists.
 
-### F-5 — 4 dependency advisories (1 high, dev-only)
+### F-5 — Dependency advisories (4 when written; 29 as of 2026-10-27)
 
 `npm audit` for this workspace:
 
@@ -241,6 +262,25 @@ another site — phishing risk at most).
 **Status (2026-09-28): Resolved.** vite 5 → 6.4.3 (clears vite and esbuild)
 and react-router-dom 6 → 7.18.4 (no patched 6.x exists). All 17 routes were
 re-checked in a headless browser after the upgrade.
+
+**Status (2026-10-27): Reopened.** That closure held for the frontend's own
+advisories at the time, but the count has since grown and is no longer
+confined to dev tooling. `npm audit` across the workspaces:
+
+| Workspace | Advisories | High | Where |
+|---|---|---|---|
+| `blockchain/` | 23 | 14 | Hardhat toolchain — dev-only, not shipped |
+| `frontend/` | 5 | 2 | vite 6.4.3 (new advisory), `source-map-js` — both `fixAvailable` |
+| `backend/` | 1 | 1 | `body-parser`, transitive via Express — **shipped runtime** |
+
+The vite and `source-map-js` entries are build tooling and both have fixes
+queued. The one that matters is `body-parser`: it runs inside the deployed
+Express service, so the "dev-only" qualifier that justified closing this
+finding no longer applies to the whole set.
+
+**Recommendation:** `npm audit fix` per workspace, then pin `body-parser` to a
+patched range explicitly — it arrives transitively and will silently re-widen
+on the next Express update.
 
 ### F-10 — Agent sales ledger is written through an unauthenticated endpoint
 
