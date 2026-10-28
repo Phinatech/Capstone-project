@@ -79,23 +79,38 @@ export function useOracleTrust(): {sources: SourceTrust[];loading: boolean;} {
   const devs = deviationsFrom(dekads);
   const dekadsTotal = dekads.length;
 
-  const sources: SourceTrust[] = oracleSources.map((s) => {
-    const registered = live.has(s.id);
-    const weight = registered && totalWeight > 0 ? (live.get(s.id)!.reputationWeight / totalWeight) : 0;
+  const rows: SourceTrust[] = oracleSources.map((s) => {
     const dekadsReported = dekads.filter((d) => d[s.id] !== null).length;
     const deviations = devs[s.id].filter((d): d is number => d !== null);
     const meanDeviation = deviations.length ? deviations.reduce((a, b) => a + b, 0) / deviations.length : null;
     return {
       sourceId: s.id,
       name: s.name,
-      weight,
+      weight: 0,
       score: scoreFrom(meanDeviation),
       meanDeviation,
       dekadsReported,
       dekadsTotal,
-      registered
+      registered: true
     };
   });
 
-  return { sources, loading: oracles.length === 0 && source.kind === 'chain' };
+  if (source.kind === 'chain') {
+    // On-chain the registration decides: weight and liveness both come from
+    // the contract, and a deactivated source keeps its history but no weight.
+    for (const r of rows) {
+      r.registered = live.has(r.sourceId);
+      r.weight = r.registered && totalWeight > 0 ? live.get(r.sourceId)!.reputationWeight / totalWeight : 0;
+    }
+  } else {
+    // Simulated mode has no registration to read. Weight each source by its
+    // measured score — the same split `reputation` derives from the season
+    // table — instead of showing every weight as zero.
+    const totalScore = rows.reduce((sum, r) => sum + r.score, 0);
+    for (const r of rows) {
+      r.weight = totalScore > 0 ? r.score / totalScore : 0;
+    }
+  }
+
+  return { sources: rows, loading: oracles.length === 0 && source.kind === 'chain' };
 }

@@ -40,7 +40,9 @@ export function ConsensusSimulator() {
     const clean = {} as Record<SourceId, number>;
     SOURCE_IDS.forEach((id) => {
       const reported = dekad?.[id] ?? 0;
-      clean[id] = target === 'none' ? reported : applyCorruption(reported, type);
+      // Corrupt exactly the selected source — the point of the panel is how the
+      // aggregates react to one bad reading, not three at once.
+      clean[id] = id === target ? applyCorruption(reported, type) : reported;
     });
     return clean;
   }, [dekad, target, type]);

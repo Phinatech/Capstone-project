@@ -28,7 +28,10 @@ export function GoogleButton({ mode }: GoogleButtonProps) {
   const { language, t } = useI18n();
   const container = useRef<HTMLDivElement>(null);
   const useGis = GOOGLE_CLIENT_ID.length > 0;
-  const { status } = useScript(useGis ? 'https://accounts.google.com/gsi/client' : null);
+  // `hl` sets the widget's language: renderButton's `locale` option is ignored
+  // by GSI, so without this the button follows the browser locale and can show
+  // up in French on an English page.
+  const { status } = useScript(useGis ? `https://accounts.google.com/gsi/client?hl=${language}` : null);
   const label = mode === 'signup' ? t('auth.googleSignUp') : t('auth.googleSignIn');
 
   /**
