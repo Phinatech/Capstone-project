@@ -200,7 +200,15 @@ function chainErrorMessage(e: unknown): string {
   const err = e as {reason?: string;shortMessage?: string;message?: string;};
   const reason = err.reason?.replace(/^\w+: /, '');
   if (reason) return FRIENDLY_REVERTS[reason] ?? `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`;
-  return err.shortMessage ?? err.message ?? 'The transaction failed.';
+  const raw = err.shortMessage ?? err.message ?? '';
+  // "missing revert data" is ethers' way of saying the node reported a failure
+  // with no reason at all: no require() fired, so this is infrastructure — the
+  // wallet's RPC failing or rate-limiting mid-estimate, or an account that
+  // cannot cover the premium plus gas. Say so instead of echoing jargon.
+  if (/missing revert data/i.test(raw)) {
+    return "The node couldn't say why the transaction failed — usually the wallet's RPC is busy, or this account doesn't cover the premium plus gas. Check the balance in MetaMask, wait a moment, then try again.";
+  }
+  return raw || 'The transaction failed.';
 }
 
 function chainEvaluation(
@@ -478,8 +486,19 @@ function ChainData({
         const signer = await provider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
         premium = await insuranceRead.quotePremium(payout);
-        const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowId, Math.round(input.thresholdMm * 100), payout, {
+        // Estimate gas here, on the RPC this app trusts, and hand the wallet an
+        // explicit limit. Without one, ethers asks the wallet's own endpoint to
+        // estimate — and that endpoint rate-limits under load, failing with
+        // "missing revert data" (a node error carrying no revert reason) for a
+        // transaction the chain happily accepts. A real revert still surfaces
+        // its reason here and is translated below.
+        const gasLimit = (await insuranceRead.buyPolicy.estimateGas(windowId, Math.round(input.thresholdMm * 100), payout, {
+          from,
           value: premium
+        })) * 125n / 100n;
+        const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowId, Math.round(input.thresholdMm * 100), payout, {
+          value: premium,
+          gasLimit
         });
         const receipt = await tx.wait();
         const event = (receipt.logs as Log[]).map((l) => insurance.interface.parseLog(l)).find((e) => e?.name === 'PolicyCreated');
