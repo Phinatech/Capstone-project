@@ -40,8 +40,11 @@ export function useCaptcha(onVerified?: () => void) {
 
   /** Resolves to null when the check passed, or the error to show next to the widget. */
   const check = useCallback(async (): Promise<TranslationKey | null> => {
-    if (!token) return 'error.completeCheck';
+    // With no real site key the widget is hidden (see authConfig), so no token
+    // can exist and there is no check to complete — demand one only when a
+    // real key makes the widget (and therefore a token) mandatory.
     if (!TURNSTILE_ENFORCED) return null;
+    if (!token) return 'error.completeCheck';
     const result = await verifyWithBackend(token);
     // Cloudflare accepts a token only once, so any later attempt needs a fresh one.
     setToken(null);

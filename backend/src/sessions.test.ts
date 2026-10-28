@@ -105,9 +105,9 @@ describe("sessions", () => {
   });
 
   it("keeps sessions across a reopen, so a restart does not sign everyone out", async () => {
-    const { path, store } = await freshStore();
+    const { path, store, clock } = await freshStore();
     const session = await store.create("farmer-1", "farmer");
-    const reopened = createSessionStore(path);
+    const reopened = createSessionStore(path, { now: clock.now });
     assert.equal((await reopened.read(session.id))?.userId, "farmer-1");
   });
 });
