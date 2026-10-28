@@ -197,14 +197,17 @@ const FRIENDLY_REVERTS: Record<string, string> = {
 };
 
 function chainErrorMessage(e: unknown): string {
-  const err = e as {reason?: string;shortMessage?: string;message?: string;};
+  const err = e as {reason?: string;shortMessage?: string;message?: string;code?: string;};
   const reason = err.reason?.replace(/^\w+: /, '');
   if (reason) return FRIENDLY_REVERTS[reason] ?? `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`;
   const raw = err.shortMessage ?? err.message ?? '';
   // "missing revert data" is ethers' way of saying the node reported a failure
   // with no reason at all: no require() fired, so this is infrastructure — the
-  // wallet's RPC failing or rate-limiting mid-estimate, or an account that
+  // wallet's RPC failing or rate-limiting mid-estimate — or an account that
   // cannot cover the premium plus gas. Say so instead of echoing jargon.
+  if (err.code === 'INSUFFICIENT_FUNDS' || /insufficient funds/i.test(raw)) {
+    return "The wallet says this account can't cover the premium plus gas. If MetaMask is showing a different account with funds, switch back to it or reload the page so the app picks up the account you're using now.";
+  }
   if (/missing revert data/i.test(raw)) {
     return "The node couldn't say why the transaction failed — usually the wallet's RPC is busy, or this account doesn't cover the premium plus gas. Check the balance in MetaMask, wait a moment, then try again.";
   }
@@ -270,7 +273,22 @@ function ChainData({
 }: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;children: React.ReactNode;}) {
   const { user } = useAuth();
   const { notify } = useNotifications();
-  const local = chainId === LOCAL_CHAIN_ID && accounts.length > 0;
+  // The wallet's account list is captured when the page loads. Once the user
+  // switches accounts in MetaMask, paying from the stale entry makes the node
+  // answer "insufficient funds" while the panel shows a funded account — so
+  // follow the wallet's changes instead of trusting the page-load snapshot.
+  const [liveAccounts, setLiveAccounts] = useState(accounts);
+  useEffect(() => {
+    const eth = typeof window !== 'undefined' ? window.ethereum : undefined;
+    if (!isWallet || !eth?.on) return;
+    const onAccounts = (...args: unknown[]) => {
+      const next = Array.isArray(args[0]) ? (args[0] as string[]) : [];
+      setLiveAccounts(next);
+    };
+    eth.on('accountsChanged', onAccounts);
+    return () => eth.removeListener('accountsChanged', onAccounts);
+  }, [isWallet]);
+  const local = chainId === LOCAL_CHAIN_ID && liveAccounts.length > 0;
   const insurance = useMemo(() => new Contract(config.insuranceAddress, abi.WeatherIndexInsurance, provider), [config, provider]);
   const aggregator = useMemo(() => new Contract(config.aggregatorAddress, abi.OracleAggregator, provider), [config, provider]);
   // In wallet mode `provider` is MetaMask's own endpoint, which rate-limits
@@ -299,11 +317,11 @@ function ChainData({
 
   const addressOf = useCallback(
     (userId: string): string | undefined => {
-      if (local) return accounts[localAccountIndex(userId)];
-      if (isWallet && accounts.length > 0) return accounts[0];
+      if (local) return liveAccounts[localAccountIndex(userId)];
+      if (isWallet && liveAccounts.length > 0) return liveAccounts[0];
       return undefined;
     },
-    [local, isWallet, accounts]
+    [local, isWallet, liveAccounts]
   );
 
   /** `minBlock`: ask the API for data read at or after this block, i.e. our own transaction's. */
