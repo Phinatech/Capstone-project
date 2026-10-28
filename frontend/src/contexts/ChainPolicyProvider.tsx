@@ -265,6 +265,14 @@ function ChainData({
   const local = chainId === LOCAL_CHAIN_ID && accounts.length > 0;
   const insurance = useMemo(() => new Contract(config.insuranceAddress, abi.WeatherIndexInsurance, provider), [config, provider]);
   const aggregator = useMemo(() => new Contract(config.aggregatorAddress, abi.OracleAggregator, provider), [config, provider]);
+  // In wallet mode `provider` is MetaMask's own endpoint, which rate-limits
+  // under load. Balances read through it came back failed or zero and the buy
+  // form reported that as an empty wallet. This is the RPC that just answered
+  // eth_chainId and eth_getCode, so it is the one worth asking.
+  const readProvider = useMemo(
+    () => new JsonRpcProvider(config.rpcUrl, Network.from(chainId), { staticNetwork: true, pollingInterval: 2000 }),
+    [config.rpcUrl, chainId]
+  );
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const snapshotRef = useRef(snapshot);
@@ -392,12 +400,24 @@ function ChainData({
     await Promise.all(
       users.map(async (u) => {
         const a = addressOf(u.id);
-        if (a) balances[u.id] = Number(formatEther(await provider.getBalance(a)));
+        if (!a) return;
+        // Neither read may take the snapshot down with it. A failed balance
+        // leaves the entry unset, and walletConnected is what lets the form
+        // call that "not connected" rather than "broke".
+        try {
+          balances[u.id] = Number(formatEther(await readProvider.getBalance(a)));
+        } catch {
+          try {
+            balances[u.id] = Number(formatEther(await provider.getBalance(a)));
+          } catch {
+            /* leave unset rather than guess at 0 */
+          }
+        }
       })
     );
     const poolEth = Number(await (await fetch(`${apiUrl}/api/pool${fresh}`)).json().then((r: { balance: string }) => r.balance));
     return { policies, balances, poolEth, windowCount: windows.length, windows: windowOptions };
-  }, [user, addressOf, insurance, aggregator, provider, config.insuranceAddress]);
+  }, [user, addressOf, insurance, aggregator, provider, readProvider, config.insuranceAddress]);
 
   // Reload on every new block; overlapping reloads collapse into one follow-up.
   const busy = useRef(false);
