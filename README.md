@@ -62,7 +62,14 @@ npm run dev:frontend     # http://localhost:5173
   3 high, 5 medium, 6 low findings, plus remediation priorities
 - [`docs/frontend-audit.md`](docs/frontend-audit.md) — frontend security and
   quality audit
+- [`docs/licenses.md`](docs/licenses.md) — license of every installed npm
+  dependency
 - [`frontend/README.md`](frontend/README.md) — the dapp UI, demo accounts,
   and what is simulated vs. on-chain
 - [`blockchain/README.md`](blockchain/README.md) — contracts, why reputation
   weighting, deploying to Sepolia
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Third-party dependency licenses are inventoried
+in [`docs/licenses.md`](docs/licenses.md).
