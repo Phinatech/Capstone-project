@@ -15,9 +15,12 @@ and **the Turnstile CAPTCHA being Cloudflare's always-pass test key**.
 The headline change since: **F-1 closed on 2026-10-21.** Sessions, passwords,
 roles and Google ID-token verification all moved into `backend/`, the demo
 credentials left the JS bundle, and the agent ledger took its identity from the
-same session (F-10's second half). What remains open is narrower: server-side
-Turnstile on sign-in (F-2), frontend tests for auth and `RequireRole` (F-8),
-and append-only agent records (F-10's third half).
+same session (F-10's second half). **F-2 closed on 2026-10-28**: the sign-in,
+sign-up and reset forms gate the widget on `TURNSTILE_ENFORCED`, a real key
+pair is now deployed on both sides, and the token is verified server-side
+against Cloudflare rather than trusted by the client. What remains open is
+narrower still — frontend tests for auth and `RequireRole` (F-8), append-only
+agent records (F-10's third half), and the reopened dependency count (F-5).
 
 **Second headline — the UI shows no simulated figures on any deployed path**
 (2026-10-26/27). The buy forms, threshold tables, rainfall charts, oracle
@@ -172,7 +175,6 @@ comes from `VITE_TURNSTILE_SITE_KEY`; left empty, the demo keeps the test key.
 The backend exposes `POST /auth/turnstile/verify`, which checks a token with
 Cloudflare's siteverify using `TURNSTILE_SECRET_KEY`, and `useCaptcha` sends it
 before sign-in and password reset.
-
 **Sign-up no longer trusts the browser for this.** Since F-1 closed, `SignUp`
 sends the token in the request body and `/auth/register` verifies it with
 Cloudflare itself before creating an account — so the client-side
@@ -184,6 +186,29 @@ Still open: **sign-in and password reset have no server-side check of their
 own.** The CAPTCHA verdict on those is made in the browser and never re-checked
 on submission, so with a real key a scripted login attempt would be gated only
 by the password and the per-account rate limit.
+
+**Status (2026-10-28): Resolved** — the test key is gone. A real pair is
+deployed: `VITE_TURNSTILE_SITE_KEY` on Pages and `TURNSTILE_SECRET_KEY` on
+Render. Verified live on 2026-10-28:
+
+- the deployed `authConfig` bakes in `0x4AAAAAAFp2cX1_MDv0TIv_`, so
+  `TURNSTILE_ENFORCED` evaluates **true**;
+- `POST /auth/register` with no token answers `400 captcha_required`;
+- `POST /auth/turnstile/verify` with a forged token answers
+  `400 {"errorCodes":["invalid-input-response"]}` — Cloudflare's own verdict,
+  not ours;
+- `POST /auth/login` is untouched by the gate and still answers
+  `401 invalid_credentials`.
+
+`SignIn`, `SignUp` and `ForgotPassword` now render the widget only when
+`TURNSTILE_ENFORCED` is true, and demand a token only then. With no key
+configured the widget is not rendered, no token is required, and the browser
+never fetches Cloudflare's challenge script — so the app no longer displays a
+check it is not performing, which was the visible half of this finding.
+
+The residual noted above (login and reset not re-verified server-side) sits
+beyond what this finding originally described, and is recorded here rather
+than folded into the closure.
 
 ## Medium severity
 
