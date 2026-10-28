@@ -100,7 +100,7 @@ function Shell({ user }: {user: User;}) {
           </main>
           <footer className="hidden border-t border-line px-8 py-4 text-xs text-muted lg:block">
             <p className="truncate">
-              BSc Software Engineering prototype · Chinemerem Judith Ugbo · Supervisor: Dr Aaron Izang · Testnet only, illustrative rainfall data.
+              BSc Software Engineering prototype · Chinemerem Judith Ugbo · Supervisor: Dr Aaron Izang · Sepolia testnet only.
             </p>
           </footer>
         </div>

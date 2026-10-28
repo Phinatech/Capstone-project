@@ -210,7 +210,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
               <Avatar name={user.name} src={user.avatarUrl} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{user.name}</span>
-                <span className="block truncate text-xs text-muted">{t(user.role === 'admin' ? 'role.admin' : 'role.farmer')}</span>
+                <span className="block truncate text-xs text-muted">{t(`role.${user.role}`)}</span>
               </span>
             </Link>
             <button

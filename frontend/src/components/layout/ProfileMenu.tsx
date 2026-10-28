@@ -50,7 +50,7 @@ export function ProfileMenu({ user }: {user: User;}) {
         <Avatar name={user.name} src={user.avatarUrl} />
         <span className="hidden min-w-0 max-w-[140px] text-left leading-tight xl:block">
           <span className="block truncate text-sm font-medium">{user.name}</span>
-          <span className="block truncate text-xs text-muted">{t(user.role === 'admin' ? 'role.admin' : 'role.farmer')}</span>
+          <span className="block truncate text-xs text-muted">{t(`role.${user.role}`)}</span>
         </span>
         <ChevronDownIcon
           className={`hidden h-4 w-4 text-muted transition-transform duration-150 ease-out xl:block ${open ? 'rotate-180' : ''}`}

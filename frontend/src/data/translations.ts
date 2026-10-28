@@ -37,6 +37,7 @@ export const en = {
   'nav.dataModel': 'Data model',
 
   'top.farmerPortal': 'Farmer portal',
+  'top.agentPortal': 'Agent portal',
   'top.adminConsole': 'Admin console',
   'top.testnet': 'Sepolia testnet',
   'top.localChain': 'Local chain',
@@ -240,6 +241,7 @@ export const ha: Dictionary = {
   'nav.dataModel': 'Tsarin bayanai',
 
   'top.farmerPortal': 'Shafin manoma',
+  'top.agentPortal': 'Shafin wakili',
   'top.adminConsole': 'Shafin gudanarwa',
   'top.testnet': 'Sepolia testnet',
   'top.localChain': 'Blockchain na gida',
@@ -440,6 +442,7 @@ export const fr: Dictionary = {
   'nav.dataModel': 'Modèle de données',
 
   'top.farmerPortal': 'Espace agriculteur',
+  'top.agentPortal': 'Espace agent',
   'top.adminConsole': 'Console admin',
   'top.testnet': 'Sepolia testnet',
   'top.localChain': 'Chaîne locale',

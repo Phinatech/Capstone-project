@@ -21,7 +21,11 @@ export function Topbar({ user }: {user: User;}) {
   const { t } = useI18n();
   const ui = useUI();
   const current = currentNavItem(user.role, pathname);
-  const home = user.role === 'admin' ? '/admin' : '/farmer';
+  // An agent's home is /agent. Defaulting every non-admin role to /farmer
+  // sent agents to the wrong portal from the breadcrumb and the brand link.
+  const home = user.role === 'admin' ? '/admin' : user.role === 'agent' ? '/agent' : '/farmer';
+  const portalKey =
+  user.role === 'admin' ? 'top.adminConsole' : user.role === 'agent' ? 'top.agentPortal' : 'top.farmerPortal';
 
   return (
     <header className="relative z-30 h-14 shrink-0 border-b border-line bg-surface md:h-16">
@@ -32,7 +36,7 @@ export function Topbar({ user }: {user: User;}) {
 
         <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
           <Link to={home} className="truncate text-muted hover:text-ink">
-            {t(user.role === 'admin' ? 'top.adminConsole' : 'top.farmerPortal')}
+            {t(portalKey)}
           </Link>
           {current && current.to !== home &&
           <>
