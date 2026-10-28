@@ -280,6 +280,15 @@ function ChainData({
   // Policies bought in this browser that the API's (cached) reads don't include yet.
   const unindexed = useRef(new Map<number, Policy>());
 
+  // A read-only copy of the policy contract. Reads belong on the RPC that
+  // answers; only the transaction itself needs the wallet. quotePremium is an
+  // eth_call, and routing it through MetaMask's node returned
+  // "could not decode result data" whenever that endpoint was having trouble.
+  const insuranceRead = useMemo(
+    () => new Contract(config.insuranceAddress, abi.WeatherIndexInsurance, readProvider),
+    [config, readProvider]
+  );
+
   const addressOf = useCallback(
     (userId: string): string | undefined => {
       if (local) return accounts[localAccountIndex(userId)];
@@ -468,7 +477,7 @@ function ChainData({
       try {
         const signer = await provider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
-        premium = await insurance.quotePremium(payout);
+        premium = await insuranceRead.quotePremium(payout);
         const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowId, Math.round(input.thresholdMm * 100), payout, {
           value: premium
         });
@@ -497,7 +506,7 @@ function ChainData({
       notifyPurchase(notify, policy);
       return policy;
     },
-    [addressOf, provider, insurance, config.insuranceAddress, load, notify]
+    [addressOf, provider, insurance, insuranceRead, config.insuranceAddress, load, notify]
   );
 
   const settleOnChain = useCallback(
