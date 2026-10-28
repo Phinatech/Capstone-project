@@ -18,14 +18,14 @@ type Connection =
   {phase: 'ready';provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;} |
   {phase: 'failed';reason: string;};
 
-async function rpc(url: string, method: string, timeoutMs = 3000): Promise<string> {
+async function rpc(url: string, method: string, timeoutMs = 3000, params: unknown[] = []): Promise<string> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: [] }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
       signal: ctrl.signal
     });
     const body = await res.json();
@@ -50,8 +50,19 @@ async function connect(config: ChainConfig): Promise<Connection> {
       const browserProvider = new BrowserProvider(window.ethereum);
       const accounts = await browserProvider.send('eth_requestAccounts', []);
       if (accounts.length > 0) {
-        // Check if the contract is deployed on this chain
-        const code = await browserProvider.getCode(config.insuranceAddress);
+        // Ask the RPC this app already reads from, not the wallet's own
+        // endpoint: that one rate-limits under load, and a failed answer here
+        // used to drop the whole app into read-only mode — where addressOf
+        // returns nothing, every balance reads 0, and the buy form reports
+        // that as "not enough ETH in your agent wallet".
+        let code: string | null = null;
+        try {
+          code = await rpc(config.rpcUrl, 'eth_getCode', 8000, [config.insuranceAddress, 'latest']);
+        } catch {
+          // Same endpoint answered eth_chainId moments ago, so an RPC blip
+          // must not cost us the wallet. Only a definite "no code here"
+          // should, and that is the '0x' below.
+        }
         if (code !== '0x') {
           return { phase: 'ready', provider: browserProvider, chainId, accounts, isWallet: true };
         }
@@ -498,13 +509,16 @@ function ChainData({
       policies: snapshot.policies,
       windows: snapshot.windows,
       poolEth: snapshot.poolEth,
+      // Without a wallet there is no account to read, so balanceOf answers 0
+      // for everyone. Forms check this rather than blaming a funded wallet.
+      walletConnected: isWallet,
       balanceOf: (userId: string) => snapshot.balances[userId] ?? 0,
       walletOf: (u: User) => addressOf(u.id) ?? u.wallet,
       purchasePolicy,
       recordEvaluation: () => {},
       settleOnChain
     },
-    [snapshot, chainId, local, addressOf, purchasePolicy, settleOnChain]
+    [snapshot, chainId, local, isWallet, addressOf, purchasePolicy, settleOnChain]
   );
 
   if (!value) {

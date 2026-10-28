@@ -38,6 +38,12 @@ export interface PolicyContextValue {
   windows: WindowOption[];
   /** ETH held by the insurance contract's payout pool. */
   poolEth: number;
+  /**
+   * False when the app is reading the chain without a connected wallet: no
+   * account to sign with, and no account to read a balance from. Optional so
+   * simulated mode is unaffected.
+   */
+  walletConnected?: boolean;
   balanceOf: (userId: string) => number;
   /** The address that signs for this user (a local test account on a local chain). */
   walletOf: (user: User) => string;

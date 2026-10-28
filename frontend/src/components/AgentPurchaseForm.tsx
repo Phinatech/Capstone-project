@@ -19,7 +19,7 @@ const fieldClass =
   'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
 
 export function AgentPurchaseForm() {
-  const { balanceOf, purchasePolicy, windows } = usePolicies();
+  const { balanceOf, purchasePolicy, windows, walletConnected } = usePolicies();
   const { user } = useAuth();
   const { ethToNgn, approximate, rate } = useFx();
   const { record } = useAgentSales();
@@ -59,6 +59,12 @@ export function AgentPurchaseForm() {
     const thresholdMm = Number(threshold);
     if (!Number.isFinite(thresholdMm) || thresholdMm <= 0) {
       setError('Enter a rainfall threshold above 0 mm.');
+      return;
+    }
+    // A missing wallet also reads as a zero balance, so say which it is rather
+    // than telling a funded account that it is broke.
+    if (walletConnected === false) {
+      setError('No wallet is connected to Sepolia. Unlock MetaMask, pick this site, then reload.');
       return;
     }
     if (premiumEth > balanceEth) {
