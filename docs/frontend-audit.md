@@ -3,7 +3,7 @@
 **Date:** 2026-09-25 · **Scope:** `frontend/` (~140 files: React 18 + Vite 5 + TS + Tailwind + react-router 6)
 **Method:** manual review of auth/storage/config code, pattern sweeps (`dangerouslySetInnerHTML`, `eval`, storage, secrets, `_blank`), `npm audit`, typecheck + production build verification.
 
-**Summary: 0 critical, 2 high, 4 medium, 4 low findings. 6 resolved, 3 partly
+**Summary: 0 critical, 2 high, 4 medium, 4 low findings. 7 resolved, 2 partly
 resolved, 1 reopened — each finding carries its own dated status below.**
 
 The big picture when this was written: a **client-side demo app** — all
@@ -43,7 +43,7 @@ That test has not been run.
 | ID | Severity | Title | Status |
 |------|----------|-------|--------|
 | F-1 | HIGH | Client-side mock auth controls "production" role gating | **Resolved 2026-10-21** |
-| F-2 | HIGH | CAPTCHA is Cloudflare's always-pass test key | Partly resolved |
+| F-2 | HIGH | CAPTCHA is Cloudflare's always-pass test key | **Resolved 2026-10-28** |
 | F-3 | MEDIUM | Passwords "hashed" with FNV-1a (not a password hash) | **Resolved 2026-10-21** |
 | F-4 | MEDIUM | Build passes with failing typechecks (`tsc` not in build) | Resolved 2026-09-28 |
 | F-5 | MEDIUM | Dependency advisories (4 when written; **29 as of 2026-10-27 — 17 high, 5 in shipped runtime deps**) | **Reopened 2026-10-27** |
