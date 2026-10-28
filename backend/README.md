@@ -69,6 +69,7 @@ policies settle in the same run.
 - Location: 13.8°N, 5.25°E (~83 km from Sokoto)
 - Coverage: 15,923 daily precipitation records from 1938 to 2024
 - Aggregated to 1,342 dekadal values in `data/sokoto-dekadal-rainfall.json`
+- Units: GHCN stores `PRCP` in tenths of a millimetre; the ingestion scripts divide by 10, so every rainfall value in this repo is in millimetres
 - Data is freely available on AWS S3 (`s3://noaa-ghcn-pds/`) under CC0
 
 ### Circular dependency caveat
