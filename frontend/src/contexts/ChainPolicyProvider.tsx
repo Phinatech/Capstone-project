@@ -161,7 +161,7 @@ interface Settlement {
 }
 
 // Location and crop aren't stored on-chain; the buyer's browser keeps them.
-type PolicyMeta = Record<number, {lga: string;crop: string;farmer: string;}>;
+type PolicyMeta = Record<number, {lga: string;crop: string;farmer: string;farmerId?: string;}>;
 const metaKey = (insurance: string) => `sokoto-cover-policy-meta:${insurance.toLowerCase()}`;
 
 function readMeta(insurance: string): PolicyMeta {
@@ -374,7 +374,7 @@ function ChainData({
       throw new Error('Failed to fetch data from the API');
     }
 
-    const { policies: rawPolicies } = await policiesRes.json() as { policies: Array<{ id: number; farmer: string; windowId: number; droughtThresholdMm: number; payoutAmount: string; premiumPaid: string; settled: boolean }> };
+    const { policies: rawPolicies } = await policiesRes.json() as { policies: Array<{ id: number; farmer: string; windowId: number; droughtThresholdMm: number; payoutAmount: string; premiumPaid: string; settled: boolean; farmerId?: string; farmerName?: string; lga?: string; crop?: string }> };
     const { oracles: rawOracles } = await oraclesRes.json() as { oracles: Array<{ address: string; label: string; registered: boolean; reputationWeight: number }> };
     const { windows: rawWindows } = await windowsRes.json() as { windows: Array<{ id: number; salesCloseAt: number; periods: number[] }> };
     const { evaluations: rawEvaluations } = await evaluationsRes.json() as { evaluations: Array<{ policyId: number; settlement: { policyId: number; triggered: boolean; rainfallMm: number; txHash: string; blockNumber: number } | null; readings: Array<{ period: number; oracle: string; rainfallMm: number }>; periodWeights: Record<string, number>; gasUsed: string; purchasedAtTimestamp: number; settlementTimestamp: number }> };
@@ -414,16 +414,21 @@ function ChainData({
     const meta = readMeta(config.insuranceAddress);
     const policies = rawPolicies.map((p): Policy => {
       const farmerAddress = p.farmer.toLowerCase();
-      const farmerId = idByAddress.get(farmerAddress) ?? p.farmer;
-      const farmer = findUser(farmerId);
       const saved = meta[p.id]?.farmer === farmerAddress ? meta[p.id] : undefined;
+      // Whose policy is this? The chain records only the buying wallet, which
+      // says nothing when an agent buys for a farmer. The agent sale receipt
+      // (joined server-side into /api/policies) names the farmer and is what
+      // syncs the admin, agent and farmer portals; the purchase-time meta is
+      // the fallback for self-bought policies; the address map is last.
+      const farmerId = p.farmerId ?? saved?.farmerId ?? idByAddress.get(farmerAddress) ?? p.farmer;
+      const farmer = findUser(farmerId);
       const windowIndex = p.windowId;
       const evalData = rawEvaluations.find((e) => e.policyId === p.id);
       const policy: Policy = {
         id: p.id,
         farmerId,
-        lga: saved?.lga ?? farmer?.lga ?? '—',
-        crop: saved?.crop ?? farmer?.primaryCrop ?? 'Millet',
+        lga: p.lga ?? saved?.lga ?? farmer?.lga ?? '—',
+        crop: p.crop ?? saved?.crop ?? farmer?.primaryCrop ?? 'Millet',
         windowId: String(windowIndex),
         thresholdMm: p.droughtThresholdMm / 100,
         premiumEth: Number(p.premiumPaid),
@@ -609,7 +614,7 @@ function ChainData({
         throw new Error(chainErrorMessage(e));
       }
       // The premium is paid, so from here on the purchase must never be reported as failed.
-      writeMeta(config.insuranceAddress, id, { lga: input.lga, crop: input.crop, farmer: from.toLowerCase() });
+      writeMeta(config.insuranceAddress, id, { lga: input.lga, crop: input.crop, farmer: from.toLowerCase(), farmerId });
       const bought: Policy = {
         ...input,
         id,

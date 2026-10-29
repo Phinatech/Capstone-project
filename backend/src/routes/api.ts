@@ -14,6 +14,7 @@ import { getCached, setCached, withCache } from "../utils/cache.js";
 import { demoCredentialList } from "../utils/demoAccounts.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { createAgentStore, parseSale } from "../utils/agentStore.js";
+import { attributePolicies } from "../utils/policyAttribution.js";
 import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
 import type { PolicyData } from "../utils/chain.js";
 import {
@@ -43,7 +44,7 @@ const FX_TTL = 60_000 * config.fxTtlMinutes;
  * GET handler for a cached chain read. `?minBlock=N` asks for data read at or
  * after block N, e.g. right after the caller's own transaction landed in it.
  */
-function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body: (data: T) => unknown) {
+function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body: (data: T) => unknown | Promise<unknown>) {
   return async (req: Request, res: Response) => {
     const minBlock = req.query.minBlock;
     if (minBlock !== undefined && (typeof minBlock !== "string" || !/^\d{1,15}$/.test(minBlock))) {
@@ -52,7 +53,7 @@ function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body
     }
     try {
       const data = await withCache(name, ttlMs, read, { headBlock, minBlock: Number(minBlock ?? 0) });
-      res.json(body(data));
+      res.json(await body(data));
     } catch (err) {
       console.error(`[api] failed to read ${name}:`, err);
       res.status(500).json({ error: `Failed to read ${name}` });
@@ -60,7 +61,11 @@ function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body
   };
 }
 
-router.get("/policies", cachedRead("policies", POLICIES_TTL, readPolicies, (policies) => ({ policies })));
+// The chain names only the buying wallet; the agent sale receipts name the
+// farmer. Join them here so every portal sees the same farmer for a policy.
+router.get("/policies", cachedRead("policies", POLICIES_TTL, readPolicies, async (policies) => ({
+  policies: attributePolicies(policies, await agentStore.list())
+})));
 router.get("/oracles", cachedRead("oracles", ORACLES_TTL, readOracles, (oracles) => ({ oracles })));
 router.get("/windows", cachedRead("windows", WINDOWS_TTL, readWindows, (windows) => ({ windows })));
 router.get("/pool", cachedRead("pool", POOL_TTL, readPool, (pool) => pool));
