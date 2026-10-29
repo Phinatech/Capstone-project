@@ -504,6 +504,23 @@ function ChainData({
         const signer = await provider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
         premium = await insuranceRead.quotePremium(payout);
+        // The wallet's own node can disagree with the chain about this
+        // account's balance — a stale or wrongly-configured RPC in MetaMask
+        // reports 0 while the network shows funds. The purchase then fails as
+        // "insufficient funds" next to a balance that looks fine, so check both
+        // views first and name the mismatch instead of guessing.
+        const [onChain, inWallet] = await Promise.all([
+          readProvider.getBalance(from),
+          provider.getBalance(from).catch(() => null)
+        ]);
+        if (inWallet !== null && inWallet < premium && onChain >= premium) {
+          throw new Error(
+            `Your wallet's node reports ${formatEther(inWallet)} ETH for ${from} while Sepolia shows ` +
+            `${formatEther(onChain)} ETH, so this purchase can't be priced. MetaMask is reading Sepolia ` +
+            'through a stale or wrong RPC — open Settings → Networks → Sepolia and set the RPC URL to ' +
+            'https://ethereum-sepolia-rpc.publicnode.com, then try again.'
+          );
+        }
         // Estimate gas here, on the RPC this app trusts, and hand the wallet an
         // explicit limit. Without one, ethers asks the wallet's own endpoint to
         // estimate — and that endpoint rate-limits under load, failing with
@@ -543,7 +560,7 @@ function ChainData({
       notifyPurchase(notify, policy);
       return policy;
     },
-    [addressOf, provider, insurance, insuranceRead, config.insuranceAddress, load, notify]
+    [addressOf, provider, readProvider, insurance, insuranceRead, config.insuranceAddress, load, notify]
   );
 
   const settleOnChain = useCallback(
