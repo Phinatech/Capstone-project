@@ -5,7 +5,7 @@ import abi from '../chain/abi.json';
 import { LOCAL_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorPage } from '../pages/ErrorPage';
-import { findUser, getFarmers } from '../utils/users';
+import { findUser, getFarmers, ensureFarmerName } from '../utils/users';
 import { useAuth } from './AuthContext';
 import { useNotifications } from './NotificationContext';
 import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
@@ -420,6 +420,12 @@ function ChainData({
     }
 
     const meta = readMeta(config.insuranceAddress);
+    // Receipts can name a farmer the directory no longer knows (the account
+    // lives elsewhere, or the user store was reset). Give them a display
+    // record so admin, agent and farmer portals all show the same name.
+    for (const p of rawPolicies) {
+      if (p.farmerId && p.farmerName) ensureFarmerName(p.farmerId, p.farmerName);
+    }
     const policies = rawPolicies.map((p): Policy => {
       const farmerAddress = p.farmer.toLowerCase();
       const saved = meta[p.id]?.farmer === farmerAddress ? meta[p.id] : undefined;

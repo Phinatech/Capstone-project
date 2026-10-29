@@ -88,3 +88,17 @@ export function passwordStrength(password: string): 0 | 1 | 2 | 3 {
   if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score++;
   return Math.max(1, score) as 1 | 2 | 3;
 }
+
+/**
+ * Ensures a display record exists for a farmer named only by a sale receipt.
+ *
+ * The receipt is the only record tying an agent-sold policy to its farmer.
+ * When the account itself is gone from the directory (created on another
+ * device, or the user store was reset), the name would otherwise vanish from
+ * every portal — so it is merged into the display directory. This can only add
+ * display data: nothing here authenticates anyone.
+ */
+export function ensureFarmerName(id: string, name: string): void {
+  if (!id || !name || findUser(id)) return;
+  setDirectory((prev) => [...prev, { id, role: 'farmer', name, email: '', wallet: '', joinedAt: '' }]);
+}
