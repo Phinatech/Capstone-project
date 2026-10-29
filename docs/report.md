@@ -819,18 +819,85 @@ Verify all entries against your department's APA 7 referencing guide before subm
 Screenshots are in `docs/screenshots/` (captured 29 October 2026; live-chain shots read
 Sepolia, simulated shots run the consensus tooling):
 
-| File | Caption |
-| --- | --- |
-| `01-sign-in.png` | Sign-in page with the demo-credentials panel |
-| `02-farmer-dashboard.png` | Farmer dashboard (simulated data mode) |
-| `03-buy-cover.png` | Buy cover: window, threshold and payout selection |
-| `04-policy-detail.png` | Policy #0 — bought 29 Oct 2026, settled and paid out; oracle evaluation and settlement transaction |
-| `05-admin-overview.png` | Administrator overview |
-| `06-oracle-sources.png` | Oracle sources and reputation weights |
-| `07-consensus-simulator.png` | Consensus simulator with one source corrupted (NASA POWER inflated ×2.5) |
-| `08-backtest.png` | Backtest of aggregation designs against historical rainfall |
-| `09-mobile.png` | Mobile layout of the farmer dashboard |
-| `10-tests.png` | `npm run test` — 69 passing (56 Solidity, 13 Mocha) in the blockchain workspace |
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.1](screenshots/01-sign-in.png){width=6.3in height=3.94in}
+
+*Figure A.1 — Sign-in page with the demo-credentials panel (`01-sign-in.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.2](screenshots/02-farmer-dashboard.png){width=6.3in height=4.61in}
+
+*Figure A.2 — Farmer dashboard (simulated data mode) (`02-farmer-dashboard.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.3](screenshots/03-buy-cover.png){width=6.3in height=5.91in}
+
+*Figure A.3 — Buy cover: coverage window, rainfall threshold and payout selection (`03-buy-cover.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.4](screenshots/04-policy-detail.png){width=6.3in height=5.56in}
+
+*Figure A.4 — Policy #0 — bought 29 Oct 2026, settled and paid out; oracle evaluation and settlement transaction (`04-policy-detail.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.5](screenshots/05-admin-overview.png){width=6.3in height=5.27in}
+
+*Figure A.5 — Administrator overview (`05-admin-overview.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.6](screenshots/06-oracle-sources.png){width=6.3in height=7.28in}
+
+*Figure A.6 — Oracle sources and reputation weights (`06-oracle-sources.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.7](screenshots/07-consensus-simulator.png){width=6.3in height=2.07in}
+
+*Figure A.7 — Consensus simulator with one source corrupted (NASA POWER inflated ×2.5) (`07-consensus-simulator.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.8](screenshots/08-backtest.png){width=5.01in height=8.2in}
+
+*Figure A.8 — Backtest of aggregation designs against historical rainfall (`08-backtest.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.9](screenshots/09-mobile.png){width=3.79in height=8.2in}
+
+*Figure A.9 — Mobile layout of the farmer dashboard (`09-mobile.png`)*
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+![Figure A.10](screenshots/10-tests.png){width=6.3in height=5.63in}
+
+*Figure A.10 — `npm run test` — 69 passing (56 Solidity, 13 Mocha) in the blockchain workspace (`10-tests.png`)*
 
 Figures 4.1–4.3 are rendered in `docs/figures/` as PNG and SVG, with Mermaid sources
 (`architecture.mmd`, `sequence-purchase.mmd`, `sequence-settlement.mmd`) alongside them.
