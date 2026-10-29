@@ -10,7 +10,6 @@ import { NotificationIcon } from '../components/layout/NotificationIcon';
 import { btnSecondary } from '../components/ui/buttons';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
-import { usePreferences } from '../contexts/PreferencesContext';
 import { formatDateTime, formatRelative } from '../utils/format';
 import type { AppNotification, NotificationKind } from '../types/notification';
 
@@ -38,7 +37,6 @@ function dayLabel(iso: string): string {
 export function Notifications() {
   const { user } = useAuth();
   const { notifications, unreadCount, markRead, markAllRead, remove, clearRead } = useNotifications();
-  const { prefs, setPref } = usePreferences();
   const [tab, setTab] = useState<Tab>('all');
   const [kind, setKind] = useState<Kind>('all');
 
@@ -159,24 +157,6 @@ export function Notifications() {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-0 lg:self-start">
-          <div className="rounded-lg border border-line bg-surface p-5">
-            <p className="text-sm font-semibold">Live updates</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              New oracle and policy events arrive in real time while you're signed in.
-            </p>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={prefs.realtime}
-              onClick={() => setPref('realtime', !prefs.realtime)}
-              className={`mt-4 flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition-colors duration-150 ease-out ${
-              prefs.realtime ? 'border-accent bg-accent-soft text-accent-strong' : 'border-line text-muted'}`
-              }>
-              
-              {prefs.realtime ? 'Live · on' : 'Paused'}
-              <span className={`h-2 w-2 rounded-full ${prefs.realtime ? 'animate-pulse bg-success' : 'bg-line'}`} aria-hidden />
-            </button>
-          </div>
           <div className="rounded-lg border border-line bg-surface p-5">
             <p className="text-sm font-semibold">Housekeeping</p>
             <p className="mt-1 text-xs text-muted">Remove notifications you've already read.</p>

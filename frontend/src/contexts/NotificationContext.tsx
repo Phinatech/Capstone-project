@@ -1,15 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { usePreferences } from './PreferencesContext';
 import type { NotificationPrefs } from './PreferencesContext';
 import { usePersistentState } from '../hooks/usePersistentState';
-import { liveTemplates, seedNotifications } from '../data/notificationTemplates';
 import type { AppNotification, NewNotification, NotificationKind } from '../types/notification';
 import type { User } from '../types/user';
-
-const LIVE_INTERVAL_MS = 45_000;
 
 interface NotificationContextValue {
   notifications: AppNotification[];
@@ -43,32 +40,9 @@ export function NotificationProvider({ children }: {children: React.ReactNode;})
   const { user } = useAuth();
   const { prefs } = usePreferences();
   const navigate = useNavigate();
-  const [items, setItems] = usePersistentState<AppNotification[]>('sokoto-cover-notifications', []);
+  const [items, setItems] = usePersistentState<AppNotification[]>('sokoto-cover-notifications-v2', []);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
-
-  useEffect(() => {
-    if (!user) return;
-    const key = `sokoto-cover-notif-seeded-${user.id}`;
-    try {
-      if (window.localStorage.getItem(key)) return;
-      window.localStorage.setItem(key, '1');
-    } catch {
-      return;
-    }
-    const now = Date.now();
-    const seeds: AppNotification[] = seedNotifications[user.role].map((s) => ({
-      id: newId(),
-      kind: s.kind,
-      title: s.title,
-      body: s.body,
-      href: s.href,
-      read: s.read,
-      userId: user.id,
-      createdAt: new Date(now - s.minutesAgo * 60_000).toISOString()
-    }));
-    setItems((prev) => [...seeds, ...prev]);
-  }, [user, setItems]);
 
   const notify = useCallback(
     (input: NewNotification) => {
@@ -93,17 +67,6 @@ export function NotificationProvider({ children }: {children: React.ReactNode;})
     },
     [user, navigate, setItems]
   );
-
-  useEffect(() => {
-    if (!user || !prefs.realtime) return;
-    const id = window.setInterval(() => {
-      const pool = liveTemplates[user.role].filter((tpl) => prefsRef.current.notifications[prefFor[tpl.kind]]);
-      if (pool.length === 0) return;
-      const tpl = pool[Math.floor(Math.random() * pool.length)];
-      notify({ ...tpl, userId: user.id });
-    }, LIVE_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [user, prefs.realtime, notify]);
 
   const notifications = useMemo(
     () =>

@@ -194,7 +194,7 @@ export function Settings() {
 
           <Card id="notifications" title="Notifications" hint="Choose which events notify you and how.">
             <div className="divide-y divide-line">
-              <Switch checked={prefs.realtime} onChange={(v) => setPref('realtime', v)} label="Live updates" description="Receive events in real time while signed in." />
+
               {notifRows.map((r) =>
               <Switch key={r.key} checked={prefs.notifications[r.key]} onChange={(v) => setNotificationPref(r.key, v)} label={r.label} description={r.description} />
               )}

@@ -7,13 +7,11 @@ import { NotificationIcon } from './NotificationIcon';
 import { useDismiss } from '../../hooks/useDismiss';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useI18n } from '../../contexts/I18nContext';
-import { usePreferences } from '../../contexts/PreferencesContext';
 import { formatRelative } from '../../utils/format';
 import type { Role } from '../../types/user';
 
 export function NotificationBell({ role }: {role: Role;}) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
-  const { prefs } = usePreferences();
   const { t } = useI18n();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -57,12 +55,6 @@ export function NotificationBell({ role }: {role: Role;}) {
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <p className="truncate text-sm font-semibold">{t('notif.title')}</p>
-            {prefs.realtime &&
-            <span className="flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" aria-hidden />
-                {t('notif.live')}
-              </span>
-            }
           </div>
           <button
             type="button"
