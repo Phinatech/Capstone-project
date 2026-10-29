@@ -6,6 +6,7 @@ import type { AgentSale } from '../utils/agentSales';
 // origin, which is what lets the session cookie travel with them.
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 const PENDING_KEY = 'sokoto-cover-agent-sales-pending';
+const MIRROR_KEY = 'sokoto-cover-agent-sales-mirror';
 
 export interface AgentSalesContextValue {
   /** The signed-in agent's book: saved sales plus any still waiting to sync. */
@@ -49,6 +50,40 @@ function writePending(sales: AgentSale[]): void {
   } catch {
 
     /* storage unavailable */}
+}
+
+/**
+ * The durable local ledger of every receipt this browser has recorded.
+ *
+ * The server's ledger lives on an ephemeral disk (Render's free plan) and can
+ * lose receipts on restart — which would unlink every policy from its farmer
+ * across the admin, agent and farmer portals. This mirror is what puts them
+ * back: see `refresh`, which re-posts receipts the server no longer has.
+ */
+function readMirror(): AgentSale[] {
+  try {
+    const raw = window.localStorage.getItem(MIRROR_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as AgentSale[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeMirror(sales: AgentSale[]): void {
+  try {
+    window.localStorage.setItem(MIRROR_KEY, JSON.stringify(sales));
+  } catch {
+
+    /* storage unavailable */}
+}
+
+function remember(sale: AgentSale): void {
+  writeMirror([...readMirror().filter((s) => s.policyId !== sale.policyId), sale]);
+}
+
+function forget(policyId: number): void {
+  writeMirror(readMirror().filter((s) => s.policyId !== policyId));
 }
 
 /**
@@ -150,8 +185,28 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
 
     try {
       const sales = await fetchSales();
+      // Heal the server's ledger from this browser's mirror: a receipt the
+      // server no longer has (its disk is ephemeral) is posted again and
+      // re-verified against the contract. Only what is missing is posted, so
+      // no duplicates can be created.
+      const stillWaiting = new Set(failed.map((s) => s.policyId));
+      const missing = readMirror().filter(
+        (s) => s.agentId === agentId && !stillWaiting.has(s.policyId) && !sales.some((x) => x.policyId === s.policyId)
+      );
+      let healed = sales;
+      for (const sale of missing) {
+        try {
+          await postSale(sale);
+          healed = [...healed.filter((x) => x.policyId !== sale.policyId), sale];
+        } catch (err) {
+          // A receipt the server judges false against the chain is dropped,
+          // mirroring the pending queue's rule; anything else is retried on
+          // the next load.
+          if (!isRetryable(err)) forget(sale.policyId);
+        }
+      }
       if (!mounted.current) return;
-      setSaved(sales);
+      setSaved(healed);
       setError(null);
     } catch (err) {
       if (!mounted.current) return;
@@ -186,6 +241,7 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
     async (sale: AgentSale): Promise<{ synced: boolean; retryable: boolean; error?: string }> => {
       try {
         await postSale(sale);
+        remember(sale);
         if (!mounted.current) return { synced: true, retryable: true };
         setSaved((prev) => [...prev.filter((s) => s.policyId !== sale.policyId), sale]);
         setPending((prev) => {
@@ -203,6 +259,7 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
         }
         const queued = [...readPending().filter((s) => s.policyId !== sale.policyId), sale];
         writePending(queued);
+        remember(sale);
         if (mounted.current) setPending(queued);
         return { synced: false, retryable: true, error: message };
       }
