@@ -521,13 +521,29 @@ function ChainData({
       // MetaMask switched to Ethereum mainnet, say. It would then sign a
       // mainnet transfer to an address that only holds this contract on
       // Sepolia: real funds sent into thin air. Ask the wallet which chain it
-      // is on right now, before anything is prepared for signing.
-      if (isWallet && typeof window !== 'undefined' && window.ethereum) {
-        const walletChain = BigInt((await window.ethereum.request({ method: 'eth_chainId' })) as string);
-        if (walletChain !== chainId) {
+      // is on right now, before anything is prepared for signing. A wallet
+      // whose UI has moved on but whose link to this page is stale answers
+      // for the old chain too, and asking it to switch resyncs both cases.
+      const eth = typeof window !== 'undefined' ? window.ethereum : undefined;
+      if (isWallet && eth?.request) {
+        const walletChain = async () => BigInt((await eth.request({ method: 'eth_chainId' })) as string);
+        let current = await walletChain();
+        if (current !== chainId) {
+          try {
+            await eth.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: `0x${chainId.toString(16)}` }]
+            });
+          } catch {
+            // The check below names the mismatch either way.
+          }
+          current = await walletChain();
+        }
+        if (current !== chainId) {
           throw new Error(
-            `MetaMask is on ${chainLabel(walletChain)}, but this purchase belongs on ${chainLabel(chainId)}. ` +
-            `Switch MetaMask's network back and reload the page — confirming now would send funds on the wrong chain.`
+            `MetaMask is on ${chainLabel(current)}, but this purchase belongs on ${chainLabel(chainId)}. ` +
+            `Switch MetaMask to ${chainLabel(chainId)} and try again — confirming now would send funds on the wrong chain. ` +
+            `If MetaMask already shows ${chainLabel(chainId)}, its link to this page is stale: restart the browser, then reload.`
           );
         }
       }
