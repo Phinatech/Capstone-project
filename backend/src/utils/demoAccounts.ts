@@ -141,4 +141,4 @@ export const demoRosterAccounts: DemoAccount[] = demoAccounts.filter((a) => a.ro
  * The shipped demo accounts, deleted at boot so a deployment that has moved to
  * real accounts never shows one again — including the old demo administrator.
  */
-export const legacyDemoIds: string[] = demoAccounts.map((a) => a.id);
+export const legacyDemoIds: string[] = demoAccounts.flatMap((a) => (a.id ? [a.id] : []));

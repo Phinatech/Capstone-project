@@ -27,21 +27,21 @@ const sale = (policyId: number, farmerId: string, farmerName: string, soldAt = "
 
 test("a policy sold through an agent carries that farmer's identity", () => {
   const [p] = attributePolicies([chainPolicy(0)], [sale(0, "u-amina", "Amina Bello")]);
-  assert.equal(p.farmerId, "u-amina");
-  assert.equal(p.farmerName, "Amina Bello");
-  assert.equal(p.lga, "Wamakko");
-  assert.equal(p.crop, "Millet");
+  assert.equal(p?.farmerId, "u-amina");
+  assert.equal(p?.farmerName, "Amina Bello");
+  assert.equal(p?.lga, "Wamakko");
+  assert.equal(p?.crop, "Millet");
 });
 
 test("a policy with no sale receipt is passed through untouched", () => {
   const [p] = attributePolicies([chainPolicy(1)], [sale(0, "u-amina", "Amina Bello")]);
-  assert.equal(p.farmerId, undefined);
-  assert.equal(p.farmer, "0xAbc");
+  assert.equal(p?.farmerId, undefined);
+  assert.equal(p?.farmer, "0xAbc");
 });
 
 test("sales for unknown policy ids are ignored", () => {
   const [p] = attributePolicies([chainPolicy(2)], [sale(9, "u-amina", "Amina Bello")]);
-  assert.equal(p.farmerId, undefined);
+  assert.equal(p?.farmerId, undefined);
 });
 
 test("the earliest receipt names the farmer when one exists twice", () => {
@@ -49,5 +49,5 @@ test("the earliest receipt names the farmer when one exists twice", () => {
     sale(0, "u-later", "Later Name", "2026-10-29T09:14:00Z"),
     sale(0, "u-amina", "Amina Bello", "2026-10-29T02:15:00Z"),
   ]);
-  assert.equal(p.farmerId, "u-amina");
+  assert.equal(p?.farmerId, "u-amina");
 });
