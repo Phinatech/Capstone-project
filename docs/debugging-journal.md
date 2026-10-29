@@ -70,7 +70,7 @@ All fixes are in `frontend/src/contexts/ChainPolicyProvider.tsx`.
 
 | Finding | Evidence | Action |
 | --- | --- | --- |
-| Pages project lacks `API_URL` | `GET /api/demo-credentials` on `sokoto-cover.pages.dev` answers **500 "API_URL is not set on this Pages project"**; the demo-credentials panel on `/sign-in` renders nothing | Set `API_URL=https://sokoto-cover-api.onrender.com` (see `docs/deployment.md`); `VITE_API_URL` should be left empty |
+| Pages project lacked `API_URL` | `GET /api/demo-credentials` on `sokoto-cover.pages.dev` answered **500 "API_URL is not set on this Pages project"**; the demo-credentials panel on `/sign-in` rendered nothing | **Fixed 29 Oct**: `API_URL=https://sokoto-cover-api.onrender.com` set on the project via `wrangler pages secret put` and rebuilt; endpoint now answers. Per `docs/deployment.md`, `VITE_API_URL` should still be cleared from the build env so all calls go through the same-origin proxy |
 | `METEOSTAT_API_KEY` (RapidAPI) is dead | Live call returns **403 "You are not subscribed to this API."** | Re-subscribe to Meteostat on RapidAPI and update the Render env var, or remove the key — the relayer then uses its historical GHCN fallback cleanly |
 | `TERMINII_API_KEY` is inert | `SMS_PROVIDER` is unset and defaults to `africastalking` | Nothing to do; remove the key if you want less surface |
 
