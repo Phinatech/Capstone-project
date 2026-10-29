@@ -196,6 +196,12 @@ const FRIENDLY_REVERTS: Record<string, string> = {
   'wrong premium': "The premium sent didn't match the contract's quote."
 };
 
+function chainLabel(chainId: bigint): string {
+  if (chainId === 1n) return 'Ethereum mainnet';
+  if (chainId === 11155111n) return 'the Sepolia testnet';
+  return `chain ${chainId}`;
+}
+
 function chainErrorMessage(e: unknown): string {
   const err = e as {reason?: string;shortMessage?: string;message?: string;code?: string;};
   const reason = err.reason?.replace(/^\w+: /, '');
@@ -210,6 +216,9 @@ function chainErrorMessage(e: unknown): string {
   }
   if (/missing revert data/i.test(raw)) {
     return "The node couldn't say why the transaction failed — usually the wallet's RPC is busy, or this account doesn't cover the premium plus gas. Check the balance in MetaMask, wait a moment, then try again.";
+  }
+  if (/network changed|chain.?changed/i.test(raw)) {
+    return 'MetaMask changed networks while the page was open. Reload the page on the right network and try again.';
   }
   return raw || 'The transaction failed.';
 }
@@ -288,6 +297,24 @@ function ChainData({
     eth.on('accountsChanged', onAccounts);
     return () => eth.removeListener('accountsChanged', onAccounts);
   }, [isWallet]);
+  // The wallet can also hop to another chain at any moment. A send then goes
+  // out wherever it now is — on Ethereum mainnet that means real funds to an
+  // address that only holds this contract on Sepolia — so say so loudly.
+  useEffect(() => {
+    const eth = typeof window !== 'undefined' ? window.ethereum : undefined;
+    if (!isWallet || !eth?.on) return;
+    const onChain = (...args: unknown[]) => {
+      const next = typeof args[0] === 'string' ? BigInt(args[0]) : null;
+      if (next !== null && next !== chainId) {
+        toast.warning('MetaMask switched networks', {
+          description: `This app trades on ${chainLabel(chainId)}. Switch MetaMask back before buying cover — a purchase sent now would go out on ${chainLabel(next)}.`,
+          duration: 12000
+        });
+      }
+    };
+    eth.on('chainChanged', onChain);
+    return () => eth.removeListener('chainChanged', onChain);
+  }, [isWallet, chainId]);
   const local = chainId === LOCAL_CHAIN_ID && liveAccounts.length > 0;
   const insurance = useMemo(() => new Contract(config.insuranceAddress, abi.WeatherIndexInsurance, provider), [config, provider]);
   const aggregator = useMemo(() => new Contract(config.aggregatorAddress, abi.OracleAggregator, provider), [config, provider]);
@@ -490,6 +517,20 @@ function ChainData({
     async (farmerId: string, input: PurchaseInput) => {
       const from = addressOf(farmerId);
       if (!from) throw new Error('Buying cover on this network needs a browser wallet. Connect MetaMask and try again.');
+      // The wallet may sit on a different chain than this app trades on —
+      // MetaMask switched to Ethereum mainnet, say. It would then sign a
+      // mainnet transfer to an address that only holds this contract on
+      // Sepolia: real funds sent into thin air. Ask the wallet which chain it
+      // is on right now, before anything is prepared for signing.
+      if (isWallet && typeof window !== 'undefined' && window.ethereum) {
+        const walletChain = BigInt((await window.ethereum.request({ method: 'eth_chainId' })) as string);
+        if (walletChain !== chainId) {
+          throw new Error(
+            `MetaMask is on ${chainLabel(walletChain)}, but this purchase belongs on ${chainLabel(chainId)}. ` +
+            `Switch MetaMask's network back and reload the page — confirming now would send funds on the wrong chain.`
+          );
+        }
+      }
       // The form passes the contract's own window id, so there is no lookup
       // table to translate through — that was how the wrong window got bought.
       const windowId = Number(input.windowId);
@@ -569,7 +610,7 @@ function ChainData({
       notifyPurchase(notify, policy);
       return policy;
     },
-    [addressOf, provider, readProvider, insurance, insuranceRead, config.insuranceAddress, load, notify]
+    [addressOf, isWallet, chainId, provider, readProvider, insurance, insuranceRead, config.insuranceAddress, load, notify]
   );
 
   const settleOnChain = useCallback(
