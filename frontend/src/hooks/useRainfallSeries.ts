@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SOURCE_BY_LABEL } from '../chain/config';
 import { usePolicies } from '../contexts/PolicyContext';
-import { dekadalRainfall } from '../data/rainfall';
 import type { RainfallSeriesRow } from '../utils/oracle';
 import type { SourceId } from '../types/insurance';
 
@@ -69,22 +68,16 @@ async function fetchSubmitted(): Promise<RainfallDekad[]> {
 }
 
 /**
- * Dekadal rainfall for the charts. Against the deployed contracts this is what
- * the oracles actually submitted, oldest dekad first; in simulated mode it is
- * the prototype's season table. A source is null for a dekad it never reported.
+ * Dekadal rainfall for the charts: what the oracles actually submitted on
+ * chain, oldest dekad first. A source is null for a dekad it never reported.
+ * Until the first read lands the chart is empty — never illustrative data.
  */
 export function useRainfallSeries(): {dekads: RainfallDekad[];live: boolean;} {
   const { source } = usePolicies();
   const live = source.kind === 'chain';
-  const [dekads, setDekads] = useState<RainfallDekad[]>(() =>
-    dekadalRainfall.map((row) => ({ ...row, period: 0 }))
-  );
+  const [dekads, setDekads] = useState<RainfallDekad[]>([]);
 
   useEffect(() => {
-    if (!live) {
-      setDekads(dekadalRainfall.map((row) => ({ ...row, period: 0 })));
-      return;
-    }
     let cancelled = false;
     fetchSubmitted().
     then((rows) => {

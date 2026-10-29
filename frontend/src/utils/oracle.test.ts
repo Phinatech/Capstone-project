@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seedPolicies } from '../data/policies';
-import type { SourceId } from '../types/insurance';
+import type { Policy, SourceId } from '../types/insurance';
 import {
   aggregate,
   applyCorruption,
@@ -80,7 +79,18 @@ describe('applyCorruption', () => {
 });
 
 describe('evaluatePolicy', () => {
-  const policy = seedPolicies[0];
+  const policy: Policy = {
+    id: 1,
+    farmerId: 'farmer-1',
+    lga: 'Wamakko',
+    crop: 'Millet',
+    windowId: 'jul',
+    thresholdMm: 88,
+    premiumEth: 0.002,
+    payoutEth: 0.02,
+    purchasedAt: '2023-06-12',
+    status: 'active'
+  };
 
   it('triggers a payout exactly when the aggregate is below the threshold', () => {
     for (const mode of ['single', 'equal', 'reputation'] as const) {
