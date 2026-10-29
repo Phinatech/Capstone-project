@@ -33,6 +33,8 @@ export interface SignUpInput {
   email: string;
   phone: string;
   lga: string;
+  /** Farmers and field agents can self-register; administrators cannot. */
+  role?: 'farmer' | 'agent';
   password: string;
 }
 

@@ -112,6 +112,13 @@ export const demoAccounts: DemoAccount[] = [
 ];
 
 /** Only email, password and role — what the sign-in panel needs to fill a form. */
-export function demoCredentialList(): Array<{ email: string; password: string; role: string; name: string }> {
-  return demoAccounts.map(({ email, password, role, name }) => ({ email, password, role, name }));
+export function demoCredentialList(includeRoster = true): Array<{ email: string; password: string; role: string; name: string }> {
+  const accounts = includeRoster ? demoAccounts : operatorAccounts;
+  return accounts.map(({ email, password, role, name }) => ({ email, password, role, name }));
 }
+
+/** Always seeded: the operator login, so a deployment can never be locked out. */
+export const operatorAccounts: DemoAccount[] = demoAccounts.filter((a) => a.role === "admin");
+
+/** The demo roster (agent and farmers) — seeded only while AUTH_DEMO_ACCOUNTS is on. */
+export const demoRosterAccounts: DemoAccount[] = demoAccounts.filter((a) => a.role !== "admin");

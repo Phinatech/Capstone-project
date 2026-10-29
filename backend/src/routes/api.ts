@@ -115,15 +115,13 @@ router.get("/users/directory", async (_req, res) => {
  * Demo logins for the sign-in panel, replacing the credential list that used
  * to ship inside the production JS bundle.
  *
- * Answers only while `AUTH_DEMO_ACCOUNTS` is on, so a deployment that turns
- * it off tells the panel to stay empty rather than advertising accounts.
+ * The operator login is always listed (it is always seeded); the demo roster
+ * appears only while AUTH_DEMO_ACCOUNTS is on, so a deployment advertises
+ * exactly the accounts it has and real agent/farmer accounts come from
+ * /auth/register instead of from a panel of guesses.
  */
 router.get("/demo-credentials", (_req, res) => {
-  if (!config.demoAccounts) {
-    res.json({ credentials: [] });
-    return;
-  }
-  res.json({ credentials: demoCredentialList() });
+  res.json({ credentials: demoCredentialList(config.demoAccounts) });
 });
 
 // Agent sales: the naira half of a purchase, recorded so an agent's book is

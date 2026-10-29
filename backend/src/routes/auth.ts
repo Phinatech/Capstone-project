@@ -160,11 +160,18 @@ export function createAuthRouter(deps: AuthDeps): Router {
     const email = normaliseEmail(text(req.body?.email));
     const phone = text(req.body?.phone);
     const lga = text(req.body?.lga);
+    const role = text(req.body?.role) || "farmer";
     const password = text(req.body?.password);
     const remember = req.body?.remember !== false;
 
     if (!name || !email || !password) {
       fail(res, 400, "invalid_input", "Name, email and password are required");
+      return;
+    }
+    // Farmers and field agents can be created here; administrators cannot
+    // self-assign, so the only admin account is the seeded operator.
+    if (role !== "farmer" && role !== "agent") {
+      fail(res, 400, "invalid_role", "Role must be farmer or agent");
       return;
     }
     if (!EMAIL_PATTERN.test(email)) {
@@ -211,7 +218,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
     try {
       created = await users.create(
         {
-          role: "farmer",
+          role: role === "agent" ? "agent" : "farmer",
           name,
           email,
           phone,

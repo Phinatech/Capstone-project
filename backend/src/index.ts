@@ -4,7 +4,7 @@ import { startNotifier } from "./notifier.js";
 import { attachSession } from "./middleware/auth.js";
 import { startRelayer } from "./relayer.js";
 import { authCodeStore, sessionStore, userStore } from "./authServices.js";
-import { demoAccounts } from "./utils/demoAccounts.js";
+import { demoRosterAccounts, operatorAccounts } from "./utils/demoAccounts.js";
 import { MAX_TOKEN_LENGTH, verifyTurnstileToken } from "./turnstile.js";
 import apiRouter from "./routes/api.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -68,11 +68,16 @@ app.use("/auth", createAuthRouter({ users: userStore, sessions: sessionStore, au
 // Cached chain-data API for the frontend
 app.use("/api", apiRouter);
 
+// The operator login is always seeded so a deployment can never be locked
+// out; the demo roster (agent and farmers) is opt-in. Seeding hashes each
+// password, so it happens once at boot rather than blocking the first sign-in.
+void userStore.ensureSeeded(operatorAccounts).then(
+  () => console.log("[auth] operator account ready"),
+  (err) => console.error("[auth] could not seed the operator account:", err)
+);
 if (config.demoAccounts) {
-  // Seeding hashes each password, so it happens once at boot rather than
-  // blocking the first sign-in.
-  void userStore.ensureSeeded(demoAccounts).then(
-    () => console.log(`[auth] ${demoAccounts.length} demo accounts available`),
+  void userStore.ensureSeeded(demoRosterAccounts).then(
+    () => console.log(`[auth] ${demoRosterAccounts.length} demo accounts available`),
     (err) => console.error("[auth] could not seed demo accounts:", err)
   );
 }

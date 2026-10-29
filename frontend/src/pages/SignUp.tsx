@@ -24,7 +24,7 @@ export function SignUp() {
   const { user, signUp } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', phone: '', lga: lgas[0], password: '', confirm: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', lga: lgas[0], role: 'farmer' as 'farmer' | 'agent', password: '', confirm: '' });
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -143,6 +143,21 @@ export function SignUp() {
             {lgas.map((l) =>
             <option key={l}>{l}</option>
             )}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="signup-role" className="block text-sm font-medium">
+            {t('auth.role')}
+          </label>
+          <select
+            id="signup-role"
+            value={form.role}
+            onChange={update('role')}
+            className={`${fieldInputClass} mt-1.5 border-line focus:border-accent`}>
+            
+            <option value="farmer">{t('role.farmer')}</option>
+            <option value="agent">{t('role.agent')}</option>
           </select>
         </div>
 
