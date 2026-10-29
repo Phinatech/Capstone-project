@@ -4,12 +4,12 @@ import { toast } from 'sonner';
 import abi from '../chain/abi.json';
 import { LOCAL_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { ErrorPage } from '../pages/ErrorPage';
 import { findUser, getFarmers } from '../utils/users';
 import { useAuth } from './AuthContext';
 import { useNotifications } from './NotificationContext';
 import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
 import { notifyPurchase, notifySettlement } from './policyNotifications';
-import { SimulatedPolicyProvider } from './SimulatedPolicyProvider';
 import type { EvaluationResult, Policy, SourceReading } from '../types/insurance';
 import type { User } from '../types/user';
 
@@ -41,7 +41,7 @@ async function connect(config: ChainConfig): Promise<Connection> {
   try {
     chainId = BigInt(await rpc(config.rpcUrl, 'eth_chainId'));
   } catch {
-    return { phase: 'failed', reason: `No chain node answered at ${config.rpcUrl}. Start one with "npm run chain", then "npm run seed:local".` };
+    return { phase: 'failed', reason: `No chain node answered at ${config.rpcUrl}. The RPC may be down or rate-limiting — try again in a moment.` };
   }
 
   // For non-local chains, try browser wallet first
@@ -88,29 +88,37 @@ async function connect(config: ChainConfig): Promise<Connection> {
 /** Policies read from, and transactions sent to, the deployed contracts. */
 export function ChainPolicyProvider({ config, children }: {config: ChainConfig;children: React.ReactNode;}) {
   const [conn, setConn] = useState<Connection>({ phase: 'connecting' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setConn({ phase: 'connecting' });
     connect(config).then((c) => {
       if (cancelled) {
         if (c.phase === 'ready') c.provider.destroy();
         return;
       }
-      // Deferred so the Toaster, which renders inside the app, is mounted.
-      if (c.phase === 'failed') setTimeout(() => toast.warning('Showing simulated data', { description: c.reason, duration: 12000 }), 500);
       setConn(c);
+    }).catch((e: unknown) => {
+      if (cancelled) return;
+      setConn({ phase: 'failed', reason: e instanceof Error ? e.message : String(e) });
     });
     return () => {
       cancelled = true;
     };
-  }, [config]);
+  }, [config, attempt]);
 
   useEffect(() => () => {
     if (conn.phase === 'ready') conn.provider.destroy();
   }, [conn]);
 
   if (conn.phase === 'connecting') return <LoadingScreen label="Connecting to the chain" />;
-  if (conn.phase === 'failed') return <SimulatedPolicyProvider reason={conn.reason}>{children}</SimulatedPolicyProvider>;
+  // A configured chain that cannot be reached is an outage, not an invitation
+  // to invent data: showing a simulated portfolio here once passed for real
+  // state on the admin console. Say what failed and let the user retry.
+  if (conn.phase === 'failed') {
+    return <ErrorPage fullScreen error={new Error(conn.reason)} onRetry={() => setAttempt((a) => a + 1)} />;
+  }
   return (
     <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts} isWallet={conn.isWallet}>
       {children}
@@ -676,7 +684,9 @@ function ChainData({
   );
 
   if (!value) {
-    if (loadError) return <SimulatedPolicyProvider reason={loadError}>{children}</SimulatedPolicyProvider>;
+    // Same rule as the connect failure: a chain read that failed is an outage,
+    // never a reason to render invented data over the real state.
+    if (loadError) return <ErrorPage error={new Error(loadError)} onRetry={() => void refresh()} />;
     return <LoadingScreen label="Reading the contracts" />;
   }
   return <PolicyContext.Provider value={value}>{children}</PolicyContext.Provider>;
