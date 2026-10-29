@@ -68,18 +68,23 @@ app.use("/auth", createAuthRouter({ users: userStore, sessions: sessionStore, au
 // Cached chain-data API for the frontend
 app.use("/api", apiRouter);
 
-// Retire the shipped demo accounts (including the old demo administrator),
-// then seed the operator from the environment — real credentials live on the
-// service, never in this repository. Seeding hashes the password, so it
-// happens once at boot rather than blocking the first sign-in.
-void userStore
-  .removeByIds(legacyDemoIds)
-  .then(() => userStore.ensureSeeded(operatorAccounts))
-  .then(() => {
-    if (operatorAccounts.length > 0) console.log("[auth] operator account ready");
-    else console.warn("[auth] ADMIN_EMAIL/ADMIN_PASSWORD are not set: no administrator account is seeded");
-  })
-  .catch((err) => console.error("[auth] could not prepare the operator account:", err));
+// Replace the shipped demo accounts (including the old demo administrator)
+// with the operator from the environment — real credentials live on the
+// service, never in this repository. The two steps pair deliberately: the
+// demo admin is deleted only when the real one is configured to take its
+// place. Seeding hashes the password, so it happens once at boot rather than
+// blocking the first sign-in.
+if (operatorAccounts.length > 0) {
+  void userStore
+    .removeByIds(legacyDemoIds)
+    .then(() => userStore.ensureSeeded(operatorAccounts))
+    .then(() => console.log("[auth] operator account ready"))
+    .catch((err) => console.error("[auth] could not prepare the operator account:", err));
+} else {
+  console.warn(
+    "[auth] ADMIN_EMAIL/ADMIN_PASSWORD are not set: no administrator is seeded and the demo accounts are left untouched"
+  );
+}
 if (config.demoAccounts) {
   void userStore.ensureSeeded(demoRosterAccounts).then(
     () => console.log(`[auth] ${demoRosterAccounts.length} demo accounts available`),
