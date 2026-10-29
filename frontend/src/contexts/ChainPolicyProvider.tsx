@@ -504,21 +504,30 @@ function ChainData({
         const signer = await provider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
         premium = await insuranceRead.quotePremium(payout);
-        // The wallet's own node can disagree with the chain about this
-        // account's balance — a stale or wrongly-configured RPC in MetaMask
-        // reports 0 while the network shows funds. The purchase then fails as
-        // "insufficient funds" next to a balance that looks fine, so check both
-        // views first and name the mismatch instead of guessing.
+        // The wallet's node can disagree with the chain about this account's
+        // balance — a stale or wrongly-configured RPC behind MetaMask reports
+        // 0 while the network shows funds, and its own UI may still show the
+        // correct figure. Only the chain's view decides whether this purchase
+        // can be paid for: everything here is priced from the trusted RPC, the
+        // gas limit is already fixed above, and the wallet merely signs and
+        // broadcasts. So block only when the chain itself says no, and let a
+        // disagreeing wallet attempt the send rather than dead-ending a
+        // purchase the network would accept.
         const [onChain, inWallet] = await Promise.all([
           readProvider.getBalance(from),
           provider.getBalance(from).catch(() => null)
         ]);
         if (inWallet !== null && inWallet < premium && onChain >= premium) {
+          console.warn(
+            `[chain] the wallet's node reports ${formatEther(inWallet)} ETH for ${from} while Sepolia shows ` +
+            `${formatEther(onChain)} ETH — the wallet's RPC is stale or wrong. If this purchase fails at ` +
+            'MetaMask, set its Sepolia RPC to https://ethereum-sepolia-rpc.publicnode.com and reload the page.'
+          );
+        }
+        if (onChain < premium) {
           throw new Error(
-            `Your wallet's node reports ${formatEther(inWallet)} ETH for ${from} while Sepolia shows ` +
-            `${formatEther(onChain)} ETH, so this purchase can't be priced. MetaMask is reading Sepolia ` +
-            'through a stale or wrong RPC — open Settings → Networks → Sepolia and set the RPC URL to ' +
-            'https://ethereum-sepolia-rpc.publicnode.com, then try again.'
+            `${from} holds ${formatEther(onChain)} ETH on Sepolia, which does not cover the ` +
+            `${formatEther(premium)} ETH premium plus gas. Send Sepolia ETH to that account and try again.`
           );
         }
         // Estimate gas here, on the RPC this app trusts, and hand the wallet an
