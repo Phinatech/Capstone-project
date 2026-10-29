@@ -1,0 +1,31 @@
+%% System architecture — Sokoto Rainfall Cover
+flowchart TB
+    subgraph sources["Rainfall sources"]
+        CHIRPS["CHIRPS<br/>(satellite + stations)"]
+        NASA["NASA POWER<br/>(reanalysis)"]
+        MET["Meteostat<br/>(station interpolation)"]
+    end
+    subgraph backend["Backend — Render"]
+        API["REST API<br/>(sessions, roles, receipts)"]
+        REL["Oracle relayer"]
+        KEEP["Settlement keeper"]
+        NOT["Notifier<br/>(in-app / SMS / Telegram)"]
+    end
+    subgraph frontend["React SPA — Cloudflare Pages"]
+        FARM["Farmer portal"]
+        AGENT["Agent portal"]
+        ADMIN["Admin console<br/>(simulator, backtest)"]
+    end
+    subgraph chain["Ethereum Sepolia"]
+        INS["WeatherIndexInsurance"]
+        AGG["OracleAggregator"]
+    end
+    CHIRPS & NASA & MET -->|daily fetch| REL
+    REL -->|signed reports| AGG
+    AGG -->|finalized aggregates| INS
+    KEEP -->|checkAndSettle| INS
+    INS -->|events| NOT
+    FARM & AGENT & ADMIN -->|same-origin /api, /auth| API
+    FARM & AGENT & ADMIN -->|reads| INS & AGG
+    FARM & AGENT & ADMIN -->|signed transactions via wallet| INS
+    API -->|chain reads| INS & AGG

@@ -1,0 +1,19 @@
+%% Purchase sequence (agent flow) — Sokoto Rainfall Cover
+sequenceDiagram
+    actor Agent
+    participant SPA as Frontend
+    participant API as Backend API
+    participant Wallet as MetaMask
+    participant INS as WeatherIndexInsurance
+    Agent->>SPA: selects farmer, crop, window, threshold, payout<br/>+ naira payment method & reference
+    SPA->>INS: quotePremium(payout) on trusted RPC
+    SPA->>INS: estimateGas(buyPolicy) on trusted RPC
+    SPA->>Wallet: eth_chainId check → wallet_switchEthereumChain if needed
+    SPA->>Wallet: buyPolicy(...) with explicit gasLimit and premium
+    Wallet->>INS: signed transaction
+    INS-->>INS: reserves payout, emits PolicyCreated
+    INS-->>SPA: receipt (policyId, block)
+    SPA->>API: POST /api/agent/sales (receipt)
+    API->>INS: re-read policy, verify premium/payout/window
+    API-->>SPA: receipt saved (or rejected)
+    Note over SPA,API: farmer and admin notified in-app;<br/>SMS/Telegram via notifier

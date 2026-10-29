@@ -501,3 +501,347 @@ generalise into four rules (full detail in Appendix C):
   fit a single 160-character SMS, and an operator Telegram channel.
 - **Internationalisation and preferences.** English/Hausa/French strings and a language
   hint to the Google sign-in flow; theme and accessibility preferences persist per user.
+
+---
+
+## 6. Testing and evaluation
+
+### 6.1 Test strategy
+
+Testing is layered so that each failure class is caught where it is cheapest to find:
+
+1. **Solidity unit, integration and fuzz tests** (56) — contract invariants and edge
+   cases, run on Hardhat's in-process EVM.
+2. **Contract-level integration tests in TypeScript** (13, Mocha) — the application's
+   central stories against deployed-in-test contracts, plus the ABI-sync check and audit
+   regression tests.
+3. **Backend tests** (191 across 25 files, `node:test`) — sessions, auth routes, sale
+   verification against the chain, FX fallbacks, SMS templates, caching, the relayer's
+   feed handling and backtest statistics.
+4. **Frontend tests** (20, Vitest) — policy evaluation logic, formatting and context
+   behaviour.
+
+The full suite (`npm run test`) runs every workspace — **280 tests** — and is green.
+
+### 6.2 Smart contract tests (56)
+
+Coverage includes the properties the product's fairness rests on: the premium is exactly
+10% of the payout and rounds up so it is never zero; a sale the pool cannot cover reverts
+(`test_RefusesSaleThePoolCannotCover`, `test_ReservedPayoutsLimitLaterSales`); reserves
+never exceed the pool balance (**fuzzed**, `testFuzz_ReservesNeverExceedPoolBalance`,
+256 runs); windows validate; sales close on deadline; a policy pays exactly once
+(`test_CannotSettleTwice`) and only after every dekad finalizes
+(`test_CannotSettleUntilEveryDekadIsFinalized`); overlapping windows share dekad
+reports correctly; and a window whose rainfall meets the threshold pays nothing.
+
+### 6.3 Integration, backend and frontend tests
+
+The Mocha layer covers the end-to-end story ("collects the farmer's premium into the pool
+and reserves the payout", "pays out when the window's rainfall is below threshold",
+"still reaches a usable, correctly-weighted estimate if one oracle source never
+reports"), verifies the frontend ABI still matches the compiled contracts, and pins the
+audit fixes (M-1, M-2, L-3, L-5 — see 6.2/7.2). The backend suites exercise the security-
+relevant paths hardest: session fixation and cookie flags, role gates, timing-safe API
+keys, and — critically — that agent receipts are rejected when their premium, payout or
+window do not match the on-chain policy.
+
+### 6.4 Backtest: does reputation weighting help? (2023 and the satellite era)
+
+`docs/backtest-results.md` reports a backtest of the aggregation designs against the
+Birni N'Konni rain gauge (GHCN `NG000001075`), 121 dekads 1981–2024 with 81 rainy-season
+dekads, comparing NASA POWER and CHIRPS readings at the gauge's location.
+
+**Per-source accuracy (rainy season, mm per dekad):**
+
+| Source | MAE | RMSE | Bias | Correlation |
+| --- | --- | --- | --- | --- |
+| NASA POWER | 30.3 | 52.4 | −15.9 | 0.34 |
+| CHIRPS | 24.4 | 47.4 | −11.8 | 0.50 |
+
+**Combined estimates (out-of-sample weights):** reputation weighting reaches MAE 26.3 mm —
+4.0 mm closer to the gauge than NASA POWER alone (95% bootstrap CI −6.4 to −1.7), 0.3 mm
+closer than equal weights (CI −0.5 to −0.1), and 1.9 mm further than the best single
+source (CHIRPS). The honest reading: **combining sources guards against the weaker feed
+without knowing in advance which one is weaker, at a small accuracy cost versus the best
+source** — exactly the insurance trade-off the design aims for, since the risk being
+hedged is a *corrupted or failing* source, not average noise.
+
+**Payout decisions (basis risk).** Against the gauge's dry dekads, single sources miss
+25–50% of droughts and pay 15% false payouts; the combined estimates agree with the
+gauge on 78–79% of calls and cut false payouts to 13%. Basis risk at dekad scale is real
+and is stated as a limitation (Chapter 9).
+
+**Robustness demo (consensus simulator).** Corrupting one source's reading (NASA POWER
+inflated ×2.5) moves the single-source aggregate by the full corruption and the
+equal-weight aggregate by **+59%**, while the reputation-weighted aggregate moves **+9%**
+— the property FR10 asks for, demonstrated on real dekad data (Appendix A,
+`07-consensus-simulator`).
+
+### 6.5 Evaluation against the objectives
+
+| Objective | Evidence | Status |
+| --- | --- | --- |
+| O1 contract system selling, reserving and auto-settling policies | 56 Solidity + 13 integration tests; live Policy #0 bought and paid out autonomously | met |
+| O2 reputation-weighted multi-source aggregation | OracleAggregator weights; simulator (+9% vs +59%); backtest (6.4) | met |
+| O3 automated data pipeline | relayer reporting 3 sources live; settlement keeper executed the live payout | met |
+| O4 role-based web app with wallet integration | three portals; agent receipts verified server-side; wallet hardening (5.5) | met |
+| O5 evaluation via tests, audit, backtest | 280 green tests; audit (Ch. 7); backtest (6.4) | met |
+
+---
+
+## 7. Security and auditing
+
+### 7.1 Method
+
+A manual audit (documented in `docs/security-audit.md`) reviewed both contracts for the
+OWASP-class smart-contract risks (access control, reentrancy, oracle manipulation,
+economic attacks, griefing), the dependency tree for known advisories, and the deployment
+and key-handling practices. Each finding carries a severity, an affected location and a
+resolution status; resolved findings gained regression tests so they cannot silently
+return.
+
+### 7.2 Findings and resolutions
+
+| ID | Severity | Finding | Status |
+| --- | --- | --- | --- |
+| H-1 | High | Fully centralised admin: owner controls payouts, oracles and weights | documented risk; mitigated by two-step ownership + public on-chain state (see 9) |
+| H-2 | High | Settlement could occur arbitrarily late | partly resolved 2026-10-14; keeper automation reduces the window |
+| H-3 | High | `serialize-javascript` RCE advisory (dev dependency) | resolved 2026-09-28 |
+| M-1 | Medium | Finalization race: a half-reported period could be finalized early | resolved 2026-09-30 — quorum enforced; regression: "won't let one source finalize an extreme early reading into a payout" |
+| M-2 | Medium | Owner could rewrite reputation weights after readings are in | resolved 2026-09-30 — mid-dekad weight changes ignored; regression-tested |
+| M-3 | Medium | Reentrancy griefing of the payout pool at funding time | documented; reserves accounting (M-4) bounds the impact |
+| M-4 | Medium | Payouts silently skipped when the pool was underfunded | resolved 2026-09-28 — reserve accounting at purchase |
+| M-5 | Medium | No sanity bounds on submitted rainfall readings | resolved 2026-10-27 |
+| L-1…L-6 | Low | finalize-period edge case, division truncation, owner-key custody, key hygiene, oracle deregistration, npm advisories | L-3 partly resolved (two-step ownership regression-tested), L-4 resolved, L-5 resolved (compromised source can be retired without losing history — regression-tested); L-6 tracked |
+
+The regression suite is the audit's long arm: tests named for M-1, M-2, L-3 and L-5
+execute the fixed behaviour on every run.
+
+### 7.3 Application and operational security
+
+- **Sessions.** httpOnly, `SameSite=Lax` cookies; no tokens in JavaScript-reachable
+  storage; the Pages function proxies API and auth on one origin so the cookie never
+  crosses sites (the alternative — `SameSite=None` — would have given up CSRF protection).
+- **Authorisation.** Role checks are server-side on every agent/admin route.
+- **Input and abuse.** JSON bodies capped at 10 KB; the manual SMS endpoint requires a
+  bearer key compared in constant time and is rate-limited per hour; Turnstile CAPTCHA
+  guards authentication endpoints, verified server-side.
+- **Receipt integrity.** Agent sale receipts are validated against the on-chain policy
+  before storage, so a tampered client cannot inflate commission or fabricate sales.
+- **Wallet-side hardening.** The purchase path distrusts wallet RPC state (stale balances,
+  reasonless estimation failures), refuses to sign on the wrong chain, and translates
+  errors into actionable text (5.5). A mis-configured wallet can no longer silently fail
+  or misroute a real-value transaction.
+- **Key management.** Secrets live only in per-service environment variables (Render,
+  Pages); the deployer key uses Hardhat's encrypted keystore; no key appears in the
+  repository.
+
+---
+
+## 8. Deployment and operations
+
+### 8.1 Topology
+
+| Component | Host | URL / address |
+| --- | --- | --- |
+| Frontend + same-origin API proxy | Cloudflare Pages | `https://sokoto-cover.pages.dev` |
+| API, oracle relayer, settlement keeper, notifier | Render web service (free tier) | `https://sokoto-cover-api.onrender.com` |
+| `WeatherIndexInsurance` | Ethereum Sepolia | `0x8520A0697D018a380a91CB65096AB50F5B65D6D5` |
+| `OracleAggregator` | Ethereum Sepolia | `0x1b595A484A0a26eaC8764307c19bbfDaA2E4aDE1` |
+
+Both web tiers deploy from `main` on push. Contracts were deployed with Hardhat
+Ignition; the deployer key lives in Hardhat's encrypted keystore, never in the
+repository.
+
+### 8.2 Configuration
+
+Service configuration is environment-only (per-service `.env` locally, dashboard
+environment variables in production), documented in `docs/deployment.md`: chain RPC and
+contract addresses on the frontend; session secret, database paths, chain RPC and oracle
+private keys, rainfall coordinates, data-source keys and notification credentials on the
+backend. A Cloudflare Pages function proxies `/api` and `/auth` to Render on the same
+origin — the design decision that keeps the `SameSite=Lax` session cookie flowing while
+preserving CSRF protection.
+
+### 8.3 Operations
+
+Exactly one backend instance runs the relayer, settlement keeper and notifier
+(`RELAYER_ENABLED`). The relayer reports each dekad once its data is complete, Meteostat
+at most once per six hours to respect its free plan; FX rates refresh with per-provider
+fallback and the UI degrades to approximate naira figures when both providers are
+unavailable (Render's free tier sleeps, and every consumer of its data tolerates that).
+Monitoring is deliberately lightweight for a prototype: an external uptime check on
+`/health`, structured console logs, and Telegram/SMS operator notifications for policy
+activity. Two operational hardening items are listed in Chapter 9 (npm advisory backlog,
+owner-key custody).
+
+---
+
+## 9. Discussion, limitations and future work
+
+### 9.1 What the evaluation shows
+
+The backtest supports the design honestly rather than triumphantly: reputation weighting
+is **not** more accurate than the best single source on average — it is 1.9 mm per dekad
+worse than CHIRPS — but it is significantly better than the weaker source and than equal
+weights, and, crucially, it is the design that survives a *failing* source: the simulator
+shows a corrupted feed moving the payout-relevant aggregate by 9% under reputation
+weights versus 59% under equal weights. For an insurance product whose risk is a wrong
+number, robustness is the right optimisation target. The deployed weights (CHIRPS 421,
+NASA 268, Meteostat 311) sit near the backtest's inverse-MSE recommendation (CHIRPS 550,
+NASA 450).
+
+### 9.2 Limitations
+
+- **Basis risk is substantial.** Every estimate misses 45–50% of the gauge's dry dekads
+  at dekad scale; farmers can suffer a dry spell the index does not see. Shorter windows
+  or field-level data would reduce this.
+- **One gauge, one location.** Accuracy evidence comes from one station 83 km from the
+  insured point, and the platform covers a single coordinate.
+- **Prototype money.** Settlement is testnet ETH; the naira leg is receipted but
+  off-chain. In the agent model the payout reaches the buying wallet and the agent
+  settles with the farmer in naira — a production version should pay the farmer's wallet
+  directly or integrate a fiat off-ramp.
+- **Administrative trust remains** (audit H-1): the owner controls windows, oracles and
+  weights. Mitigations (public state, two-step ownership) reduce but do not remove it;
+  a multisig or timelock is the obvious next step.
+- **Dependency advisory backlog** (audit L-6) must be cleared before any real-money use.
+
+### 9.3 Future work
+
+1. Pay the farmer's own wallet as beneficiary in the agent flow (or embed a fiat off-ramp).
+2. Owner key → multisig/timelock; progressive decentralisation of the oracle registry.
+3. Multi-location and multi-index products (rainfall windows, heat, flood), per-LGA pricing.
+4. Mobile-money and USSD access for farmers without smartphones.
+5. More sources and satellite products (e.g. TAMSAT, GPM IMERG) to tighten consensus.
+6. Mainnet deployment economics: gas sponsorship or an L2, stablecoin premiums.
+
+---
+
+## 10. Conclusion
+
+Sokoto Rainfall Cover demonstrates that weather-index insurance for smallholder farmers
+can be settled by code rather than institutions: premiums are collected and reserved on a
+public blockchain, rainfall is measured by three independent sources whose agreement —
+not any one reading — decides the payout, and payment is an automatic transfer at the end
+of the coverage window, with no claim to file. The engineering evidence is a tested
+(280 green tests), audited (findings fixed and regression-pinned), deployed system whose
+central economic behaviour — buy, measure, pay — has run live on Sepolia from purchase to
+payout without human intervention. The evaluation is equally honest about what remains:
+basis risk is real, administrative trust is reduced but not eliminated, and the naira leg
+is a receipt rather than a rail. Within those limits, the project answers its core
+question — *can a farmer trust the rainfall number?* — the way it deserves to be
+answered: not by asking for trust, but by making the measurement public, plural and
+auditable.
+
+---
+
+## References
+
+Buterin, V. (2014). *Ethereum: A next-generation smart contract and decentralized
+application platform.* https://ethereum.org/en/whitepaper/
+
+Breidenbach, L., Daian, P., Juels, A., & Sirer, E. G. (2021). *Chainlink 2.0: An
+expansion of hybrid smart contracts.* https://chain.link/whitepaper-v2
+
+Etherisc. (2017). *Etherisc: Decentralized insurance protocol* (Whitepaper).
+
+Funk, C., Peterson, P., Landsfeld, M., Pedreros, D., Verdin, J., Shukla, S., Husak, G.,
+Rowland, J., Harrison, L., Hoell, A., & Michaelsen, J. (2015). The climate hazards
+infrared precipitation with stations — a new environmental record for monitoring
+extremes. *Scientific Data, 2*, 150066. https://doi.org/10.1038/sdata.2015.66
+
+Greatrex, H., Hansen, J., Garvin, S., Diro, R., Blakeley, M., Le Guen, M., Rao, K., &
+Osgood, D. (2015). *Weather index insurance for agriculture: Past, present and future*
+(Working Paper). CGIAR Research Program on Climate Change, Agriculture and Food Security.
+
+Halaburda, H., He, G., & Miklósi, G. (2020). *Blockchain and the oracle problem*
+(SSRN working paper). https://papers.ssrn.com/
+
+Hazell, P., Anderson, J., Balzer, N., Hastrup Clemmensen, A., Hess, U., & Rispoli, F.
+(2010). *The potential for scale and sustainability in weather index insurance for
+agriculture and rural livelihoods.* International Fund for Agricultural Development /
+World Food Programme.
+
+Jensen, N. D., & Barrett, C. B. (2017). Agricultural index insurance for development.
+*Applied Economic Perspectives and Policy, 39*(2), 199–219.
+https://doi.org/10.1093/aepp/ppw016
+
+Meteostat. (2026). *Meteostat JSON API documentation.* https://dev.meteostat.net/api
+
+Sparks, A. H. (2018). nasapower: A NASA POWER Global Meteorology, Surface Solar Energy
+and Climatology Data Client for R. *The Journal of Open Source Software, 3*(30), 1035.
+https://doi.org/10.21105/joss.01035
+
+Nakamoto, S. (2008). *Bitcoin: A peer-to-peer electronic cash system.*
+
+OpenZeppelin. (2026). *Contracts: Secure smart contract library.* https://docs.openzeppelin.com/contracts
+
+World Food Programme. (2024). *R4 Rural Resilience Initiative.* https://www.wfp.org
+
+*(Software documentation cited in text: Hardhat — https://hardhat.org; ethers.js —
+https://docs.ethers.org; React — https://react.dev; Express — https://expressjs.com.
+Verify all entries against your department's APA 7 referencing guide before submission.)*
+
+---
+
+## Appendix A: Figures and screenshots
+
+Screenshots are in `docs/screenshots/` (captured 29 October 2026; live-chain shots read
+Sepolia, simulated shots run the consensus tooling):
+
+| File | Caption |
+| --- | --- |
+| `01-sign-in.png` | Sign-in page with the demo-credentials panel |
+| `02-farmer-dashboard.png` | Farmer dashboard (simulated data mode) |
+| `03-buy-cover.png` | Buy cover: window, threshold and payout selection |
+| `04-policy-detail.png` | Policy #0 — bought 29 Oct 2026, settled and paid out; oracle evaluation and settlement transaction |
+| `05-admin-overview.png` | Administrator overview |
+| `06-oracle-sources.png` | Oracle sources and reputation weights |
+| `07-consensus-simulator.png` | Consensus simulator with one source corrupted (NASA POWER inflated ×2.5) |
+| `08-backtest.png` | Backtest of aggregation designs against historical rainfall |
+| `09-mobile.png` | Mobile layout of the farmer dashboard |
+| `10-tests.png` | `npm run test` — 69 passing (56 Solidity, 13 Mocha) in the blockchain workspace |
+
+Diagram sources (Mermaid) are in `docs/figures/`: `architecture.mmd`,
+`sequence-purchase.mmd`, `sequence-settlement.mmd`.
+
+## Appendix B: Endpoints
+
+**Auth (`/auth`):** `GET session` · `POST login` · `POST register` · `POST google` ·
+`POST verify-email` · `POST resend-verification` · `POST reset/request` ·
+`POST reset/confirm` · `POST password` · `PATCH profile` · `DELETE account` · `POST logout`
+
+**Data (`/api`):** `GET policies` · `GET oracles` · `GET windows` · `GET pool` ·
+`GET settlements` · `GET readings` · `GET evaluations` · `GET fx` ·
+`GET users/directory` · `GET demo-credentials` · `GET agent/sales` ·
+`GET agent/sales/:policyId` · `POST agent/sales` · `POST notify/sms`
+
+**Ops:** `GET /health`. The Pages function proxies `/api` and `/auth` same-origin.
+
+**Contract (WeatherIndexInsurance):** `buyPolicy` · `quotePremium` · `checkAndSettle` ·
+`windowRainfall` · `policies` · `getCoverageWindow` · `availableCapacity` · owner
+functions (`addWindow`, `setPremiumRate`, two-step `transferOwnership`).
+**OracleAggregator:** oracle registry (`registerOracle`, retire), `submitReading`,
+`finalizePeriod`, `isFinalized`, `finalizedAggregate`, `weightForPeriod`.
+
+## Appendix C: Debugging journal (summary)
+
+The full journal is `docs/debugging-journal.md`. In summary, live purchases initially
+failed in the wallet layer with four distinct faults — gas estimation routed through a
+failing wallet RPC ("missing revert data"), a stale wallet balance view ("insufficient
+funds" for a funded account), a stale account list after account switches, and a wallet
+sitting on the wrong network preparing a real-ETH transfer — while the contract accepted
+the call at every point. Fixes: estimate gas on the app's trusted RPC and pass it
+explicitly; treat the chain's view as authoritative; follow `accountsChanged`; check the
+wallet's chain and request a switch before signing; translate all of it into
+plain-language errors. The episode is the strongest argument in the project for treating
+wallet infrastructure as untrusted input.
+
+## Appendix D: Licences
+
+The project is MIT-licensed (`LICENSE`). Third-party components and their licences are
+listed in `docs/licenses.md` (data sources: CHIRPS, NASA POWER, Meteostat — attribution
+required; software: React, ethers.js, Hardhat, OpenZeppelin-derived patterns, Express).
+Meteostat data is used under its open licence with attribution; redistribution of raw
+data is not permitted commercially.

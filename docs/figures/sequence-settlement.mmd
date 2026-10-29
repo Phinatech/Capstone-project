@@ -1,0 +1,23 @@
+%% Reporting and settlement sequence — Sokoto Rainfall Cover
+sequenceDiagram
+    participant REL as Oracle relayer
+    participant SRC as CHIRPS / NASA POWER / Meteostat
+    participant AGG as OracleAggregator
+    participant KEEP as Settlement keeper
+    participant INS as WeatherIndexInsurance
+    participant NTF as Notifier
+    loop each dekad (after it ends, full coverage)
+        REL->>SRC: fetch daily rainfall for the insured point
+        REL->>AGG: submitReading(period, mm×100) — one per source
+        AGG-->>AGG: finalizePeriod with reputation weights
+    end
+    Note over INS: window's dekads all finalized
+    KEEP->>INS: checkAndSettle(policyId)
+    INS->>INS: compare windowRainfall vs threshold
+    alt rainfall below threshold
+        INS-->>INS: payout pushed to policy holder (PayoutTriggered)
+    else
+        INS-->>INS: PayoutSkipped
+    end
+    INS->>NTF: events
+    NTF-->>NTF: in-app + SMS + Telegram
