@@ -27,10 +27,11 @@ aggregation), an Express/TypeScript backend running an oracle relayer, settlemen
 and notification service, and a React frontend with separate farmer, field-agent and
 administrator portals. Farmers can buy cover themselves from a wallet, or through a field
 agent who collects the premium in naira; payouts are pushed automatically to the policy
-holder's wallet at settlement, so no claim is ever filed. The contracts are covered by 56
-Solidity tests (including fuzz and audit-regression tests), the backend and frontend by 33
-more, and a manual security audit found and fixed four issues. A backtest against the 2023
-season shows the reputation-weighted design holding the payout decision within 9% of the
+holder's wallet at settlement, so no claim is ever filed. The test suite runs 280 tests —
+56 Solidity tests (including fuzz and audit-regression tests), 13 contract-level
+integration tests, 191 backend tests and 20 frontend tests — and a manual security audit
+catalogued fourteen findings with the critical fixes regression-pinned. A backtest against
+the 2023 season shows the reputation-weighted design holding the payout decision within 9% of the
 sources' own mean while a corrupted feed moves an equally weighted design by 59%. The
 platform is deployed and demonstrable end to end: one live policy was bought and paid out
 autonomously during evaluation.
@@ -137,6 +138,8 @@ Sokoto State, farmers already reason in ten-day *dekads* within the June–Septe
 season; this project's coverage windows follow that same dekad calendar, and its rainfall
 index is the summed rainfall over the window's dekads.
 
+Basis risk has two sources: *design risk* — the index's windows and thresholds do not match the farmer's actual exposure — and *spatial risk* — the measurement point is not the farm. Design risk is addressed here by making window and threshold explicit, farmer-chosen parameters aligned to local dekad practice, and by surfacing the live rainfall reading for the chosen window in the application so the farmer can see the index forming. Spatial risk cannot be removed from a single-point index; Chapter 6 quantifies it against a rain gauge 83 km from the insured location, and Chapter 9 names it as the product's principal limitation.
+
 ### 2.2 Existing schemes and their trust problems
 
 National and NGO index-insurance programmes (for example Africa Risk Capacity's
@@ -148,6 +151,8 @@ of the trigger and speed of payment as the two levers that determine farmer trus
 renewal (Greatrex et al., 2015). Both levers are addressed directly in this project's
 design: the trigger is computed from three public data sources reported on-chain where
 anyone can audit them, and payment is a contract-executed transfer, not a process.
+
+Field evidence on uptake reinforces the point: demand for index insurance is highest where the trigger is legible to the farmer, where payment arrives without a claim, and where the product is bundled with something farmers already value — credit, inputs, or an agent they know (Jensen & Barrett, 2017; Greatrex et al., 2015). The agent model in this project's design (Chapter 3) mirrors the last finding: distribution through a trusted local intermediary who collects premiums in the currency farmers actually use.
 
 ### 2.3 Blockchain and smart contracts as settlement infrastructure
 
@@ -162,6 +167,8 @@ weather covers for institutions — demonstrate the pattern commercially, but th
 aggregation and payout logic is typically operated by a single oracle or a permissioned
 operator. This project's contribution is to make the rainfall measurement itself a
 multi-party, auditable input.
+
+Ethereum specifically offers the EVM's general-purpose execution, an established security tooling ecosystem (the Solidity compiler, Hardhat test harnesses, OpenZeppelin's reviewed contract primitives), and public test networks such as Sepolia where contract behaviour — gas semantics, wallet signing, event logs — can be exercised at production fidelity with valueless currency. This project builds on that stack and treats its conventions (checks-effects-interactions, explicit reserve accounting, two-step ownership transfer) as baseline hygiene rather than optional polish.
 
 ### 2.4 The oracle problem
 
@@ -190,6 +197,22 @@ No reviewed system combines (a) farmer-facing self-service purchase, (b) an agen
 for farmers without wallets, (c) on-chain multi-source rainfall consensus with
 reputation weighting, and (d) automatic push-payment settlement. That combination is this
 project's scope.
+
+### 2.6 The Nigerian smallholder context
+
+Design choices in this project respond to the specific market it targets. Nigerian
+smallholder agriculture is overwhelmingly cash-based; digital payment adoption is growing
+fast but uneven, and formal insurance penetration among farming households is negligible.
+Where weather products have reached farmers, it has been through intermediaries —
+agricultural input dealers, cooperatives, mobile-money agents — rather than direct sales.
+Two consequences follow. First, an insurance product for this market must speak naira
+while settling in whatever asset guarantees the payout; the dual-quoting design (a naira
+figure fixed at a displayed rate, ETH as the settlement asset) follows. Second, the
+*field agent* role is not a convenience feature but the realistic distribution channel:
+the agent sells to a farmer who may never touch a wallet, while the blockchain keeps the
+agent honest — the receipt the agent records is verified against the on-chain policy, and
+the payout logic lives where the agent cannot reach it.
+
 
 ---
 
@@ -310,6 +333,8 @@ APIs, an FX rate API, SMS/Telegram providers).
 └───────────────────────────────────┴────────────────────┘
 ```
 
+![Figure 4.1 — System architecture](figures/architecture.png)
+
 Trust boundaries: the **contracts** are the only components that hold value and are
 treated as adversarial-facing (audited, heavily tested); the **backend** is a convenience
 and liveness layer — it can delay data but cannot forge a payout, because every number a
@@ -416,11 +441,13 @@ short TTLs. The data-model page in the admin console renders this schema for ins
 
 ### 4.7 Key sequence flows
 
-**Purchase (agent).** Agent fills the form → the app quotes the premium via
+**Purchase (agent).** Agent fills the form → the app quotes the premium via Figure 4.2 shows the flow.
 `quotePremium` on the trusted RPC → pre-estimates gas and asks the wallet (with an
 explicit gas limit and a chain check) to send `buyPolicy` → the contract reserves the
 payout and emits `PolicyCreated` → the app saves the agent receipt (verified by the
 server against the chain) → farmer and admin are notified.
+
+![Figure 4.2 — Purchase sequence (agent flow)](figures/sequence-purchase.png)
 
 **Report.** Relayer waits for the dekad to end with full source coverage → fetches
 daily rainfall from each source → submits one report per source → the aggregator
@@ -430,6 +457,8 @@ finalizes the dekad with reputation weights.
 contract compares weighted rainfall to the threshold → pushes the payout to the policy
 holder or records no payout → notifier informs farmer and admin → the farmer's Payouts
 page shows the amount, outcome and settlement transaction.
+
+![Figure 4.3 — Reporting and settlement sequence](figures/sequence-settlement.png)
 
 ---
 
@@ -803,8 +832,8 @@ Sepolia, simulated shots run the consensus tooling):
 | `09-mobile.png` | Mobile layout of the farmer dashboard |
 | `10-tests.png` | `npm run test` — 69 passing (56 Solidity, 13 Mocha) in the blockchain workspace |
 
-Diagram sources (Mermaid) are in `docs/figures/`: `architecture.mmd`,
-`sequence-purchase.mmd`, `sequence-settlement.mmd`.
+Figures 4.1–4.3 are rendered in `docs/figures/` as PNG and SVG, with Mermaid sources
+(`architecture.mmd`, `sequence-purchase.mmd`, `sequence-settlement.mmd`) alongside them.
 
 ## Appendix B: Endpoints
 

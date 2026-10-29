@@ -16,4 +16,4 @@ sequenceDiagram
     SPA->>API: POST /api/agent/sales (receipt)
     API->>INS: re-read policy, verify premium/payout/window
     API-->>SPA: receipt saved (or rejected)
-    Note over SPA,API: farmer and admin notified in-app;<br/>SMS/Telegram via notifier
+    Note over SPA,API: farmer and admin notified in-app and by SMS/Telegram
