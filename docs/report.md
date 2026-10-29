@@ -879,7 +879,7 @@ Sepolia, simulated shots run the consensus tooling):
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
 
-![Figure A.8](screenshots/08-backtest.png){width=5.01in height=8.2in}
+![Figure A.8](screenshots/08-backtest.png){width=4.64in height=7.6in}
 
 *Figure A.8 — Backtest of aggregation designs against historical rainfall (`08-backtest.png`)*
 
@@ -887,7 +887,7 @@ Sepolia, simulated shots run the consensus tooling):
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
 
-![Figure A.9](screenshots/09-mobile.png){width=3.79in height=8.2in}
+![Figure A.9](screenshots/09-mobile.png){width=3.51in height=7.6in}
 
 *Figure A.9 — Mobile layout of the farmer dashboard (`09-mobile.png`)*
 
