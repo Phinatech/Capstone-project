@@ -11,7 +11,6 @@ import { config } from "../config.js";
 import { userStore } from "../authServices.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
-import { demoCredentialList } from "../utils/demoAccounts.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { createAgentStore, parseSale } from "../utils/agentStore.js";
 import { attributePolicies } from "../utils/policyAttribution.js";
@@ -112,17 +111,10 @@ router.get("/users/directory", async (_req, res) => {
 });
 
 /**
- * Demo logins for the sign-in panel, replacing the credential list that used
- * to ship inside the production JS bundle.
- *
- * The operator login is always listed (it is always seeded); the demo roster
- * appears only while AUTH_DEMO_ACCOUNTS is on, so a deployment advertises
- * exactly the accounts it has and real agent/farmer accounts come from
- * /auth/register instead of from a panel of guesses.
+ * Demo logins for the sign-in panel have been removed along with the panel:
+ * a deployment with real accounts has no credentials to advertise, and a real
+ * administrator's password must never be readable over HTTP.
  */
-router.get("/demo-credentials", (_req, res) => {
-  res.json({ credentials: demoCredentialList(config.demoAccounts) });
-});
 
 // Agent sales: the naira half of a purchase, recorded so an agent's book is
 // readable from any device rather than only from the browser that sold it.

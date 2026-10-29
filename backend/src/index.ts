@@ -4,7 +4,7 @@ import { startNotifier } from "./notifier.js";
 import { attachSession } from "./middleware/auth.js";
 import { startRelayer } from "./relayer.js";
 import { authCodeStore, sessionStore, userStore } from "./authServices.js";
-import { demoRosterAccounts, operatorAccounts } from "./utils/demoAccounts.js";
+import { demoRosterAccounts, legacyDemoIds, operatorAccounts } from "./utils/demoAccounts.js";
 import { MAX_TOKEN_LENGTH, verifyTurnstileToken } from "./turnstile.js";
 import apiRouter from "./routes/api.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -68,13 +68,18 @@ app.use("/auth", createAuthRouter({ users: userStore, sessions: sessionStore, au
 // Cached chain-data API for the frontend
 app.use("/api", apiRouter);
 
-// The operator login is always seeded so a deployment can never be locked
-// out; the demo roster (agent and farmers) is opt-in. Seeding hashes each
-// password, so it happens once at boot rather than blocking the first sign-in.
-void userStore.ensureSeeded(operatorAccounts).then(
-  () => console.log("[auth] operator account ready"),
-  (err) => console.error("[auth] could not seed the operator account:", err)
-);
+// Retire the shipped demo accounts (including the old demo administrator),
+// then seed the operator from the environment — real credentials live on the
+// service, never in this repository. Seeding hashes the password, so it
+// happens once at boot rather than blocking the first sign-in.
+void userStore
+  .removeByIds(legacyDemoIds)
+  .then(() => userStore.ensureSeeded(operatorAccounts))
+  .then(() => {
+    if (operatorAccounts.length > 0) console.log("[auth] operator account ready");
+    else console.warn("[auth] ADMIN_EMAIL/ADMIN_PASSWORD are not set: no administrator account is seeded");
+  })
+  .catch((err) => console.error("[auth] could not prepare the operator account:", err));
 if (config.demoAccounts) {
   void userStore.ensureSeeded(demoRosterAccounts).then(
     () => console.log(`[auth] ${demoRosterAccounts.length} demo accounts available`),

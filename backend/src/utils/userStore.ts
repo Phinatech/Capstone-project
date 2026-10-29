@@ -89,6 +89,8 @@ export interface UserStore {
   upgradePasswordHash: (id: string, password: string) => Promise<void>;
   /** Seeds accounts that are missing, leaving existing ones untouched. */
   ensureSeeded: (seeds: Array<NewUser & { password: string }>) => Promise<void>;
+  /** Deletes accounts by id; used to retire the shipped demo accounts. */
+  removeByIds: (ids: string[]) => Promise<void>;
 }
 
 export function normaliseEmail(email: string): string {
@@ -290,6 +292,14 @@ export function createUserStore(filePath: string): UserStore {
         }
         await this.create(seed, seed.password);
       }
+    },
+
+    async removeByIds(ids) {
+      await enqueue(async () => {
+        const records = await load();
+        const remaining = records.filter((u) => !ids.includes(u.id));
+        if (remaining.length !== records.length) await write(remaining);
+      });
     }
   };
 }

@@ -93,6 +93,13 @@ export const config = {
   demoAuthCodes: process.env.AUTH_DEMO_CODES?.trim().toLowerCase() === "true",
   /** Serves GET /api/demo-credentials so the sign-in page can list demo logins. */
   demoAccounts: process.env.AUTH_DEMO_ACCOUNTS?.trim().toLowerCase() === "true",
+  /**
+   * The operator (administrator) account, seeded from the environment so a
+   * real administrator's credentials never live in the repository.
+   */
+  adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "",
+  adminName: process.env.ADMIN_NAME?.trim() || "Administrator",
+  adminPassword: process.env.ADMIN_PASSWORD ?? "",
   /** Minimum length accepted at sign-up and on password change. */
   minPasswordLength: wholeNumber("MIN_PASSWORD_LENGTH", 8, 6),
   /** SMS provider for notifications and POST /api/notify/sms: "africastalking" (default) or "termii". */

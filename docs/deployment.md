@@ -31,18 +31,20 @@ every push.
    | `ORACLE_SOURCES` | the whole `CHIRPS:0x…,NASA_POWER:0x…,Meteostat:0x…` line |
    | `KEEPER_PRIVATE_KEY` | the keeper key |
    | `METEOSTAT_API_KEY` | the RapidAPI key |
+   | `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | the administrator login; seeded at every boot — **required**, without it no admin account exists |
    | `CORS_ORIGINS` | `http://localhost:5173` for now; step 3 changes it |
    | `TURNSTILE_SECRET_KEY`, `NOTIFY_API_KEY`, `TERMINII_API_KEY`, `TERMINII_SENDER_ID` | leave empty for now |
 
    The auth variables — `SECURE_COOKIES`, `GOOGLE_CLIENT_ID`,
    `AUTH_DEMO_ACCOUNTS`, `AUTH_DEMO_CODES` — are plain values written into
    `render.yaml`, so they come across with the Blueprint and you are not asked
-   for them. Both demo flags are **on** there, and that is what makes the
-   deployed demo usable: with `AUTH_DEMO_ACCOUNTS` off nothing is seeded, so
-   the sign-in panel is empty and no account exists to sign in with; with
-   `AUTH_DEMO_CODES` off a new sign-up has no way to read its verification
-   code, because there is no mail service to send one. If the live site starts
-   refusing every sign-in, check those two first — they default to off in the
+   for them. The administrator account comes from the `ADMIN_*` variables
+   above, never from the repository; `AUTH_DEMO_ACCOUNTS` seeds a demo roster
+   (field agent and four farmers) and should stay **off** anywhere real people
+   sign in. With `AUTH_DEMO_CODES` off a new sign-up has no way to read its
+   verification code, because there is no mail service to send one — the code
+   goes to the service log for an operator to relay. If the live site starts
+   refusing every sign-in, check those first — they default to off in the
    code, which is the safe choice for a clone and the wrong one for this demo.
 
 4. **Apply**. The first build takes a few minutes. The service's **Logs** should

@@ -8,14 +8,12 @@ import { TextField } from '../components/auth/TextField';
 import { PasswordField } from '../components/auth/PasswordField';
 import { TurnstileWidget } from '../components/auth/TurnstileWidget';
 import { GoogleButton } from '../components/auth/GoogleButton';
-import { DemoCredentials } from '../components/auth/DemoCredentials';
 import { AuthDivider, submitButtonClass } from '../components/auth/AuthDivider';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useCaptcha } from '../hooks/useCaptcha';
 import { TURNSTILE_ENFORCED } from '../data/authConfig';
 import { homePath, isValidEmail } from '../utils/users';
-import type { DemoCredential } from '../components/auth/DemoCredentials';
 import type { TranslationKey } from '../data/translations';
 
 type FieldErrors = Partial<Record<'email' | 'password' | 'captcha', TranslationKey>>;
@@ -66,12 +64,6 @@ export function SignIn() {
       setFormError(err instanceof AuthError ? err.key : 'error.invalidCredentials');
       setSubmitting(false);
     }
-  }
-
-  function handleDemo(c: DemoCredential) {
-    setEmail(c.email);
-    setPassword(c.password);
-    attempt(c.email, c.password);
   }
 
   return (
@@ -156,9 +148,6 @@ export function SignIn() {
         </button>
       </form>
 
-      <div className="mt-4 sm:mt-6">
-        <DemoCredentials onSelect={handleDemo} disabled={submitting} />
-      </div>
     </AuthLayout>);
 
 }

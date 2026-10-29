@@ -11,6 +11,7 @@
  * They are seeded only when that flag is on, so a deployment that leaves it
  * off starts with no accounts at all.
  */
+import { config } from "../config.js";
 import type { NewUser } from "./userStore.js";
 
 export interface DemoAccount extends NewUser {
@@ -111,14 +112,33 @@ export const demoAccounts: DemoAccount[] = [
   }
 ];
 
-/** Only email, password and role — what the sign-in panel needs to fill a form. */
-export function demoCredentialList(includeRoster = true): Array<{ email: string; password: string; role: string; name: string }> {
-  const accounts = includeRoster ? demoAccounts : operatorAccounts;
-  return accounts.map(({ email, password, role, name }) => ({ email, password, role, name }));
-}
-
-/** Always seeded: the operator login, so a deployment can never be locked out. */
-export const operatorAccounts: DemoAccount[] = demoAccounts.filter((a) => a.role === "admin");
+/**
+ * The operator (administrator) account, built from the environment: a real
+ * administrator's credentials must never live in this repository. Seeded on
+ * every boot so a deployment can never be locked out.
+ */
+export const operatorAccounts: DemoAccount[] =
+  config.adminEmail && config.adminPassword
+    ? [{
+        id: "admin-1",
+        role: "admin",
+        name: config.adminName,
+        title: "Programme administrator",
+        email: config.adminEmail,
+        phone: "",
+        wallet: "0x0000000000000000000000000000000000000000",
+        emailVerified: true,
+        provider: "password",
+        bio: "Runs oracle evaluations and backtests for the Sokoto weather index pilot.",
+        password: config.adminPassword
+      }]
+    : [];
 
 /** The demo roster (agent and farmers) — seeded only while AUTH_DEMO_ACCOUNTS is on. */
 export const demoRosterAccounts: DemoAccount[] = demoAccounts.filter((a) => a.role !== "admin");
+
+/**
+ * The shipped demo accounts, deleted at boot so a deployment that has moved to
+ * real accounts never shows one again — including the old demo administrator.
+ */
+export const legacyDemoIds: string[] = demoAccounts.map((a) => a.id);
