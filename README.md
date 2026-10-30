@@ -1,8 +1,8 @@
 # Sokoto Rainfall Cover
 
-**Weather-index insurance on Ethereum — automatic drought cover for smallholder farmers in Sokoto State, Nigeria.**
+**Weather-index insurance on Ethereum: automatic drought cover for smallholder farmers in Sokoto State, Nigeria.**
 
-If rainfall during the coverage window falls below the threshold a farmer chooses at purchase, the smart contract pays them **automatically** — no claim form, no assessor, no waiting. Rainfall is measured by three independent sources (CHIRPS, NASA POWER, Meteostat) whose reports are aggregated on-chain with **reputation weighting**, so no single source can decide a claim.
+If rainfall during the coverage window falls below the threshold a farmer chooses at purchase, the smart contract pays them **automatically**, with no claim form and no assessor. Rainfall comes from three independent sources (CHIRPS, NASA POWER, Meteostat) aggregated on-chain with **reputation weighting**, so no single source can decide a claim.
 
 **Live:** [sokoto-cover.pages.dev](https://sokoto-cover.pages.dev) · **Chain:** Ethereum Sepolia (`0x8520A0697D018a380a91CB65096AB50F5B65D6D5`)
 
@@ -13,24 +13,24 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 | | |
 |---|---|
 | **What it is** | A full-stack dApp: Solidity contracts, an Express/TypeScript oracle relayer + API, and a React/TypeScript frontend with farmer, field-agent and admin portals |
-| **Why it exists** | Conventional crop insurance cannot reach smallholder farmers — loss assessment costs more than the claims. Index insurance removes assessment entirely; this project removes the need to *trust the index* by measuring it from three sources on a public chain |
+| **Why it exists** | Conventional crop insurance cannot reach smallholder farmers, because loss assessment costs more than the claims. Index insurance removes assessment entirely; this project removes the need to *trust the index* by measuring it from three sources on a public chain |
 | **What's real** | Live contracts on Sepolia, a live relayer feeding real rainfall data, a real policy bought and **paid out autonomously** during evaluation |
 
 **Key properties**
 
-- 🤖 **Claims-free settlement** — `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
-- 🌧️ **Multi-source oracle** — three independent measurement families; reputation-weighted aggregation; a corrupted source moves the aggregate **+9%** vs **+59%** under equal weights
-- 👥 **Three portals** — farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers & agents, oracle research)
-- 🔬 **Oracle research tools** — a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
-- 🧪 **292 automated tests** + a documented security audit with regression-pinned fixes
+- 🤖 **Claims-free settlement**: `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
+- 🌧️ **Multi-source oracle**: three measurement families, reputation-weighted aggregation, and a corrupted source moves the aggregate **+9%** against **+59%** under equal weights
+- 👥 **Three portals**: farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
+- 🔬 **Oracle research tools**: a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
+- 🧪 **292 automated tests** and a documented security audit with regression-pinned fixes
 
 ## 2. Walkthrough video
 
-**[Watch the technical walkthrough](REPLACE_WITH_VIDEO_LINK)** *(≈10 min)* — core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance/compatibility notes.
+**[Watch the technical walkthrough](REPLACE_WITH_VIDEO_LINK)** *(≈10 min)*: core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance and compatibility notes.
 
 ## 3. Technical report
 
-**[Technical report (PDF, 5 pages)](docs/technical-report.pdf)** — scope alignment, technical functionality, testing approaches and results, code quality and algorithmic design.
+**[Technical report (PDF, 5 pages)](docs/technical-report.pdf)**: scope alignment, technical functionality, testing approaches and results, code quality and algorithmic design.
 
 ## 4. Technical requirements
 
@@ -42,10 +42,10 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 | Backend | Express · TypeScript · `node:test` | Node 22 |
 | Database | **Firebase Firestore** (free Spark plan) | firebase-admin SDK |
 | Frontend | React · Vite · TypeScript · Vitest · Tailwind-style CSS | React 18 · Vite 6 |
-| External APIs | CHIRPS (Climate Hazards Center), NASA POWER, Meteostat (RapidAPI) | — |
-| Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS | — |
-| Browser | Chromium-based (Chrome, Edge) with **MetaMask** | — |
-| Hardware | Runs on low-end laptops/phones; mobile layout at 390 px | — |
+| External APIs | CHIRPS (Climate Hazards Center), NASA POWER, Meteostat (RapidAPI) | n/a |
+| Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS | n/a |
+| Browser | Chrome, Edge, Firefox, Safari, with **MetaMask** | n/a |
+| Hardware | Runs on low-end laptops and phones; mobile layout at 390 px | n/a |
 
 ## 5. Installation & running locally
 
@@ -55,18 +55,18 @@ cd Capstone-project
 npm install                        # one install for all workspaces
 
 # Configure (copy each .env.example to .env and fill in):
-#   backend/.env    — RPC_URL, contract addresses, ADMIN_*, FIREBASE_SERVICE_ACCOUNT,
+#   backend/.env    : RPC_URL, contract addresses, ADMIN_*, FIREBASE_SERVICE_ACCOUNT,
 #                     MAIL_USER/MAIL_PASSWORD (optional), AUTH_DEMO_ACCOUNTS=false
-#   frontend/.env   — VITE_RPC_URL, VITE_WEATHER_INDEX_INSURANCE_ADDRESS,
+#   frontend/.env   : VITE_RPC_URL, VITE_WEATHER_INDEX_INSURANCE_ADDRESS,
 #                     VITE_ORACLE_AGGREGATOR_ADDRESS (leave VITE_API_URL empty)
 
 npm run dev:backend                # API + relayer on :3001
 npm run dev:frontend               # app on :5173 (proxies /api and /auth)
 ```
 
-**Tests** — `npm run test` (all workspaces, 292 tests) · `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
+**Tests**: `npm run test` (all workspaces, 292 tests) · `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
 
-**Deployed setup** — frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
+**Deployed setup**: frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
 
 ## 6. Repository structure
 
@@ -108,8 +108,8 @@ Two testing strategies are demonstrated in the video: **unit/functional** (contr
 | [Security audit](docs/security-audit.md) | Findings, fixes, regression tests |
 | [Backtest results](docs/backtest-results.md) | Oracle accuracy study (121 dekads) |
 | [Debugging journal](docs/debugging-journal.md) | Five production bugs, diagnosed and fixed |
-| [Licenses](docs/licenses.md) | Third-party components and data attributions |
+| [Licences](docs/licenses.md) | Third-party components and data attributions |
 
 ## 9. License
 
-MIT — see [LICENSE](LICENSE). Data sources: CHIRPS, NASA POWER, Meteostat (attribution required).
+MIT. See [LICENSE](LICENSE). Data sources: CHIRPS, NASA POWER, Meteostat (attribution required).
