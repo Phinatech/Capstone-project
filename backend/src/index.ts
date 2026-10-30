@@ -5,6 +5,7 @@ import { attachSession } from "./middleware/auth.js";
 import { startRelayer } from "./relayer.js";
 import { authCodeStore, sessionStore, userStore } from "./authServices.js";
 import { demoRosterAccounts, legacyDemoIds, operatorAccounts } from "./utils/demoAccounts.js";
+import { parseSeedUsers } from "./utils/envAccounts.js";
 import { MAX_TOKEN_LENGTH, verifyTurnstileToken } from "./turnstile.js";
 import apiRouter from "./routes/api.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -69,22 +70,29 @@ app.use("/auth", createAuthRouter({ users: userStore, sessions: sessionStore, au
 app.use("/api", apiRouter);
 
 // Replace the shipped demo accounts (including the old demo administrator)
-// with the operator from the environment — real credentials live on the
-// service, never in this repository. The two steps pair deliberately: the
-// demo admin is deleted only when the real one is configured to take its
-// place. Seeding hashes the password, so it happens once at boot rather than
-// blocking the first sign-in.
-if (operatorAccounts.length > 0) {
-  void userStore
-    .removeByIds(legacyDemoIds)
-    .then(() => userStore.ensureSeeded(operatorAccounts))
-    .then(() => console.log("[auth] operator account ready"))
-    .catch((err) => console.error("[auth] could not prepare the operator account:", err));
-} else {
-  console.warn(
-    "[auth] ADMIN_EMAIL/ADMIN_PASSWORD are not set: no administrator is seeded and the demo accounts are left untouched"
-  );
-}
+// with the operator and any provisioned accounts from the environment — real
+// credentials live on the service, never in this repository. The steps pair
+// deliberately: the demo admin is deleted only when the real one is configured
+// to take its place. Seeding hashes the password, so it happens once at boot
+// rather than blocking the first sign-in.
+const { accounts: provisionedAccounts, errors: provisioningErrors } = parseSeedUsers(config.seedUsers);
+for (const warning of provisioningErrors) console.warn(`[auth] SEED_USERS: ${warning}`);
+
+const boot: Promise<unknown> =
+  operatorAccounts.length > 0
+    ? userStore.removeByIds(legacyDemoIds).then(() => userStore.ensureSeeded(operatorAccounts))
+    : Promise.resolve().then(() => {
+        if (config.seedUsers) {
+          console.warn("[auth] ADMIN_EMAIL/ADMIN_PASSWORD are not set: shipped demo accounts are left untouched");
+        }
+      });
+void boot
+  .then(() => (provisionedAccounts.length > 0 ? userStore.ensureSeeded(provisionedAccounts) : undefined))
+  .then(() => {
+    if (operatorAccounts.length > 0) console.log("[auth] operator account ready");
+    if (provisionedAccounts.length > 0) console.log(`[auth] ${provisionedAccounts.length} provisioned account(s) ready`);
+  })
+  .catch((err) => console.error("[auth] could not prepare the accounts:", err));
 if (config.demoAccounts) {
   void userStore.ensureSeeded(demoRosterAccounts).then(
     () => console.log(`[auth] ${demoRosterAccounts.length} demo accounts available`),

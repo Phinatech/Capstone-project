@@ -101,6 +101,12 @@ export const config = {
   adminName: process.env.ADMIN_NAME?.trim() || "Administrator",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   /**
+   * Operator-provisioned accounts (a JSON array), recreated at every boot —
+   * see `utils/envAccounts.ts`. This is how the real agent and farmers of a
+   * deployment survive Render's ephemeral disk.
+   */
+  seedUsers: process.env.SEED_USERS?.trim() ?? "",
+  /**
    * Outbound mail (verification codes, password resets). Defaults to Gmail's
    * SMTP endpoint: MAIL_USER is a Gmail address and MAIL_PASSWORD a Google App
    * Password. Unset, no mail is sent and codes go to the server log instead.
