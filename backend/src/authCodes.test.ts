@@ -92,3 +92,23 @@ describe("password reset tokens", () => {
     for (const token of tokens) assert.match(token, /^[0-9a-f]{48}$/);
   });
 });
+
+describe("persistence", () => {
+  it("a code survives a restart of the store", async () => {
+    let document: unknown = null;
+    const persistence = {
+      read: async () => {
+        if (document === null) throw Object.assign(new Error("empty"), { code: "ENOENT" });
+        return document;
+      },
+      write: async (data: unknown) => {
+        document = data;
+      }
+    };
+    const first = createAuthCodeStore({}, persistence);
+    const code = await first.createVerificationCode("user-1");
+
+    const second = createAuthCodeStore({}, persistence);
+    assert.equal(await second.checkVerificationCode("user-1", code), true, "the code still verifies after the restart");
+  });
+});

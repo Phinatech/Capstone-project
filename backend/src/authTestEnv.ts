@@ -16,9 +16,17 @@ import { join } from 'node:path';
 
 export const TEST_TMP_DIR = mkdtempSync(join(tmpdir(), 'cover-auth-'));
 
+// Tests must never touch a real database: the developer's local .env may carry
+// live Firebase credentials, and a whole-document write from a test would
+// clobber production records. Force the file backend in the temp dir — set to
+// empty rather than deleted, because dotenv would re-populate a missing
+// variable from the local .env after this runs.
+process.env.FIREBASE_SERVICE_ACCOUNT = "";
+
 process.env.USERS_PATH = join(TEST_TMP_DIR, 'users.json');
 process.env.SESSIONS_PATH = join(TEST_TMP_DIR, 'sessions.json');
 process.env.AGENT_SALES_PATH = join(TEST_TMP_DIR, 'agent-sales.json');
+process.env.AUTH_CODES_PATH = join(TEST_TMP_DIR, 'auth-codes.json');
 process.env.SESSION_COOKIE_NAME = 'test_session';
 process.env.SECURE_COOKIES = 'false';
 

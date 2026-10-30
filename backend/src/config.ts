@@ -113,6 +113,8 @@ export const config = {
    * files. See docs/deployment.md.
    */
   firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT?.trim() ?? "",
+  /** Where the auth-code store keeps its document when running on files. */
+  authCodesPath: process.env.AUTH_CODES_PATH?.trim() || "data/auth-codes.json",
   /**
    * Outbound mail (verification codes, password resets). Defaults to Gmail's
    * SMTP endpoint: MAIL_USER is a Gmail address and MAIL_PASSWORD a Google App

@@ -20,4 +20,6 @@ initStores();
 
 export const userStore = createUserStore(appPersistence("users", config.usersPath));
 export const sessionStore = createSessionStore(appPersistence("sessions", config.sessionsPath));
-export const authCodeStore = createAuthCodeStore();
+// Codes and reset tokens persist too: without that, every restart of a
+// cold-starting host invalidates the code sitting in a user's inbox.
+export const authCodeStore = createAuthCodeStore({}, appPersistence("auth-codes", config.authCodesPath));
