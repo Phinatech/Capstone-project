@@ -18,7 +18,6 @@ import type { ProfilePatch, SignUpInput, User } from '../types/user';
  * no token, no user id and no password anywhere in `localStorage`.
  */
 
-const API = (path: string) => api<{ user: User | null; demoCode?: string; demoToken?: string }>(path);
 
 /**
  * Server error codes mapped onto the app's own wording, so the English the
@@ -168,7 +167,10 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
 
   const resendVerification = useCallback(async () => {
     try {
-      const body = await API('/auth/resend-verification');
+      const body = await api<{ user: User | null; demoCode?: string; demoToken?: string }>(
+        '/auth/resend-verification',
+        { method: 'POST' }
+      );
       return body.demoCode ?? null;
     } catch (err) {
       throw asAuthError(err);
