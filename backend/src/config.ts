@@ -100,6 +100,16 @@ export const config = {
   adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "",
   adminName: process.env.ADMIN_NAME?.trim() || "Administrator",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  /**
+   * Outbound mail (verification codes, password resets). Defaults to Gmail's
+   * SMTP endpoint: MAIL_USER is a Gmail address and MAIL_PASSWORD a Google App
+   * Password. Unset, no mail is sent and codes go to the server log instead.
+   */
+  mailUser: process.env.MAIL_USER?.trim() ?? "",
+  mailPassword: process.env.MAIL_PASSWORD ?? "",
+  mailHost: process.env.SMTP_HOST?.trim() || "smtp.gmail.com",
+  mailPort: Number(process.env.SMTP_PORT?.trim()) || 465,
+  mailFrom: process.env.MAIL_FROM?.trim() || process.env.MAIL_USER?.trim() || "Sokoto Rainfall Cover",
   /** Minimum length accepted at sign-up and on password change. */
   minPasswordLength: wholeNumber("MIN_PASSWORD_LENGTH", 8, 6),
   /** SMS provider for notifications and POST /api/notify/sms: "africastalking" (default) or "termii". */
