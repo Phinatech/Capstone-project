@@ -4,13 +4,37 @@
  *
  * Exactly one document per store (collection `app_store`, document per store
  * name) keeps the stores' whole-document access pattern identical to the file
- * and PostgreSQL implementations, so any of the three can hold the same
+ * implementation, so either can hold the same
  * records. Configure with FIREBASE_SERVICE_ACCOUNT, the service-account JSON
  * from the Firebase console.
  */
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import type { StorePersistence } from "./persistence.js";
+import { config } from "../config.js";
+import { filePersistence, type StorePersistence } from "./persistence.js";
+
+/**
+ * Chooses the durable backend once: Firebase Firestore when
+ * FIREBASE_SERVICE_ACCOUNT is configured, local JSON files otherwise
+ * (development and tests).
+ */
+let backend: "firebase" | "files" | null = null;
+
+export function initStores(): "firebase" | "files" {
+  if (backend) return backend;
+  if (config.firebaseServiceAccount) {
+    initFirebase(config.firebaseServiceAccount);
+    backend = "firebase";
+  } else {
+    backend = "files";
+  }
+  return backend;
+}
+
+/** The persistence for a named store: Firestore in production, files locally. */
+export function appPersistence(name: string, filePath: string): StorePersistence {
+  return initStores() === "firebase" ? firebasePersistence(name) : filePersistence(filePath);
+}
 
 export function initFirebase(serviceAccountJson: string): void {
   if (getApps().length > 0) return;

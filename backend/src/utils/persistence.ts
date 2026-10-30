@@ -3,9 +3,9 @@
  *
  * The stores were written against whole-document JSON files: load everything,
  * mutate, write everything back, with writes serialised by the store itself.
- * That access pattern is kept — but the document may now live in PostgreSQL,
- * which is what lets accounts, sessions and agent receipts survive the
- * deployment platform's ephemeral disk. The file implementation remains for
+ * That access pattern is kept — but the document may now live in Firebase
+ * Firestore, which is what lets accounts, sessions and agent receipts survive
+ * the deployment platform's ephemeral disk. The file implementation remains for
  * local development and tests.
  */
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";

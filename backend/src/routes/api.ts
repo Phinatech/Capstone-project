@@ -13,7 +13,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { createAgentStore, parseSale } from "../utils/agentStore.js";
-import { appPersistence } from "../utils/db.js";
+import { appPersistence } from "../utils/firebase.js";
 import { attributePolicies } from "../utils/policyAttribution.js";
 import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
 import type { PolicyData } from "../utils/chain.js";

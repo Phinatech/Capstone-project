@@ -107,16 +107,10 @@ export const config = {
    */
   seedUsers: process.env.SEED_USERS?.trim() ?? "",
   /**
-   * PostgreSQL connection string (any Postgres; Neon and Supabase have free
-   * tiers). When set, accounts, sessions and agent receipts live in the
-   * database and survive every deploy; when not, they live in local JSON
-   * files. See docs/deployment.md.
-   */
-  databaseUrl: process.env.DATABASE_URL?.trim() ?? "",
-  /**
    * Firebase service-account JSON (a single-line JSON string from the
-   * Firebase console). When set — and DATABASE_URL is not — accounts,
-   * sessions and receipts live in Firestore and survive every deploy.
+   * Firebase console). When set, accounts, sessions and receipts live in
+   * Firestore and survive every deploy; when not, they live in local JSON
+   * files. See docs/deployment.md.
    */
   firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT?.trim() ?? "",
   /**

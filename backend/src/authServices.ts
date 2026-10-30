@@ -10,13 +10,12 @@
  */
 import { config } from "./config.js";
 import { createAuthCodeStore } from "./utils/authCodes.js";
-import { appPersistence, initStores } from "./utils/db.js";
+import { appPersistence, initStores } from "./utils/firebase.js";
 import { createSessionStore } from "./utils/sessions.js";
 import { createUserStore } from "./utils/userStore.js";
 
-// With DATABASE_URL or FIREBASE_SERVICE_ACCOUNT these records live in a real
-// database and survive every deploy; otherwise in the local JSON files
-// (development and tests).
+// With FIREBASE_SERVICE_ACCOUNT these records live in Firestore and survive
+// every deploy; otherwise in the local JSON files (development and tests).
 initStores();
 
 export const userStore = createUserStore(appPersistence("users", config.usersPath));
