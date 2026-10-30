@@ -14,7 +14,7 @@
 import { users as builtInUsers } from '../data/users';
 import type { User } from '../types/user';
 
-const API_URL = import.meta.env.VITE_API_URL ?? '';
+const API_URL = '';
 
 let directory: User[] = [...builtInUsers];
 const listeners = new Set<() => void>();

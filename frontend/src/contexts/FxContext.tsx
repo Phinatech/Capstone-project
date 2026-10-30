@@ -48,7 +48,7 @@ export function FxProvider({ children }: {children: React.ReactNode;}) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
-    const apiUrl = import.meta.env.VITE_API_URL ?? '';
+    const apiUrl = '';
     try {
       const res = await fetch(`${apiUrl}/api/fx`, { signal });
       if (!res.ok) throw new Error(`the rate service answered ${res.status}`);

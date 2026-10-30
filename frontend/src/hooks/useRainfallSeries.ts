@@ -4,7 +4,7 @@ import { usePolicies } from '../contexts/PolicyContext';
 import type { RainfallSeriesRow } from '../utils/oracle';
 import type { SourceId } from '../types/insurance';
 
-const API_URL = import.meta.env.VITE_API_URL?.trim() || '';
+const API_URL = '';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

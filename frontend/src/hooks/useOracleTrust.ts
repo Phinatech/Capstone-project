@@ -6,7 +6,7 @@ import { useRainfallSeries } from './useRainfallSeries';
 import { deviationsFrom } from '../utils/oracle';
 import type { SourceId } from '../types/insurance';
 
-const API_URL = import.meta.env.VITE_API_URL?.trim() || '';
+const API_URL = '';
 
 /** Reputation scale used by the app's score: a 10% mean deviation scores 50. */
 const REPUTATION_SCALE = 0.1;

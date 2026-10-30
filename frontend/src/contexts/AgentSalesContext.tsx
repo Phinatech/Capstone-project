@@ -4,7 +4,7 @@ import type { AgentSale } from '../utils/agentSales';
 
 // Empty by default so requests go through Vite's proxy and share the UI's
 // origin, which is what lets the session cookie travel with them.
-const API_URL = import.meta.env.VITE_API_URL ?? '';
+const API_URL = '';
 const PENDING_KEY = 'sokoto-cover-agent-sales-pending';
 const MIRROR_KEY = 'sokoto-cover-agent-sales-mirror';
 

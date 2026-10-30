@@ -369,7 +369,7 @@ function ChainData({
     });
 
     // Fetch all data from the cached API instead of making dozens of RPC calls
-    const apiUrl = import.meta.env.VITE_API_URL ?? '';
+    const apiUrl = '';
     const fresh = minBlock === undefined ? '' : `?minBlock=${minBlock}`;
     const [policiesRes, oraclesRes, windowsRes, evaluationsRes] = await Promise.all([
       fetch(`${apiUrl}/api/policies${fresh}`),

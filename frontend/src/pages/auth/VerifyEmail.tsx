@@ -167,6 +167,9 @@ export function VerifyEmail() {
             type="button"
             disabled={cooldown > 0}
             onClick={async () => {
+              // The cooldown runs for its full length no matter the outcome,
+              // so the button always behaves the way it promises: one attempt,
+              // then a visible countdown before the next.
               setCooldown(RESEND_SECONDS);
               try {
                 const code = await resendVerification();
@@ -174,7 +177,6 @@ export function VerifyEmail() {
                 setDemoCode(code);
                 toast(t('verify.sent'));
               } catch (err) {
-                setCooldown(0);
                 toast.error(err instanceof AuthError ? t(err.key) : t('verify.sent'));
               }
             }}

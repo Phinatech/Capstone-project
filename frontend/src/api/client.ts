@@ -5,7 +5,11 @@
  * keeps it in an httpOnly jar and attaches it to every request, so the
  * frontend never holds, reads or stores a session id (F-1).
  */
-const API_URL = import.meta.env.VITE_API_URL ?? '';
+// Always same-origin: a browser will not attach a SameSite=Lax session
+// cookie to a cross-site fetch, so pointing this at another host silently
+// broke every authenticated call. The Pages function proxies /api and /auth
+// to the API (docs/deployment.md).
+const API_URL = '';
 
 export class ApiError extends Error {
   readonly status: number;
