@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
-import { createUserStore, normaliseEmail, toPublicUser, type UserRecord } from "./utils/userStore.js";
+import { createUserStore, normaliseEmail, toPublicUser, type NewUser, type UserRecord } from "./utils/userStore.js";
 
 const tempDirs: string[] = [];
 
@@ -152,5 +152,28 @@ describe("user store", () => {
 
   it("normalises email for callers too", () => {
     assert.equal(normaliseEmail(" Amina.Bello@Mail.ng "), "amina.bello@mail.ng");
+  });
+});
+
+describe("plaintext never escapes", () => {
+  it("a seeded password field reaches neither the store nor a client", async () => {
+    const { store } = await freshStore();
+    await store.ensureSeeded([
+      {
+        id: "admin-1",
+        role: "admin",
+        name: "Operator",
+        email: "operator@example.com",
+        phone: "",
+        wallet: "0x0000000000000000000000000000000000000000",
+        emailVerified: true,
+        provider: "password",
+        password: "SuperSecret#1"
+      }
+    ] as Array<NewUser & { password: string }>);
+    const [record] = await store.list();
+    assert.ok(record, "the seeded account exists");
+    assert.equal((record as UserRecord & { password?: string }).password, undefined, "no plaintext in the store");
+    assert.equal("password" in toPublicUser(record), false, "no plaintext in API responses");
   });
 });

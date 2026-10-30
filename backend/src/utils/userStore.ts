@@ -97,9 +97,12 @@ export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** The record minus the one field that must never reach a client. */
+/** The record minus the fields that must never reach a client. */
 export function toPublicUser(record: UserRecord): PublicUser {
-  const { passwordHash: _passwordHash, ...rest } = record;
+  // `password` as well as `passwordHash`: a seeded record once carried the
+  // plaintext alongside the hash, and stripping only the hash let it ride into
+  // every API response. Belt and braces — both must go.
+  const { passwordHash: _passwordHash, password: _password, ...rest } = record as UserRecord & { password?: string };
   return rest;
 }
 
@@ -200,8 +203,12 @@ export function createUserStore(filePath: string): UserStore {
         if (input.provider === "password" && !password) {
           throw new Error("a password account needs a password");
         }
+        // The caller may spread a seed carrying a plaintext `password` next to
+        // the separate password argument; nothing but the hash may ever be
+        // stored, or it rides along into every API response.
+        const { password: _seedPassword, ...safeInput } = input as NewUser & { password?: string };
         const record: UserRecord = {
-          ...input,
+          ...safeInput,
           id: input.id ?? `${input.role}-${randomUUID().slice(0, 8)}`,
           email,
           joinedAt: input.joinedAt ?? new Date().toISOString().slice(0, 10),
