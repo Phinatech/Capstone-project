@@ -10,6 +10,7 @@
  */
 import pg from "pg";
 import { config } from "../config.js";
+import { firebasePersistence, initFirebase } from "./firebase.js";
 import { filePersistence, type StorePersistence } from "./persistence.js";
 
 let pool: pg.Pool | null = null;
@@ -48,9 +49,30 @@ export function dbPersistence(name: string): StorePersistence {
 
 /**
  * The persistence for a named store: PostgreSQL when DATABASE_URL is
- * configured, the JSON file otherwise — so local development and tests keep
- * using files while production keeps its records across deploys.
+ * configured, Firebase Firestore when FIREBASE_SERVICE_ACCOUNT is, the JSON
+ * files otherwise — so local development and tests keep using files while
+ * production keeps its records across deploys.
  */
 export function appPersistence(name: string, filePath: string): StorePersistence {
-  return config.databaseUrl ? dbPersistence(name) : filePersistence(filePath);
+  const mode = initStores();
+  return mode === "postgres" ? dbPersistence(name)
+    : mode === "firebase" ? firebasePersistence(name)
+    : filePersistence(filePath);
+}
+
+let backend: "postgres" | "firebase" | "files" | null = null;
+
+/** Chooses and initialises the durable backend once; returns which one is live. */
+export function initStores(): "postgres" | "firebase" | "files" {
+  if (backend) return backend;
+  if (config.databaseUrl) {
+    initDb(config.databaseUrl);
+    backend = "postgres";
+  } else if (config.firebaseServiceAccount) {
+    initFirebase(config.firebaseServiceAccount);
+    backend = "firebase";
+  } else {
+    backend = "files";
+  }
+  return backend;
 }
