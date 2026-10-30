@@ -1,75 +1,115 @@
-# Weather-Index Insurance — Oracle Aggregation Capstone
+# Sokoto Rainfall Cover
 
-Reputation-weighted oracle aggregation for a blockchain-based weather-indexed
-micro-insurance system, prototyped for pearl millet farmers in Sokoto State,
-Nigeria. Multiple independent rainfall sources (CHIRPS, NASA POWER, Meteostat)
-are combined with weights that reflect each source's historical reliability —
-the aggregate drives automatic drought payouts, no claims process required.
+**Weather-index insurance on Ethereum — automatic drought cover for smallholder farmers in Sokoto State, Nigeria.**
 
-## Repository layout
+If rainfall during the coverage window falls below the threshold a farmer chooses at purchase, the smart contract pays them **automatically** — no claim form, no assessor, no waiting. Rainfall is measured by three independent sources (CHIRPS, NASA POWER, Meteostat) whose reports are aggregated on-chain with **reputation weighting**, so no single source can decide a claim.
 
-```
-├── frontend/        Farmer / admin dapp UI (React 18 + Vite 6 + TypeScript + Tailwind)
-├── backend/         API + oracle relayer service (Express + TypeScript)
-├── blockchain/      Smart contracts, tests, deployment (Hardhat 3)
-├── docs/            Project documentation
-│   └── security-audit.md   Full security audit with 14 documented findings
-└── package.json     npm workspaces root — one `npm install` for everything
-```
+**Live:** [sokoto-cover.pages.dev](https://sokoto-cover.pages.dev) · **Chain:** Ethereum Sepolia (`0x8520A0697D018a380a91CB65096AB50F5B65D6D5`)
 
-Each folder is self-contained with its own `package.json`, `README.md`, and
-`.env.example`. See the README inside each for details.
+---
 
-## Quick start
+## 1. Overview
 
-Requires **Node.js ≥ 22.13** (Hardhat 3 needs it). With nvm, run `nvm use` —
-the repo's `.nvmrc` selects Node 22.
+| | |
+|---|---|
+| **What it is** | A full-stack dApp: Solidity contracts, an Express/TypeScript oracle relayer + API, and a React/TypeScript frontend with farmer, field-agent and admin portals |
+| **Why it exists** | Conventional crop insurance cannot reach smallholder farmers — loss assessment costs more than the claims. Index insurance removes assessment entirely; this project removes the need to *trust the index* by measuring it from three sources on a public chain |
+| **What's real** | Live contracts on Sepolia, a live relayer feeding real rainfall data, a real policy bought and **paid out autonomously** during evaluation |
+
+**Key properties**
+
+- 🤖 **Claims-free settlement** — `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
+- 🌧️ **Multi-source oracle** — three independent measurement families; reputation-weighted aggregation; a corrupted source moves the aggregate **+9%** vs **+59%** under equal weights
+- 👥 **Three portals** — farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers & agents, oracle research)
+- 🔬 **Oracle research tools** — a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
+- 🧪 **292 automated tests** + a documented security audit with regression-pinned fixes
+
+## 2. Walkthrough video
+
+**[Watch the technical walkthrough](REPLACE_WITH_VIDEO_LINK)** *(≈10 min)* — core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance/compatibility notes.
+
+## 3. Technical report
+
+**[Technical report (PDF, 5 pages)](docs/technical-report.pdf)** — scope alignment, technical functionality, testing approaches and results, code quality and algorithmic design.
+
+## 4. Technical requirements
+
+| Layer | Technology | Version |
+|---|---|---|
+| Runtime | Node.js | ≥ 22.13 (`npm` workspaces) |
+| Contracts | Solidity · Hardhat 3 · OpenZeppelin patterns | Solidity 0.8.x |
+| Chain | Ethereum **Sepolia** testnet · ethers.js | ethers v6 |
+| Backend | Express · TypeScript · `node:test` | Node 22 |
+| Database | **Firebase Firestore** (free Spark plan) | firebase-admin SDK |
+| Frontend | React · Vite · TypeScript · Vitest · Tailwind-style CSS | React 18 · Vite 6 |
+| External APIs | CHIRPS (Climate Hazards Center), NASA POWER, Meteostat (RapidAPI) | — |
+| Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS | — |
+| Browser | Chromium-based (Chrome, Edge) with **MetaMask** | — |
+| Hardware | Runs on low-end laptops/phones; mobile layout at 390 px | — |
+
+## 5. Installation & running locally
 
 ```bash
-npm install              # installs all three workspaces
+git clone https://github.com/Phinatech/Capstone-project.git
+cd Capstone-project
+npm install                        # one install for all workspaces
 
-# Blockchain (contracts + tests)
-npm run test:blockchain  # Solidity unit tests + TS integration tests
+# Configure (copy each .env.example to .env and fill in):
+#   backend/.env    — RPC_URL, contract addresses, ADMIN_*, FIREBASE_SERVICE_ACCOUNT,
+#                     MAIL_USER/MAIL_PASSWORD (optional), AUTH_DEMO_ACCOUNTS=false
+#   frontend/.env   — VITE_RPC_URL, VITE_WEATHER_INDEX_INSURANCE_ADDRESS,
+#                     VITE_ORACLE_AGGREGATOR_ADDRESS (leave VITE_API_URL empty)
 
-# Local chain with deployed, seeded contracts (two terminals)
-npm run chain            # Hardhat node on http://localhost:8545
-npm run seed:local       # deploy + seed, writes frontend/.env and backend/.env
-
-# Backend (API + relayer)
-npm run dev:backend      # http://localhost:3001
-
-# Frontend (dapp UI)
-npm run dev:frontend     # http://localhost:5173
+npm run dev:backend                # API + relayer on :3001
+npm run dev:frontend               # app on :5173 (proxies /api and /auth)
 ```
 
-## Common commands (run from the root)
+**Tests** — `npm run test` (all workspaces, 292 tests) · `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
 
-| Command                | What it does                                  |
-|------------------------|-----------------------------------------------|
-| `npm run build`        | Build every workspace that has a build script (the frontend build typechecks first) |
-| `npm run test`         | Run all tests: Solidity + mocha (blockchain), node:test (backend), Vitest (frontend) |
-| `npm run typecheck`    | TypeScript checks across workspaces           |
-| `npm run lint`         | ESLint (frontend)                             |
-| `npm run audit`        | `npm audit` for every workspace               |
+**Deployed setup** — frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
 
-## Documentation
+## 6. Repository structure
 
-- [`docs/deployment.md`](docs/deployment.md) — hosting: the frontend on
-  Cloudflare Pages, the backend on Render (`render.yaml`)
-- [`docs/backtest-results.md`](docs/backtest-results.md) — NASA POWER and CHIRPS
-  against the Birni N'Konni rain gauge, 1981-2024, and the weights the data supports
-- [`docs/security-audit.md`](docs/security-audit.md) — full audit: 0 critical,
-  3 high, 5 medium, 6 low findings, plus remediation priorities
-- [`docs/frontend-audit.md`](docs/frontend-audit.md) — frontend security and
-  quality audit
-- [`docs/licenses.md`](docs/licenses.md) — license of every installed npm
-  dependency
-- [`frontend/README.md`](frontend/README.md) — the dapp UI, demo accounts,
-  and what is simulated vs. on-chain
-- [`blockchain/README.md`](blockchain/README.md) — contracts, why reputation
-  weighting, deploying to Sepolia
+```
+blockchain/          Solidity contracts, Hardhat 3 tests, Ignition deployment
+  contracts/           WeatherIndexInsurance.sol, OracleAggregator.sol
+  test/                56 Solidity + 13 integration (Mocha/ethers) tests
+backend/             Express + TypeScript API, oracle relayer, settlement keeper
+  src/routes/          auth, agent sales, chain reads, notifications
+  src/utils/           stores (users/sessions/codes/sales), Firebase persistence,
+                       rainfall feeds (CHIRPS/NASA/Meteostat), backtest, mail
+frontend/            React + Vite dApp
+  src/pages/           farmer · agent · admin portals
+  src/contexts/        auth, policy (chain + wallet), notifications, FX
+  src/components/      shared UI, oracle research tools, evaluation panels
+functions/           Cloudflare Pages middleware (same-origin API proxy)
+docs/                technical-report.pdf · screenshots (10) · security-audit.md
+                     deployment.md · backtest-results.md · debugging-journal.md
+                     licenses.md · figures (architecture + sequence diagrams)
+```
 
-## License
+## 7. Testing & evidence
 
-MIT — see [`LICENSE`](LICENSE). Third-party dependency licenses are inventoried
-in [`docs/licenses.md`](docs/licenses.md).
+| Suite | Count | Covers |
+|---|---|---|
+| Solidity (Hardhat) | 56 | premium math, reserves invariant (fuzz), settlement, audit regressions |
+| Integration (Mocha + ethers) | 13 | full purchase → settlement lifecycle against real contracts |
+| Backend (`node:test`) | 193 | auth flows, stores, feeds, verification codes, sale verification |
+| Frontend (Vitest) | 20 | policy evaluation, aggregation, formatting |
+
+Two testing strategies are demonstrated in the video: **unit/functional** (contract invariants and store logic) and **integration/end-to-end** (real HTTP with cookie jars, real chain reads, live deployment). Performance and compatibility measurements are in §3.4 of the technical report.
+
+## 8. Documentation
+
+| Document | What's in it |
+|---|---|
+| [Technical report (PDF)](docs/technical-report.pdf) | Scope alignment, functionality, testing, code quality |
+| [Deployment guide](docs/deployment.md) | Step-by-step production deployment |
+| [Security audit](docs/security-audit.md) | Findings, fixes, regression tests |
+| [Backtest results](docs/backtest-results.md) | Oracle accuracy study (121 dekads) |
+| [Debugging journal](docs/debugging-journal.md) | Five production bugs, diagnosed and fixed |
+| [Licenses](docs/licenses.md) | Third-party components and data attributions |
+
+## 9. License
+
+MIT — see [LICENSE](LICENSE). Data sources: CHIRPS, NASA POWER, Meteostat (attribution required).

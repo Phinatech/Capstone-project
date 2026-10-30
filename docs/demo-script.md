@@ -1,0 +1,71 @@
+# Walkthrough Video — Shot List & Script
+
+**Target length:** 10–12 minutes · **Rubric sections covered:** 2A (core functionality), 2B (technical requirements), 2C (testing with inputs), 2D (testing strategies), 2E (performance & compatibility)
+
+Recording tips: 1440p screen capture, speak slowly, show the URL bar at the start of each scene, and keep the MetaMask window visible whenever a wallet prompt appears.
+
+---
+
+## Scene 0 — The problem (0:00–0:40)
+
+*"A millet farmer in Sokoto loses a season to drought. Traditional insurance needs someone to visit the field and assess the loss — that costs more than the claim. Weather-index insurance replaces the assessment with a rainfall measurement: if rainfall falls below a threshold, the farmer is paid automatically. The question this project answers is — who do you trust for that number?"*
+
+Show: the sign-in page hero (`sokoto-cover.pages.dev`), then a 15-second slide: **3 sources → on-chain consensus → automatic payout**.
+
+## Scene 1 (2A) — Agent sells cover (0:40–2:30)
+
+1. Sign in as the **real field agent** (created through Sign up).
+2. **Buy cover** → select the farmer, LGA, crop, coverage window, rainfall threshold (explain: the level below which the crop is damaged), payout amount (explain: premium = 10% of payout).
+3. **Explain the naira leg**: the agent collects the premium from the farmer in cash and records the payment reference; the receipt is verified server-side against the chain (show the POST and its verification).
+4. Click **Collect & buy policy** → MetaMask prompt appears (say: *"note the app checks which network the wallet is on — it refuses to sign on the wrong chain"*).
+5. Confirm → the policy appears with a toast and a receipt.
+
+## Scene 2 (2A) — The farmer's view (2:30–3:40)
+
+1. Sign in as the **real farmer**.
+2. **My policies** → the policy the agent just sold appears (attribution comes from the verified receipt).
+3. **Policy detail** → show the *oracle evaluation*: per-source rainfall, weights, the threshold gauge.
+4. **Payouts** page → explain push-payment settlement: *"there is no withdraw button — the contract sends the money to this wallet automatically when the window closes dry."*
+5. Point at the live evidence: **Policy #0 — bought 29 Oct, settled, 0.01 ETH paid out** (screenshot `04` in the report).
+
+## Scene 3 (2A/B) — Admin console + the data path (3:40–5:30)
+
+1. Sign in as the **admin** → Overview: real pool, premiums, payouts.
+2. **Farmers & agents** → the real accounts with role badges.
+3. **Policy #0 detail** → the settlement transaction hash (open Sepolia Etherscan in a tab — show the real payout transfer).
+4. **Architecture beat (2B)**: 30-second diagram narration — *frontend (React/TS) → REST API (Express/TS) → Firebase (accounts, sessions, receipts) + ethers.js → Solidity on Sepolia; the relayer reads CHIRPS, NASA POWER and Meteostat and reports each dekad on-chain*. Show the relayer's log lines (`[relayer] …`).
+
+## Scene 4 (2A) — Oracle research tools (5:30–7:00)
+
+1. **Oracle sources** → three live sources + reputation weights.
+2. **Consensus simulator** → corrupt **NASA POWER (inflated ×2.5)** → run: single +7%, equal **+59%**, reputation **+9%**. *"This is the core design claim: one corrupted source cannot decide a payout."*
+3. **Backtest** → 121 historical dekads; CHIRPS MAE 24.4 mm vs NASA 30.3 mm; reputation weighting within 1.9 mm of the best source while guarding against the weaker one.
+
+## Scene 5 (2C) — Testing with different inputs (7:00–8:30)
+
+Show each failing gracefully (record the error text):
+
+| Input | Expected & shown |
+|---|---|
+| Verify code wrong/expired | "That code is not valid or has expired" — single-use, 5-attempt cap |
+| Sign in with wrong password | "That email and password do not match an account" (no account enumeration) |
+| Buy with the wallet on the wrong network | App requests a network switch; refuses with plain-language guidance |
+| Premium mismatch (direct contract call) | `wrong premium` revert |
+| Role escalation in a profile edit | Ignored server-side (show the test name) |
+
+## Scene 6 (2D) — Two testing strategies (8:30–10:00)
+
+1. **Unit/functional** — terminal: `npm run test` → **292 tests green** (56 Solidity incl. the reserves fuzz test, 13 integration, 193 backend, 20 frontend). *Chosen because the contract invariants ARE the product's fairness guarantees.* Name two bugs the suite caught (resend route 404; seed-time password leak) and their regression tests.
+2. **Integration/end-to-end** — show the Mocha lifecycle suite and the live deployment evidence (Policy #0's autonomous payout). *Chosen because the guarantees span HTTP, storage, wallet and chain.* Mention the wallet-infrastructure failures found this way (stale RPC state) and the hardening they caused.
+
+## Scene 7 (2E) — Performance & compatibility (10:00–11:00)
+
+- Numbers slide: API latency 0.44–0.82 s (Render free tier) · build 8.3 s, 1.4 MB JS code-split · test suite ~6.5 s · mobile layout at 390 px.
+- Show the **mobile viewport** (DevTools device toolbar or a phone) with the farmer dashboard.
+- State browsers/OS covered: Chrome & Edge on macOS and Linux; wallet flows with MetaMask on Sepolia.
+
+## Scene 8 — Close (11:00–11:30)
+
+*"What's on the screen is not a mock: real contracts on Sepolia, real rainfall data, a real payout that ran without any human intervention. Thank you."*
+
+Show: the live site + the repo URL.
