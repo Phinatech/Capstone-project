@@ -59,6 +59,11 @@ export function getFarmers(): User[] {
   return directory.filter((u) => u.role === 'farmer');
 }
 
+/** Farmers and field agents — the people the admin console manages. */
+export function getTeam(): User[] {
+  return directory.filter((u) => u.role === 'farmer' || u.role === 'agent');
+}
+
 export function initials(name: string): string {
   return name.
   split(' ').

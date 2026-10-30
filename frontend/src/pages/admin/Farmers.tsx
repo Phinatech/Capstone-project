@@ -15,7 +15,7 @@ import { btnPrimary, btnSecondary } from '../../components/ui/buttons';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { usePolicies } from '../../contexts/PolicyContext';
 import { crops, lgas } from '../../data/policies';
-import { getFarmers } from '../../utils/users';
+import { getTeam } from '../../utils/users';
 import { getWindow } from '../../utils/oracle';
 import { formatDate, formatEth, shortAddress } from '../../utils/format';
 import type { User } from '../../types/user';
@@ -37,7 +37,7 @@ export function Farmers() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return getFarmers().
+    return getTeam().
     map((f) => {
       const mine = policies.filter((p) => p.farmerId === f.id);
       const active = mine.filter((p) => p.status === 'active');
@@ -70,7 +70,7 @@ export function Farmers() {
 
   return (
     <div>
-      <PageHeader title="Farmers" description={`${getFarmers().length} smallholders registered on the contract.`} />
+      <PageHeader title="Farmers & agents" description={`${getTeam().length} registered on the platform.`} />
 
       <div className="space-y-3 sm:space-y-4">
         <FilterBar
@@ -132,7 +132,14 @@ export function Farmers() {
                   <div className="flex items-center gap-3">
                     <Avatar name={f.name} src={f.avatarUrl} size="md" />
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">{f.name}</p>
+                      <p className="flex items-center gap-2 truncate font-semibold">
+                        {f.name}
+                        {f.role === 'agent' &&
+                        <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent-strong">
+                            Agent
+                          </span>
+                        }
+                      </p>
                       <p className="flex items-center gap-1 truncate text-xs text-muted">
                         <MapPinIcon className="h-3 w-3 shrink-0" aria-hidden />
                         <span className="truncate">
@@ -191,7 +198,14 @@ export function Farmers() {
                   <span className="flex min-w-0 items-center gap-3">
                     <Avatar name={f.name} src={f.avatarUrl} />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{f.name}</span>
+                      <span className="flex items-center gap-2 truncate text-sm font-medium">
+                        {f.name}
+                        {f.role === 'agent' &&
+                        <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent-strong">
+                            Agent
+                          </span>
+                        }
+                      </span>
                       <span className="block truncate text-xs text-muted">
                         <span className="lg:hidden">{f.lga} · {active.length} active · </span>
                         {f.email}
