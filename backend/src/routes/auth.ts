@@ -23,6 +23,7 @@ import { verifyTurnstileToken } from "../turnstile.js";
 import type { AuthCodeStore } from "../utils/authCodes.js";
 import { sessionClearCookie, sessionSetCookie } from "../utils/cookies.js";
 import { createGoogleVerifier, type GoogleVerifier } from "../utils/googleAuth.js";
+import { sendPasswordReset, sendVerificationCode } from "../utils/mailer.js";
 import { hashPassword, verifyPassword } from "../utils/passwords.js";
 import type { SessionStore } from "../utils/sessions.js";
 import { DEFAULT_SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from "../utils/sessions.js";
@@ -235,6 +236,11 @@ export function createAuthRouter(deps: AuthDeps): Router {
     }
 
     const code = await authCodes.createVerificationCode(created.id);
+    // The code belongs in the recipient's inbox; with no mail service it goes
+    // to the server log for an operator to relay.
+    if (!(await sendVerificationCode(created.email, code))) {
+      console.log(`[auth] verification code for ${created.email}: ${code}`);
+    }
     if (!(await signIn(res, created.id, created.role, remember))) return;
     res.status(201).json({
       user: toPublicUser(created),
@@ -323,8 +329,9 @@ export function createAuthRouter(deps: AuthDeps): Router {
       return;
     }
     const code = await authCodes.createVerificationCode(req.principal!.user.id);
-    // With no mail service the code goes to the server log for the operator.
-    console.log(`[auth] verification code for ${req.principal!.user.email}: ${code}`);
+    if (!(await sendVerificationCode(req.principal!.user.email, code))) {
+      console.log(`[auth] verification code for ${req.principal!.user.email}: ${code}`);
+    }
     res.json(config.demoAuthCodes ? { demoCode: code } : {});
   });
 
@@ -350,7 +357,9 @@ export function createAuthRouter(deps: AuthDeps): Router {
       return;
     }
     const token = await authCodes.createResetToken(email);
-    console.log(`[auth] password reset token for ${email}: ${token}`);
+    if (!(await sendPasswordReset(email, token))) {
+      console.log(`[auth] password reset token for ${email}: ${token}`);
+    }
     res.json(config.demoAuthCodes ? { demoToken: token } : {});
   });
 

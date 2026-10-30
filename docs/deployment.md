@@ -32,6 +32,7 @@ every push.
    | `KEEPER_PRIVATE_KEY` | the keeper key |
    | `METEOSTAT_API_KEY` | the RapidAPI key |
    | `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | the administrator login; seeded at every boot — **required**, without it no admin account exists |
+   | `MAIL_USER`, `MAIL_PASSWORD` | a Gmail address + Google App Password; verification codes are emailed to the inbox instead of logged |
    | `CORS_ORIGINS` | `http://localhost:5173` for now; step 3 changes it |
    | `TURNSTILE_SECRET_KEY`, `NOTIFY_API_KEY`, `TERMINII_API_KEY`, `TERMINII_SENDER_ID` | leave empty for now |
 
