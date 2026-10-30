@@ -13,16 +13,16 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 | | |
 |---|---|
 | **What it is** | A full-stack dApp: Solidity contracts, an Express/TypeScript oracle relayer + API, and a React/TypeScript frontend with farmer, field-agent and admin portals |
-| **Why it exists** | Conventional crop insurance cannot reach smallholder farmers, because loss assessment costs more than the claims. Index insurance removes assessment entirely; this project removes the need to *trust the index* by measuring it from three sources on a public chain |
+| **Why it exists** | Conventional crop insurance cannot reach smallholder farmers, because assessing a loss costs more than a claim is worth. Index insurance removes assessment entirely; this project removes the need to *trust the index* by measuring it from three sources on a public chain |
 | **What's real** | Live contracts on Sepolia, a live relayer feeding real rainfall data, a real policy bought and **paid out autonomously** during evaluation |
 
 **Key properties**
 
-- 🤖 **Claims-free settlement**: `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
-- 🌧️ **Multi-source oracle**: three measurement families, reputation-weighted aggregation, and a corrupted source moves the aggregate **+9%** against **+59%** under equal weights
-- 👥 **Three portals**: farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
-- 🔬 **Oracle research tools**: a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
-- 🧪 **292 automated tests** and a documented security audit with regression-pinned fixes
+- **Claims-free settlement**: `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
+- **Multi-source oracle**: three measurement families, reputation-weighted aggregation, and a corrupted source moves the aggregate by **9%** against **59%** under equal weights
+- **Three portals**: farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
+- **Oracle research tools**: a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
+- **292 automated tests** and a documented security audit with regression-pinned fixes
 
 ## 2. Walkthrough video
 
@@ -44,10 +44,10 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 | Frontend | React · Vite · TypeScript · Vitest · Tailwind-style CSS | React 18 · Vite 6 |
 | External APIs | CHIRPS (Climate Hazards Center), NASA POWER, Meteostat (RapidAPI) | n/a |
 | Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS | n/a |
-| Browser | Chrome, Edge, Firefox, Safari, with **MetaMask** | n/a |
+| Browser | Chrome, Edge, Firefox and Safari (with **MetaMask**) | n/a |
 | Hardware | Runs on low-end laptops and phones; mobile layout at 390 px | n/a |
 
-## 5. Installation & running locally
+## 5. Installation and running locally
 
 ```bash
 git clone https://github.com/Phinatech/Capstone-project.git
@@ -88,12 +88,12 @@ docs/                technical-report.pdf · screenshots (10) · security-audit.
                      licenses.md · figures (architecture + sequence diagrams)
 ```
 
-## 7. Testing & evidence
+## 7. Testing and evidence
 
 | Suite | Count | Covers |
 |---|---|---|
-| Solidity (Hardhat) | 56 | premium math, reserves invariant (fuzz), settlement, audit regressions |
-| Integration (Mocha + ethers) | 13 | full purchase → settlement lifecycle against real contracts |
+| Solidity (Hardhat) | 56 | premium maths, reserves invariant (fuzz), settlement, audit regressions |
+| Integration (Mocha + ethers) | 13 | full purchase-to-settlement lifecycle against real contracts |
 | Backend (`node:test`) | 193 | auth flows, stores, feeds, verification codes, sale verification |
 | Frontend (Vitest) | 20 | policy evaluation, aggregation, formatting |
 

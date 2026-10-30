@@ -6,11 +6,11 @@ A weather-index insurance platform on Ethereum: automatic drought cover for smal
 
 ## 1. Scope Alignment & Feature Validation
 
-The approved scope proposed a blockchain-based weather-index insurance system in which rainfall is measured by multiple independent sources, policies are sold and settled by smart contract without a claims process, and farmers, field agents and administrators manage cover through a web application. The delivered system matches that scope. One planned element (SMS delivery) is implemented but optional in configuration, and fiat settlement is deferred because it requires a licensed payment provider.
+The approved scope proposed a blockchain-based weather-index insurance system in which rainfall is measured by multiple independent sources, policies are sold and settled by smart contracts without a claims process, and farmers, field agents and administrators manage cover through a web application. The delivered system matches that scope. One planned element (SMS delivery) is implemented but optional in configuration, and fiat settlement is deferred because it requires a licensed payment provider.
 
 | Planned Feature | Intended Purpose | Current Status | Evidence |
 |---|---|---|---|
-| Smart contracts: policy sale, premium, payout reserve | Sell cover; guarantee payout trustlessly | **Completed** · M1 Contracts | `WeatherIndexInsurance.sol`; 56 tests; Policy #0 bought and paid on Sepolia |
+| Smart contracts: policy sale, premium, payout reserve | Sell cover; guarantee payout trustlessly | **Completed** · M1 Contracts | `WeatherIndexInsurance.sol`; 56 tests; Policy #0 bought and paid out on Sepolia |
 | Multi-source oracle with reputation-weighted aggregation | One source cannot decide a claim | **Completed** · M2 Oracle | `OracleAggregator.sol`; 3 live sources; simulator Fig. `07` |
 | Automated oracle relayer and settlement keeper | Report rainfall and pay farmers unattended | **Completed** · M2 Oracle | `relayer.ts`, `settlement.ts`; Policy #0's live payout ran autonomously |
 | Farmer portal (buy cover, monitor, payouts) | Self-service cover with a wallet | **Completed** · M3 Portals | `/farmer/*`; screenshots `02`, `03`, `04` |
@@ -28,11 +28,11 @@ The approved scope proposed a blockchain-based weather-index insurance system in
 
 The walkthrough video (linked in the README) covers these in order.
 
-**A. Core functionalities.** Policy purchase as agent and as farmer; the farmer dashboard and payouts ledger; the admin's oracle evaluation view; the consensus simulator corrupting one source; the backtest.
+**A. Core functionalities.** Policy purchase by an agent and by a farmer; the farmer dashboard and payouts ledger; the admin's oracle evaluation view; the consensus simulator corrupting one source; the backtest.
 
 **B. Technical requirements.** Each screen is shown wired end to end: React/TypeScript to Express/TypeScript to Firebase to ethers.js to Solidity on Sepolia, fed by three live rainfall APIs.
 
-**C. Testing with inputs.** Wrong premium, closed window, insufficient pool capacity, wrong wallet network, invalid codes and role escalation are each shown refusing safely with a plain-language error.
+**C. Testing with inputs.** The video shows a wrong premium, a closed window, insufficient pool capacity, a wrong wallet network, invalid codes and role escalation each refused safely, with a plain-language error.
 
 **D. Testing strategies.** Unit and functional testing plus integration testing (section 3.3). **E. Performance and compatibility.** Measured latency and bundle sizes (section 3.4), desktop and mobile layouts, and a live cross-browser check.
 
@@ -56,17 +56,17 @@ The codebase is organised by layer (`blockchain/`, `backend/`, `frontend/`) with
 
 *Out-of-sample backtest.* Weights are learned from inverse MSE on all years except the scored year, with 2,000-resample bootstrap confidence intervals, so the evaluation never fits the test data (`backtest-results.md`).
 
-*Fixed-point time-series arithmetic.* Rainfall is stored as integer hundredths of millimetres and dekads as period ids (YYYYMMD). A window sums exactly its period set, so settlement is exact and auditable.
+*Fixed-point time-series arithmetic.* Rainfall is stored as integer hundredths of millimetres and dekads as period ids (YYYYMMD). A window sums exactly the periods it contains, so settlement is exact and auditable.
 
-*Concurrency-safe persistence.* Stores serialise writes through a promise chain and write via temporary file and rename, making each update atomic. The relayer fetches sources with bounded concurrency (`mapLimit`) to respect free API tiers.
+*Concurrency-safe persistence.* Stores serialise writes through a promise chain and write to a temporary file before renaming it, which makes each update atomic. The relayer fetches sources with bounded concurrency (`mapLimit`) to respect free API tiers.
 
-*Security primitives.* scrypt password hashing, constant-time API-key comparison, single-use attempt-capped verification codes, and per-hour rate limits, each with regression tests.
+*Security primitives.* The system uses scrypt password hashing, constant-time API-key comparison, single-use attempt-capped verification codes and per-hour rate limits, each with regression tests.
 
 ### 3.3 Testing and validation
 
-**Strategy 1: unit and functional testing.** Selected because the contract invariants are the product's fairness guarantees. The suite runs 56 Solidity tests (including a fuzz test over pool reserves), 203 backend unit tests and 20 frontend tests. It covers premium maths (10% of the payout, rounded up), reverting sales the pool cannot cover, payouts that happen once and only below threshold, and every audit finding pinned by a named regression test. Result: 292 tests green, and the suite caught real defects (a GET-versus-POST resend route, a password stored in clear text at seed time, tests writing into production data), each fixed and pinned.
+**Strategy 1: unit and functional testing.** Selected because the contract invariants are the product's fairness guarantees. The suite runs 56 Solidity tests (including a fuzz test over pool reserves), 203 backend unit tests and 20 frontend tests. It covers premium maths (10% of the payout, rounded up), reverting sales the pool cannot cover, payouts that happen once and only below the threshold, and every audit finding pinned by a named regression test. Result: 292 tests green, and the suite caught real defects (a GET-versus-POST resend route, a password stored in clear text at seed time, tests writing into production data), each fixed and pinned.
 
-**Strategy 2: integration and end-to-end testing.** Selected because the guarantees span HTTP, storage, wallet and chain. Mocha drives the contracts through ethers.js as the application does (13 scenarios); auth routes run against a real Express server with cookie jars; the deployed system was exercised live, and the first policy was bought and paid out autonomously. Result: flows verified in production. Failures traced to wallet infrastructure (stale RPC state, wrong network) and led to hardening: gas pre-estimated on the app's own RPC, account switches followed, wrong-chain signing refused.
+**Strategy 2: integration and end-to-end testing.** Selected because the guarantees span HTTP, storage, wallet and chain. Mocha drives the contracts through ethers.js as the application does (13 scenarios); auth routes run against a real Express server with cookie jars; the deployed system was exercised live, and the first policy was bought and paid out autonomously. Result: flows verified in production. Failures traced to wallet infrastructure (stale RPC state, wrong network) led to hardening: gas pre-estimated on the app's own RPC, account switches followed, wrong-chain signing refused.
 
 *Validation.* Invalid codes, wrong premiums, expired windows, role-escalation payloads and unreachable RPCs each produce a plain-language error rather than provider jargon.
 
@@ -81,7 +81,7 @@ The codebase is organised by layer (`blockchain/`, `backend/`, `frontend/`) with
 | Browsers | Chrome, Edge, Firefox, Safari checked on the same build | walkthrough video, Scene 7 |
 | Wallet | MetaMask on Sepolia, hardened against stale RPCs and wrong networks | EIP-1193 only; no browser-specific APIs |
 
-The farmer side targets low-power hardware: the layout renders at 390 px, naira figures degrade gracefully when FX providers are down, and chain reads retry through RPC hiccups.
+The farmer side targets low-power hardware: the layout renders at 390 px, naira figures degrade gracefully when FX providers are down, and chain reads recover from RPC hiccups through retries.
 
 ### 3.5 Engineering quality
 

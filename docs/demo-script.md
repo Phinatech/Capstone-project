@@ -45,7 +45,7 @@ Show: the sign-in page hero (`sokoto-cover.pages.dev`), then a 15-second slide: 
 
 Show each failing gracefully (record the error text):
 
-| Input | Expected & shown |
+| Input | Expected and shown |
 |---|---|
 | Verify code wrong/expired | "That code is not valid or has expired" (single use, 5-attempt cap) |
 | Sign in with wrong password | "That email and password do not match an account" (no account enumeration) |
@@ -55,18 +55,18 @@ Show each failing gracefully (record the error text):
 
 ## Scene 6 (2D): two testing strategies (8:30-10:00)
 
-1. **Unit/functional**: terminal: `npm run test` → **292 tests green** (56 Solidity incl. the reserves fuzz test, 13 integration, 193 backend, 20 frontend). *Chosen because the contract invariants are the product's fairness guarantees.* Name two bugs the suite caught (the resend route 404 and the seed-time password leak) and their regression tests.
+1. **Unit/functional**: run `npm run test` in the terminal and show **292 tests green** (56 Solidity including the reserves fuzz test, 13 integration, 193 backend, 20 frontend). *Chosen because the contract invariants are the product's fairness guarantees.* Name two bugs the suite caught (the resend route 404 and the seed-time password leak) and their regression tests.
 2. **Integration/end to end**: show the Mocha lifecycle suite and the live deployment evidence (Policy #0's autonomous payout). *Chosen because the guarantees span HTTP, storage, wallet and chain.* Mention the wallet-infrastructure failures found this way (stale RPC state) and the hardening they forced.
 
 ## Scene 7 (2E): performance and compatibility (10:00-11:00)
 
 - Numbers slide: API latency 0.44 to 0.82 s (Render free tier); build 8.3 s, 1.4 MB JS code split; test suite ~6.5 s; mobile layout at 390 px.
 - Show the **mobile viewport** (DevTools device toolbar or a phone) with the farmer dashboard.
-- **Cross-browser spot check (30 s):** open the same page in **Firefox** and **Safari** (or Edge) on camera. The sign-in page and farmer dashboard should render identically. Three browser engines on the same build is the compatibility evidence.
+- **Cross-browser spot check (30 s):** open the same page in **Firefox** and **Safari** (or Edge) on camera. The sign-in page and farmer dashboard should render identically; rendering identically in three browser engines is the compatibility evidence.
 - Wallet flows use only the EIP-1193 `window.ethereum` interface (MetaMask on Sepolia) and no browser-specific APIs, which is why portability holds.
 
 ## Scene 8: close (11:00-11:30)
 
-*"Nothing on the screen is a mock. Real contracts on Sepolia, real rainfall data, and a payout that ran with no human intervention. Thank you."*
+*"Nothing on the screen is a mock. Real contracts on Sepolia, real rainfall data and a payout that ran with no human intervention. Thank you."*
 
 Show: the live site + the repo URL.
