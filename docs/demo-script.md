@@ -62,7 +62,8 @@ Show each failing gracefully (record the error text):
 
 - Numbers slide: API latency 0.44–0.82 s (Render free tier) · build 8.3 s, 1.4 MB JS code-split · test suite ~6.5 s · mobile layout at 390 px.
 - Show the **mobile viewport** (DevTools device toolbar or a phone) with the farmer dashboard.
-- State browsers/OS covered: Chrome & Edge on macOS and Linux; wallet flows with MetaMask on Sepolia.
+- **Cross-browser spot-check (30 s):** open the same page in **Firefox** and **Safari** (or Edge) live on camera — sign-in page and farmer dashboard render identically. This is the compatibility evidence: three browser engines on the same build.
+- Wallet flows use only the EIP-1193 `window.ethereum` interface (MetaMask on Sepolia) — no browser-specific APIs, which is why portability holds.
 
 ## Scene 8 — Close (11:00–11:30)
 

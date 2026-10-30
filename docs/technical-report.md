@@ -14,17 +14,17 @@ The approved scope proposed a blockchain-based weather-index insurance system in
 
 | Planned Feature | Intended Purpose | Current Status | Evidence |
 |---|---|---|---|
-| Smart contracts: policy sale, premium, payout reserve | Sell cover; guarantee payout trustlessly | **Completed** | `WeatherIndexInsurance.sol`; 56 tests; Policy #0 bought & paid on Sepolia |
-| Multi-source oracle with reputation-weighted aggregation | One source cannot decide a claim | **Completed** | `OracleAggregator.sol`; 3 live sources; sim. Fig. `07` |
-| Automated oracle relayer + settlement keeper | Report rainfall and pay farmers unattended | **Completed** | `relayer.ts`, `settlement.ts`; Policy #0's live payout ran autonomously |
-| Farmer portal (buy cover, monitor, payouts) | Self-service cover with a wallet | **Completed** | `/farmer/*`; screenshots `02`, `03`, `04`; route tests |
-| Field-agent portal (sell cover, naira receipts) | Reach farmers without wallets | **Completed** | `/agent/*`; receipts verified server-side against the chain |
-| Admin console (policies, farmers & agents, analytics) | Operate and audit the scheme | **Completed** | `/admin/*`; screenshots `05`, `06` |
-| Oracle research tools (consensus simulator, backtest) | Study/demonstrate consensus design | **Completed** | `/admin/backtest`; 121 historical dekads (backtest-results.md) |
-| Notifications (in-app, email codes, SMS/Telegram) | Tell farmers about purchases/payouts | **Completed (SMS optional)** | real event notifications; email codes; SMS via `SMS_PROVIDER` |
-| Testing & security audit | Validate and harden the system | **Completed** | 292 tests; `security-audit.md`, fixes pinned by regressions |
-| Deployment (public site + testnet) | Working product, end to end | **Completed** | `sokoto-cover.pages.dev` + Render + Sepolia |
-| Fiat settlement (naira off-ramp) | Pay farmers in naira | **Not implemented — justified** | Needs a licensed provider; receipts record the naira leg; future work |
+| Smart contracts: policy sale, premium, payout reserve | Sell cover; guarantee payout trustlessly | **Completed** · M1 · Contracts | `WeatherIndexInsurance.sol`; 56 tests; Policy #0 bought & paid on Sepolia |
+| Multi-source oracle with reputation-weighted aggregation | One source cannot decide a claim | **Completed** · M2 · Oracle | `OracleAggregator.sol`; 3 live sources; sim. Fig. `07` |
+| Automated oracle relayer + settlement keeper | Report rainfall and pay farmers unattended | **Completed** · M2 · Oracle | `relayer.ts`, `settlement.ts`; Policy #0's live payout ran autonomously |
+| Farmer portal (buy cover, monitor, payouts) | Self-service cover with a wallet | **Completed** · M3 · Portals | `/farmer/*`; screenshots `02`, `03`, `04`; route tests |
+| Field-agent portal (sell cover, naira receipts) | Reach farmers without wallets | **Completed** · M3 · Portals | `/agent/*`; receipts verified server-side against the chain |
+| Admin console (policies, farmers & agents, analytics) | Operate and audit the scheme | **Completed** · M3 · Portals | `/admin/*`; screenshots `05`, `06` |
+| Oracle research tools (consensus simulator, backtest) | Study/demonstrate consensus design | **Completed** · M4 · Research | `/admin/backtest`; 121 historical dekads (backtest-results.md) |
+| Notifications (in-app, email codes, SMS/Telegram) | Tell farmers about purchases/payouts | **Completed (SMS optional)** · M4 · Research | real event notifications; email codes; SMS via `SMS_PROVIDER` |
+| Testing & security audit | Validate and harden the system | **Completed** · M5 · Validation | 292 tests; `security-audit.md`, fixes pinned by regressions |
+| Deployment (public site + testnet) | Working product, end to end | **Completed** · M5 · Validation | `sokoto-cover.pages.dev` + Render + Sepolia |
+| Fiat settlement (naira off-ramp) | Pay farmers in naira | **Not implemented — justified** · M6 · Future | Needs a licensed provider; receipts record the naira leg; future work |
 
 *Scope changes:* none dropped for convenience. The naira leg was designed as receipted off-chain settlement (a licensed off-ramp is beyond a student project), and deployment widened from a local chain to live Sepolia — adding real wallet integration, RPC resilience and network-safety work.
 
@@ -43,7 +43,7 @@ The codebase is organised by layer — `blockchain/` (contracts), `backend/` (AP
 - **Abstraction & encapsulation.** Each store (`createUserStore`, `createSessionStore`, `createAgentStore`, `createAuthCodeStore`) hides its persistence behind one `StorePersistence` interface; the application does not know or care whether records live in Firestore, a JSON file or an in-memory map. The same is true of the policy layer (`usePolicies()` hides chain vs simulated providers).
 - **Polymorphism & strategy.** Persistence backends are interchangeable strategies — production (Firebase), development (files), tests (fakes) — chosen once at start-up. The consensus simulator runs three aggregation strategies (single-source, equal, reputation-weighted) behind one interface.
 - **Dependency injection.** `createAuthRouter({ users, sessions, authCodes })` receives its collaborators, so end-to-end tests exercise the real router over HTTP against isolated stores.
-- **Modularity & reuse.** Shared UI primitives (`PolicyBrowser`, `PageHeader`, `Avatar`), pure utility modules (`utils/oracle.ts`, `utils/currency.ts`) and typed context providers compose the frontend; the React Context tree (theme → i18n → preferences → auth → policy) composes cross-cutting behaviour without duplication.
+- **Inheritance & reusable components.** `ErrorBoundary` extends React.Component once and protects every route; typed `interface` contracts (User, Policy, StorePersistence) are implemented by interchangeable parts. Shared reusable components (`PolicyBrowser`, `PageHeader`, `Avatar`) and pure utilities (`utils/oracle.ts`, `utils/currency.ts`) compose the frontend; the Context tree (theme → i18n → preferences → auth → policy) layers cross-cutting behaviour without duplication.
 
 ### 3.2 Algorithms and problem-solving
 
