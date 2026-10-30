@@ -13,6 +13,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { createAgentStore, parseSale } from "../utils/agentStore.js";
+import { appPersistence } from "../utils/db.js";
 import { attributePolicies } from "../utils/policyAttribution.js";
 import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
 import type { PolicyData } from "../utils/chain.js";
@@ -118,7 +119,7 @@ router.get("/users/directory", async (_req, res) => {
 
 // Agent sales: the naira half of a purchase, recorded so an agent's book is
 // readable from any device rather than only from the browser that sold it.
-const agentStore = createAgentStore(config.agentSalesPath);
+const agentStore = createAgentStore(appPersistence("agent-sales", config.agentSalesPath));
 
 /** An optional bounded text query parameter. */
 function boundedQuery(value: unknown, max: number): string | null {

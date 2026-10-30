@@ -12,8 +12,7 @@
  * serialised or compared anywhere else in the codebase.
  */
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { filePersistence, type StorePersistence } from "./persistence.js";
 import { hashPassword, needsRehash, verifyPassword } from "./passwords.js";
 
 export type Role = "farmer" | "agent" | "admin";
@@ -111,14 +110,16 @@ export function toPublicUser(record: UserRecord): PublicUser {
  * ledger: temp file then rename, with writes serialised so two sign-ups at
  * once cannot interleave and lose one of the records.
  */
-export function createUserStore(filePath: string): UserStore {
+export function createUserStore(target: string | StorePersistence): UserStore {
+  const storage = typeof target === "string" ? filePersistence(target) : target;
+  const where = typeof target === "string" ? target : "the user store";
   let cached: UserRecord[] | null = null;
   let writeChain: Promise<unknown> = Promise.resolve();
 
   async function load(): Promise<UserRecord[]> {
     if (cached) return cached;
     try {
-      const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
+      const parsed: unknown = await storage.read();
       if (!Array.isArray(parsed)) throw new Error("expected a JSON array");
       cached = parsed as UserRecord[];
       return cached;
@@ -129,15 +130,12 @@ export function createUserStore(filePath: string): UserStore {
         cached = [];
         return cached;
       }
-      throw new Error(`${filePath} could not be read: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`${where} could not be read: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async function write(records: UserRecord[]): Promise<void> {
-    await mkdir(dirname(filePath), { recursive: true });
-    const temp = `${filePath}.tmp`;
-    await writeFile(temp, `${JSON.stringify(records, null, 2)}\n`, "utf8");
-    await rename(temp, filePath);
+    await storage.write(records);
     cached = records;
   }
 

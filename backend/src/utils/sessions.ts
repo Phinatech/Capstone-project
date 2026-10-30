@@ -13,8 +13,7 @@
  * immediately invalidates the id instead of waiting for it to expire.
  */
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { filePersistence, type StorePersistence } from "./persistence.js";
 import type { Role } from "./userStore.js";
 
 export interface Session {
@@ -51,7 +50,9 @@ export interface SessionStore {
  *
  * The clock is injectable so expiry can be tested without waiting.
  */
-export function createSessionStore(filePath: string, { now = Date.now }: { now?: () => number } = {}): SessionStore {
+export function createSessionStore(target: string | StorePersistence, { now = Date.now }: { now?: () => number } = {}): SessionStore {
+  const storage = typeof target === "string" ? filePersistence(target) : target;
+  const where = typeof target === "string" ? target : "the session store";
   let cached: Session[] | null = null;
   let writeChain: Promise<unknown> = Promise.resolve();
 
@@ -62,7 +63,7 @@ export function createSessionStore(filePath: string, { now = Date.now }: { now?:
   async function load(): Promise<Session[]> {
     if (cached) return cached;
     try {
-      const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
+      const parsed: unknown = await storage.read();
       if (!Array.isArray(parsed)) throw new Error("expected a JSON array");
       cached = (parsed as Session[]).filter(isLive);
       return cached;
@@ -73,15 +74,12 @@ export function createSessionStore(filePath: string, { now = Date.now }: { now?:
         cached = [];
         return cached;
       }
-      throw new Error(`${filePath} could not be read: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`${where} could not be read: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async function write(sessions: Session[]): Promise<void> {
-    await mkdir(dirname(filePath), { recursive: true });
-    const temp = `${filePath}.tmp`;
-    await writeFile(temp, `${JSON.stringify(sessions, null, 2)}\n`, "utf8");
-    await rename(temp, filePath);
+    await storage.write(sessions);
     cached = sessions;
   }
 

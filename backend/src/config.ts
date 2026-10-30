@@ -107,6 +107,13 @@ export const config = {
    */
   seedUsers: process.env.SEED_USERS?.trim() ?? "",
   /**
+   * PostgreSQL connection string (any Postgres; Neon and Supabase have free
+   * tiers). When set, accounts, sessions and agent receipts live in the
+   * database and survive every deploy; when not, they live in local JSON
+   * files. See docs/deployment.md.
+   */
+  databaseUrl: process.env.DATABASE_URL?.trim() ?? "",
+  /**
    * Outbound mail (verification codes, password resets). Defaults to Gmail's
    * SMTP endpoint: MAIL_USER is a Gmail address and MAIL_PASSWORD a Google App
    * Password. Unset, no mail is sent and codes go to the server log instead.

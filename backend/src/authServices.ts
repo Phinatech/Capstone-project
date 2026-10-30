@@ -10,9 +10,14 @@
  */
 import { config } from "./config.js";
 import { createAuthCodeStore } from "./utils/authCodes.js";
+import { appPersistence, initDb } from "./utils/db.js";
 import { createSessionStore } from "./utils/sessions.js";
 import { createUserStore } from "./utils/userStore.js";
 
-export const userStore = createUserStore(config.usersPath);
-export const sessionStore = createSessionStore(config.sessionsPath);
+// With DATABASE_URL these records live in PostgreSQL and survive every
+// deploy; otherwise in the local JSON files (development and tests).
+if (config.databaseUrl) initDb(config.databaseUrl);
+
+export const userStore = createUserStore(appPersistence("users", config.usersPath));
+export const sessionStore = createSessionStore(appPersistence("sessions", config.sessionsPath));
 export const authCodeStore = createAuthCodeStore();

@@ -32,6 +32,7 @@ every push.
    | `KEEPER_PRIVATE_KEY` | the keeper key |
    | `METEOSTAT_API_KEY` | the RapidAPI key |
    | `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | the administrator login; seeded at every boot — **required**, without it no admin account exists |
+   | `DATABASE_URL` | PostgreSQL connection string (free tiers: Neon, Supabase). **Strongly recommended** — without it accounts, sessions and receipts live on the ephemeral disk and every deploy wipes them |
    | `SEED_USERS` | JSON array of the agent/farmer accounts to provision at every boot; sign-up accounts die with each redeploy (ephemeral disk), these do not |
    | `MAIL_USER`, `MAIL_PASSWORD` | a Gmail address + Google App Password; verification codes are emailed to the inbox instead of logged |
    | `CORS_ORIGINS` | `http://localhost:5173` for now; step 3 changes it |

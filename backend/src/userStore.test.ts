@@ -177,3 +177,28 @@ describe("plaintext never escapes", () => {
     assert.equal("password" in toPublicUser(record), false, "no plaintext in API responses");
   });
 });
+
+describe("pluggable persistence", () => {
+  it("keeps accounts across store restarts over any persistence", async () => {
+    // The shape the database implementation provides: one shared document.
+    let document: unknown = null;
+    const persistence = {
+      read: async () => {
+        if (document === null) {
+          throw Object.assign(new Error("empty"), { code: "ENOENT" });
+        }
+        return document;
+      },
+      write: async (data: unknown) => {
+        document = data;
+      }
+    };
+    const first = createUserStore(persistence);
+    await first.create({ role: "agent", name: "Agent", email: "agent@example.com", wallet: "0x0", provider: "password" }, "Password#1");
+
+    const second = createUserStore(persistence);
+    const found = await second.findByEmail("agent@example.com");
+    assert.ok(found, "the account survived the restart");
+    assert.equal(found.name, "Agent");
+  });
+});

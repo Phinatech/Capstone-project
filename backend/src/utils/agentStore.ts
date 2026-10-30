@@ -10,8 +10,7 @@
  * landing together cannot truncate the ledger, and commission is computed
  * here rather than trusted from the client.
  */
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { filePersistence, type StorePersistence } from "./persistence.js";
 
 export type PaymentMethod = "cash" | "bank_transfer" | "mobile_money";
 
@@ -135,14 +134,16 @@ export interface AgentStore {
  * A ledger backed by one JSON file. The path is a parameter so tests can point
  * at a temporary file without fighting the env-configured default.
  */
-export function createAgentStore(filePath: string): AgentStore {
+export function createAgentStore(target: string | StorePersistence): AgentStore {
+  const storage = typeof target === "string" ? filePersistence(target) : target;
+  const where = typeof target === "string" ? target : "the sales ledger";
   let cached: AgentSale[] | null = null;
   let writeChain: Promise<unknown> = Promise.resolve();
 
   async function load(): Promise<AgentSale[]> {
     if (cached) return cached;
     try {
-      const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
+      const parsed: unknown = await storage.read();
       if (!Array.isArray(parsed)) throw new Error("expected a JSON array");
       cached = parsed as AgentSale[];
       return cached;
@@ -153,15 +154,12 @@ export function createAgentStore(filePath: string): AgentStore {
         cached = [];
         return cached;
       }
-      throw new Error(`${filePath} could not be read: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`${where} could not be read: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async function write(sales: AgentSale[]): Promise<void> {
-    await mkdir(dirname(filePath), { recursive: true });
-    const temp = `${filePath}.tmp`;
-    await writeFile(temp, `${JSON.stringify(sales, null, 2)}\n`, "utf8");
-    await rename(temp, filePath);
+    await storage.write(sales);
     cached = sales;
   }
 
