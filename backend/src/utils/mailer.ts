@@ -9,31 +9,48 @@
 import nodemailer from "nodemailer";
 import { config } from "../config.js";
 
-const transport =
+const candidates =
   config.mailUser && config.mailPassword
-    ? nodemailer.createTransport({
-        host: config.mailHost,
-        port: config.mailPort,
-        secure: config.mailPort === 465,
-        auth: { user: config.mailUser, pass: config.mailPassword }
-      })
-    : null;
+    ? [
+        { host: config.mailHost, port: config.mailPort, secure: config.mailPort === 465, requireTLS: config.mailPort !== 465 },
+        // Some hosts (Render among them) black-hole outbound SMTP on 465,
+        // hanging the request until the OS gives up. Fall back to STARTTLS on
+        // 587, and never let a blocked port stall an HTTP request for minutes.
+        ...(config.mailPort !== 587
+          ? [{ host: config.mailHost, port: 587, secure: false, requireTLS: true }]
+          : [])
+      ].map((c) => ({
+        ...c,
+        auth: { user: config.mailUser, pass: config.mailPassword },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000
+      }))
+    : [];
 
 /** True when a mail service is configured. */
 export function mailConfigured(): boolean {
-  return transport !== null;
+  return candidates.length > 0;
 }
 
-/** Sends a plain-text message; false when unconfigured or the send failed. */
+/**
+ * Sends a plain-text message, trying each transport in turn; false when
+ * unconfigured or every attempt failed. The fallback keeps working mail
+ * working even where one SMTP port is unreachable.
+ */
 export async function sendMail(to: string, subject: string, text: string): Promise<boolean> {
-  if (!transport) return false;
-  try {
-    await transport.sendMail({ from: config.mailFrom, to, subject, text });
-    return true;
-  } catch (err) {
-    console.error(`[mail] could not send to ${to}: ${err instanceof Error ? err.message : String(err)}`);
-    return false;
+  for (const options of candidates) {
+    try {
+      await nodemailer.createTransport(options).sendMail({ from: config.mailFrom, to, subject, text });
+      if (options.port !== candidates[0]?.port) {
+        console.log(`[mail] ${options.host}:${config.mailPort} was unreachable; delivered via port ${options.port}`);
+      }
+      return true;
+    } catch (err) {
+      console.error(`[mail] port ${options.port} failed for ${to}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
+  return false;
 }
 
 const SIGNATURE = "Sokoto Rainfall Cover — weather-index insurance on Sepolia.";
