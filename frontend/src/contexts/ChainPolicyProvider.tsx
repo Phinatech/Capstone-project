@@ -15,8 +15,32 @@ import type { User } from '../types/user';
 
 type Connection =
   {phase: 'connecting';} |
-  {phase: 'ready';provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;} |
+  {phase: 'ready';provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;rpcUrl: string;} |
   {phase: 'failed';reason: string;};
+
+/** Public Sepolia nodes tried when the configured one cannot answer. */
+const RPC_FALLBACKS = [
+  'https://ethereum-sepolia-rpc.publicnode.com',
+  'https://sepolia.drpc.org',
+  'https://rpc.sepolia.org'
+];
+
+/**
+ * The first Sepolia node that answers, preferring the configured one. Some
+ * hosts rate-limit hard, and one busy tab must not be able to take the whole
+ * app down with it.
+ */
+async function resolveRpcUrl(preferred: string): Promise<string | null> {
+  for (const url of [preferred, ...RPC_FALLBACKS]) {
+    try {
+      BigInt(await rpc(url, 'eth_chainId'));
+      return url;
+    } catch {
+      /* try the next node */
+    }
+  }
+  return null;
+}
 
 async function rpc(url: string, method: string, timeoutMs = 3000, params: unknown[] = []): Promise<string> {
   const ctrl = new AbortController();
@@ -38,10 +62,15 @@ async function rpc(url: string, method: string, timeoutMs = 3000, params: unknow
 
 async function connect(config: ChainConfig): Promise<Connection> {
   let chainId: bigint;
+  let rpcUrl: string;
   try {
-    chainId = BigInt(await rpc(config.rpcUrl, 'eth_chainId'));
+    rpcUrl = (await resolveRpcUrl(config.rpcUrl))!;
+    chainId = BigInt(await rpc(rpcUrl, 'eth_chainId'));
   } catch {
-    return { phase: 'failed', reason: `No chain node answered at ${config.rpcUrl}. The RPC may be down or rate-limiting — try again in a moment.` };
+    return {
+      phase: 'failed',
+      reason: `No Sepolia node answered (tried ${config.rpcUrl} and the public fallbacks). The network or an RPC may be down or rate-limiting; try again in a moment.`
+    };
   }
 
   // For non-local chains, try browser wallet first
@@ -57,14 +86,14 @@ async function connect(config: ChainConfig): Promise<Connection> {
         // that as "not enough ETH in your agent wallet".
         let code: string | null = null;
         try {
-          code = await rpc(config.rpcUrl, 'eth_getCode', 8000, [config.insuranceAddress, 'latest']);
+          code = await rpc(rpcUrl, 'eth_getCode', 8000, [config.insuranceAddress, 'latest']);
         } catch {
           // Same endpoint answered eth_chainId moments ago, so an RPC blip
           // must not cost us the wallet. Only a definite "no code here"
           // should, and that is the '0x' below.
         }
         if (code !== '0x') {
-          return { phase: 'ready', provider: browserProvider, chainId, accounts, isWallet: true };
+          return { phase: 'ready', provider: browserProvider, chainId, accounts, isWallet: true, rpcUrl };
         }
       }
     } catch {
@@ -73,7 +102,7 @@ async function connect(config: ChainConfig): Promise<Connection> {
   }
 
   // Local chain or fallback: read-only with unlocked accounts
-  const provider = new JsonRpcProvider(config.rpcUrl, Network.from(chainId), { staticNetwork: true, pollingInterval: 2000 });
+  const provider = new JsonRpcProvider(rpcUrl, Network.from(chainId), { staticNetwork: true, pollingInterval: 2000 });
   if ((await provider.getCode(config.insuranceAddress)) === '0x') {
     provider.destroy();
     return {
@@ -82,7 +111,7 @@ async function connect(config: ChainConfig): Promise<Connection> {
     };
   }
   const accounts: string[] = chainId === LOCAL_CHAIN_ID ? await provider.send('eth_accounts', []) : [];
-  return { phase: 'ready', provider, chainId, accounts, isWallet: false };
+  return { phase: 'ready', provider, chainId, accounts, isWallet: false, rpcUrl };
 }
 
 /** Policies read from, and transactions sent to, the deployed contracts. */
@@ -120,7 +149,7 @@ export function ChainPolicyProvider({ config, children }: {config: ChainConfig;c
     return <ErrorPage fullScreen error={new Error(conn.reason)} onRetry={() => setAttempt((a) => a + 1)} />;
   }
   return (
-    <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts} isWallet={conn.isWallet}>
+    <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts} isWallet={conn.isWallet} rpcUrl={conn.rpcUrl}>
       {children}
     </ChainData>);
 
@@ -284,10 +313,11 @@ function ChainData({
   chainId,
   accounts,
   isWallet,
+  rpcUrl,
   children
 
 
-}: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;children: React.ReactNode;}) {
+}: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;rpcUrl: string;children: React.ReactNode;}) {
   const { user } = useAuth();
   const { notify } = useNotifications();
   // The wallet's account list is captured when the page loads. Once the user
@@ -331,8 +361,8 @@ function ChainData({
   // form reported that as an empty wallet. This is the RPC that just answered
   // eth_chainId and eth_getCode, so it is the one worth asking.
   const readProvider = useMemo(
-    () => new JsonRpcProvider(config.rpcUrl, Network.from(chainId), { staticNetwork: true, pollingInterval: 2000 }),
-    [config.rpcUrl, chainId]
+    () => new JsonRpcProvider(rpcUrl, Network.from(chainId), { staticNetwork: true, pollingInterval: 2000 }),
+    [rpcUrl, chainId]
   );
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
