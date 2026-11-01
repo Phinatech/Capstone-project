@@ -13,7 +13,7 @@ const LENGTH = 6;
 const RESEND_SECONDS = 30;
 
 export function VerifyEmail() {
-  const { user, verifyEmail, resendVerification, signOut } = useAuth();
+  const { user, verifyEmail, resendVerification, signOut, refreshUser } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
   const [digits, setDigits] = useState<string[]>(Array(LENGTH).fill(''));
@@ -47,6 +47,27 @@ export function VerifyEmail() {
     const id = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => window.clearTimeout(id);
   }, [cooldown]);
+
+  // The account can be verified elsewhere while this screen sits open (another
+  // tab, a second device, or an operator acting on the account), so the page
+  // re-reads the session when it first shows and whenever the window regains
+  // focus. The redirect guard below then sends a verified account straight to
+  // its portal instead of waiting for a code that will never be needed.
+  useEffect(() => {
+    if (user?.emailVerified !== false || submitting) return;
+    let last = 0;
+    const catchUp = (minGapMs: number) => async () => {
+      const now = Date.now();
+      if (now - last < minGapMs) return;
+      last = now;
+      await refreshUser();
+    };
+    void catchUp(0)();
+    const onFocus = catchUp(10_000);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.emailVerified, submitting, refreshUser]);
 
   if (!user) return <Navigate to="/sign-in" replace />;
   if (user.emailVerified !== false && !submitting) return <Navigate to={homePath(user)} replace />;
@@ -101,7 +122,8 @@ export function VerifyEmail() {
       title={t('verify.title')}
       subtitle={<span className="break-words">{t('verify.subtitle', { email: user.email })}</span>}
       footer={
-      <button
+      <div className="flex flex-col items-center gap-2">
+        <button
         type="button"
         onClick={async () => {
           await signOut();
@@ -111,6 +133,19 @@ export function VerifyEmail() {
         
           {t('verify.wrongAccount')}
         </button>
+        <button
+        type="button"
+        onClick={async () => {
+          // Signing out first keeps the cookie state honest: the sign-in
+          // screen assumes nobody is authenticated.
+          await signOut();
+          navigate('/sign-in', { replace: true });
+        }}
+        className="text-sm font-medium text-accent hover:underline">
+        
+          {t('verify.backToSignIn')}
+        </button>
+      </div>
       }>
       
       <form

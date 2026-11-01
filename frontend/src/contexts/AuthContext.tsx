@@ -72,6 +72,8 @@ interface AuthContextValue {
   changePassword: (current: string, next: string) => Promise<void>;
   /** Whether this account signs in with a password rather than Google. */
   userHasPassword: () => boolean;
+  /** Re-reads the session from the server, so a page left open can catch up. */
+  refreshUser: () => Promise<User | null>;
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -234,6 +236,18 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
     }
   }, []);
 
+  /** Re-reads the session, so a page left open since before an out-of-band
+   * change (like an operator verifying an account) can catch up. */
+  const refreshUser = useCallback(async () => {
+    try {
+      const { user: fresh } = await api<{ user: User | null }>('/auth/session');
+      setUser(fresh);
+      return fresh;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       // Revokes server-side as well as clearing the cookie: a stolen session
@@ -259,6 +273,7 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
       updateProfile,
       changePassword,
       userHasPassword,
+      refreshUser,
       deleteAccount,
       signOut
     }),
@@ -275,6 +290,7 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
       updateProfile,
       changePassword,
       userHasPassword,
+      refreshUser,
       deleteAccount,
       signOut
     ]
