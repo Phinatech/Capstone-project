@@ -26,7 +26,7 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 
 ## 2. Walkthrough video
 
-**Walkthrough video — recording in progress; the link will appear here when it is up** *(≈10 min)*: core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance and compatibility notes. The scene-by-scene plan is in [`docs/demo-script.md`](docs/demo-script.md).
+**Walkthrough video — recording finished; the link will appear here when it is uploaded** *(≈10 min)*: core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance and compatibility notes. The scene-by-scene plan is in [`docs/demo-script.md`](docs/demo-script.md).
 
 ## 3. Technical report
 
