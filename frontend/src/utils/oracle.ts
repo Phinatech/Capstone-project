@@ -119,11 +119,14 @@ export function windowRainfallMm(
     const row = dekads.find((d) => d.period === period);
     if (!row) return null;
     // A source with no reading is left out and the weights renormalise over
-    // those that reported, which is what the aggregator does on-chain.
-    const reported = SOURCE_IDS.filter((id) => row[id] !== null && rep[id].weight > 0);
-    const weightSum = reported.reduce((s, id) => s + rep[id].weight, 0);
+    // those that reported, which is what the aggregator does on-chain. A
+    // missing reputation entry counts as weight zero: while the oracle data
+    // is still loading (or its fetch failed) the sources simply drop out
+    // instead of crashing the caller.
+    const reported = SOURCE_IDS.filter((id) => row[id] !== null && (rep[id]?.weight ?? 0) > 0);
+    const weightSum = reported.reduce((s, id) => s + (rep[id]?.weight ?? 0), 0);
     if (reported.length === 0 || weightSum <= 0) return null;
-    total += reported.reduce((s, id) => s + rep[id].weight * (row[id] as number), 0) / weightSum;
+    total += reported.reduce((s, id) => s + (rep[id]?.weight ?? 0) * (row[id] as number), 0) / weightSum;
   }
   return total;
 }

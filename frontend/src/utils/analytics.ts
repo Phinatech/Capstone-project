@@ -96,7 +96,9 @@ export function triggerMargins(policies: Policy[], windows: WindowOption[], rain
   const rows: { id: number;ratio: number;thresholdMm: number;rainfall: number;}[] = [];
   for (const p of policies) {
     const rain = rainfallOf(periodsById.get(p.windowId) ?? []);
-    if (rain === null || rain <= 0) continue;
+    // Skip not only null but NaN: a partial computation must never leak a
+    // number the charts cannot draw.
+    if (!(rain as number > 0)) continue;
     rows.push({ id: p.id, ratio: p.thresholdMm / rain, thresholdMm: p.thresholdMm, rainfall: rain });
   }
   return rows;

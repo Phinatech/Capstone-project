@@ -26,14 +26,17 @@ export function setDirectory(users: User[] | ((prev: User[]) => User[])): void {
 }
 
 /**
- * Fetches the directory. Called once at start-up; failures leave the built-in
- * accounts in place, because a name lookup is not worth failing the app over.
+ * Fetches the directory. Called at start-up; failures retry with a backoff,
+ * because a cold host can fail one request and a session must not be left
+ * with an empty directory all day. A name lookup is never worth failing the
+ * app over, so the built-in accounts stand in meanwhile.
  */
 export async function loadDirectory(): Promise<void> {
-  try {
-    const res = await fetch(`${API_URL}/api/users/directory`, { credentials: 'include' });
-    if (!res.ok) return;
-    const body = (await res.json()) as { users?: unknown };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch(`${API_URL}/api/users/directory`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`the directory answered ${res.status}`);
+      const body = (await res.json()) as { users?: unknown };
     if (Array.isArray(body.users)) setDirectory(body.users as User[]);
   } catch {
     /* the seeded list still renders */
