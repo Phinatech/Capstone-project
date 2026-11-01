@@ -37,9 +37,13 @@ export async function loadDirectory(): Promise<void> {
       const res = await fetch(`${API_URL}/api/users/directory`, { credentials: 'include' });
       if (!res.ok) throw new Error(`the directory answered ${res.status}`);
       const body = (await res.json()) as { users?: unknown };
-    if (Array.isArray(body.users)) setDirectory(body.users as User[]);
-  } catch {
-    /* the seeded list still renders */
+      if (Array.isArray(body.users)) setDirectory(body.users as User[]);
+      return;
+    } catch {
+      // A cold host can fail a single request, so wait and try again rather
+      // than leave the whole session with an empty directory.
+      await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+    }
   }
 }
 

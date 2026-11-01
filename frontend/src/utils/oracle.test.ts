@@ -124,3 +124,14 @@ describe('runBacktest', () => {
     });
   });
 });
+
+describe('missing oracle data never crashes the caller', () => {
+  it('windowRainfallMm returns null when reputation entries are absent', () => {
+    // While the oracle-trust fetch is still loading (or failed on a cold
+    // host) the reputation table is empty. That used to throw inside the
+    // weighting maths and take the whole page down with it.
+    const dekads = [{ period: 2026101, label: 'Oct D1', chirps: 10, nasa: 10, meteostat: 10 }];
+    const rain = windowRainfallMm([2026101], dekads, {});
+    assert.equal(rain, null);
+  });
+});
