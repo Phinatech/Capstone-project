@@ -2,7 +2,7 @@
 
 **Weather-index insurance on Ethereum: automatic drought cover for smallholder farmers in Sokoto State, Nigeria.**
 
-If rainfall during the coverage window falls below the threshold a farmer chooses at purchase, the smart contract pays them **automatically**, with no claim form and no assessor. Rainfall comes from three independent sources (CHIRPS, NASA POWER, Meteostat) aggregated on-chain with **reputation weighting**, so no single source can decide a claim.
+If rainfall during the coverage window falls below the threshold a farmer chooses at purchase, the smart contract pays them **automatically** — no claim form, no assessor. Rainfall comes from three independent sources (CHIRPS, NASA POWER, Meteostat) aggregated on-chain with **reputation weighting**, so no single source can decide a claim.
 
 **Live:** [sokoto-cover.pages.dev](https://sokoto-cover.pages.dev) · **Chain:** Ethereum Sepolia (`0x8520A0697D018a380a91CB65096AB50F5B65D6D5`)
 
@@ -18,34 +18,34 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 
 **Key properties**
 
-- **Claims-free settlement**: `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
-- **Multi-source oracle**: three measurement families, reputation-weighted aggregation, and a corrupted source moves the aggregate by **9%** against **59%** under equal weights
-- **Three portals**: farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
-- **Oracle research tools**: a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
-- **293 automated tests** and a documented security audit with regression-pinned fixes
+- **Claims-free settlement** — `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
+- **Multi-source oracle** — three measurement families with reputation-weighted aggregation; a corrupted source moves the aggregate by **9%** against **59%** under equal weights
+- **Three portals** — farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
+- **Oracle research tools** — a consensus simulator (corrupt a source, compare strategies) and a backtest over 121 historical dekads
+- **293 automated tests** — plus a documented security audit with regression-pinned fixes
 
 ## 2. Walkthrough video
 
-**Walkthrough video — recording finished; the link will appear here when it is uploaded** *(≈10 min)*: core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance and compatibility notes. The scene-by-scene plan is in [`docs/demo-script.md`](docs/demo-script.md).
+**Walkthrough video (≈10 min) — recorded; hosted link to be added here:** core functionality, backend/frontend interaction, error handling with varied inputs, the two testing strategies, and performance and compatibility notes. The scene-by-scene plan is in `https://drive.google.com/file/d/1r0xZxq8t9EYN0vYECL4YbLOJk6zt91xd/view?usp=sharing`.
 
 ## 3. Technical report
 
-**[Technical report (PDF, 5 pages)](docs/technical-report.pdf)**: scope alignment, technical functionality, testing approaches and results, code quality and algorithmic design.
+**[Technical report (PDF, 5 pages)](docs/technical-report.pdf)** — scope alignment, technical functionality, testing approaches and results, code quality and algorithmic design.
 
 ## 4. Technical requirements
 
-| Layer | Technology | Version |
-|---|---|---|
-| Runtime | Node.js | ≥ 22.13 (`npm` workspaces) |
-| Contracts | Solidity · Hardhat 3 · OpenZeppelin patterns | Solidity 0.8.x |
-| Chain | Ethereum **Sepolia** testnet · ethers.js | ethers v6 |
-| Backend | Express · TypeScript · `node:test` | Node 22 |
-| Database | **Firebase Firestore** (free Spark plan) | firebase-admin SDK |
-| Frontend | React · Vite · TypeScript · Vitest · Tailwind-style CSS | React 18 · Vite 6 |
-| External APIs | CHIRPS (Climate Hazards Center), NASA POWER, Meteostat (RapidAPI) | n/a |
-| Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS | n/a |
-| Browser | Chrome, Edge, Firefox and Safari (with **MetaMask**) | n/a |
-| Hardware | Runs on low-end laptops and phones; mobile layout at 390 px | n/a |
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js ≥ 22.13 (`npm` workspaces) |
+| Contracts | Solidity 0.8.x · Hardhat 3 · OpenZeppelin patterns · Ignition deploy |
+| Chain | Ethereum **Sepolia** testnet · ethers.js v6 |
+| Backend | Express · TypeScript · `node:test` (Node 22) |
+| Database | Firebase Firestore (free Spark plan) · firebase-admin SDK |
+| Frontend | React 18 · Vite 6 · TypeScript · Vitest · Tailwind-style CSS |
+| External data | CHIRPS (Climate Hazards Center) · NASA POWER · Meteostat (RapidAPI) |
+| Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS |
+| Browsers | Chrome, Edge, Firefox, Safari — with MetaMask as the wallet |
+| Devices | Low-end laptops and phones; mobile layout verified at 390 px |
 
 ## 5. Installation and running locally
 
@@ -64,9 +64,9 @@ npm run dev:backend                # API + relayer on :3001
 npm run dev:frontend               # app on :5173 (proxies /api and /auth)
 ```
 
-**Tests**: `npm run test` (all workspaces, 293 tests) · `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
+**Tests** — `npm run test` runs all 293 across the workspaces · per suite: `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
 
-**Deployed setup**: frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
+**Deployed setup** — frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
 
 ## 6. Repository structure
 
@@ -92,10 +92,11 @@ docs/                technical-report.pdf · screenshots (10) · security-audit.
 
 | Suite | Count | Covers |
 |---|---|---|
-| Solidity (Hardhat) | 56 | premium maths, reserves invariant (fuzz), settlement, audit regressions |
-| Integration (Mocha + ethers) | 13 | full purchase-to-settlement lifecycle against real contracts |
-| Backend (`node:test`) | 193 | auth flows, stores, feeds, verification codes, sale verification |
-| Frontend (Vitest) | 20 | policy evaluation, aggregation, formatting |
+| Blockchain — Solidity (Hardhat) | 56 | premium maths, reserves invariant (fuzz), settlement, audit regressions |
+| Blockchain — integration (Mocha + ethers) | 13 | full purchase-to-settlement lifecycle against real contracts |
+| Backend (`node:test`) | 203 | auth flows, stores, feeds, verification codes, sale verification |
+| Frontend (Vitest) | 21 | policy evaluation, aggregation, formatting |
+| **Total** | **293** | |
 
 Two testing strategies are demonstrated in the video: **unit/functional** (contract invariants and store logic) and **integration/end-to-end** (real HTTP with cookie jars, real chain reads, live deployment). Performance and compatibility measurements are in §3.4 of the technical report.
 
@@ -108,8 +109,9 @@ Two testing strategies are demonstrated in the video: **unit/functional** (contr
 | [Security audit](docs/security-audit.md) | Findings, fixes, regression tests |
 | [Backtest results](docs/backtest-results.md) | Oracle accuracy study (121 dekads) |
 | [Debugging journal](docs/debugging-journal.md) | Five production bugs, diagnosed and fixed |
+| [Demo script](docs/demo-script.md) | Scene-by-scene plan for the walkthrough video |
 | [Licences](docs/licenses.md) | Third-party components and data attributions |
 
 ## 9. License
 
-MIT. See [LICENSE](LICENSE). Data sources: CHIRPS, NASA POWER, Meteostat (attribution required).
+MIT — see [LICENSE](LICENSE). Data sources CHIRPS, NASA POWER and Meteostat require attribution.
