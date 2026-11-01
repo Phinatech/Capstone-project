@@ -117,7 +117,7 @@ Show each of these and read the error out loud. You do not need to explain much.
 2. While it runs, talk:
 
 **Say:**
-> "Two testing approaches were used. The first is unit and functional testing. The contract rules are the product's fairness guarantees, so they are tested directly: premium maths, reserve limits with a fuzz test, settlement happening once and only below threshold. The whole suite is 292 tests, and it caught real bugs during development, including a broken resend route and a password that was being stored in clear text."
+> "Two testing approaches were used. The first is unit and functional testing. The contract rules are the product's fairness guarantees, so they are tested directly: premium maths, reserve limits with a fuzz test, settlement happening once and only below threshold. The whole suite is 293 tests, and it caught real bugs during development, including a broken resend route and a password that was being stored in clear text."
 
 3. When the green summary appears, point at it.
 
