@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Policy, SourceId } from '../types/insurance';
+import type { ReputationTable } from './oracle';
 import {
   aggregate,
+  windowRainfallMm,
   applyCorruption,
   computeReputation,
   evaluatePolicy,
@@ -131,7 +133,7 @@ describe('missing oracle data never crashes the caller', () => {
     // host) the reputation table is empty. That used to throw inside the
     // weighting maths and take the whole page down with it.
     const dekads = [{ period: 2026101, label: 'Oct D1', chirps: 10, nasa: 10, meteostat: 10 }];
-    const rain = windowRainfallMm([2026101], dekads, {});
-    assert.equal(rain, null);
+    const rain = windowRainfallMm([2026101], dekads, {} as ReputationTable);
+    expect(rain).toBeNull();
   });
 });
