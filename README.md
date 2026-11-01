@@ -22,7 +22,7 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 - **Multi-source oracle**: three measurement families, reputation-weighted aggregation, and a corrupted source moves the aggregate by **9%** against **59%** under equal weights
 - **Three portals**: farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
 - **Oracle research tools**: a consensus simulator (corrupt a source and compare strategies) and a backtest over 121 historical dekads
-- **292 automated tests** and a documented security audit with regression-pinned fixes
+- **293 automated tests** and a documented security audit with regression-pinned fixes
 
 ## 2. Walkthrough video
 
@@ -64,7 +64,7 @@ npm run dev:backend                # API + relayer on :3001
 npm run dev:frontend               # app on :5173 (proxies /api and /auth)
 ```
 
-**Tests**: `npm run test` (all workspaces, 292 tests) · `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
+**Tests**: `npm run test` (all workspaces, 293 tests) · `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
 
 **Deployed setup**: frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
 

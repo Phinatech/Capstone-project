@@ -18,7 +18,7 @@ The approved scope proposed a blockchain-based weather-index insurance system in
 | Admin console (policies, farmers and agents, analytics) | Operate and audit the scheme | **Completed** · M3 Portals | `/admin/*`; screenshots `05`, `06` |
 | Oracle research tools (consensus simulator, backtest) | Study and demonstrate the consensus design | **Completed** · M4 Research | `/admin/backtest`; 121 historical dekads (`backtest-results.md`) |
 | Notifications (in-app, email codes, SMS/Telegram) | Tell farmers about purchases and payouts | **Completed (SMS optional)** · M4 Research | real event notifications; email codes; SMS behind `SMS_PROVIDER` |
-| Testing and security audit | Validate and harden the system | **Completed** · M5 Validation | 292 tests; `security-audit.md`, fixes pinned by regressions |
+| Testing and security audit | Validate and harden the system | **Completed** · M5 Validation | 293 tests; `security-audit.md`, fixes pinned by regressions |
 | Deployment (public site and testnet) | Working product, end to end | **Completed** · M5 Validation | `sokoto-cover.pages.dev` + Render + Sepolia |
 | Fiat settlement (naira off-ramp) | Pay farmers in naira | **Not implemented; justified** · M6 Future | needs a licensed provider; receipts record the naira leg; future work |
 
@@ -64,7 +64,7 @@ The codebase is organised by layer (`blockchain/`, `backend/`, `frontend/`) with
 
 ### 3.3 Testing and validation
 
-**Strategy 1: unit and functional testing.** Selected because the contract invariants are the product's fairness guarantees. The suite runs 56 Solidity tests (including a fuzz test over pool reserves), 203 backend unit tests and 20 frontend tests. It covers premium maths (10% of the payout, rounded up), reverting sales the pool cannot cover, payouts that happen once and only below the threshold, and every audit finding pinned by a named regression test. Result: 292 tests green, and the suite caught real defects (a GET-versus-POST resend route, a password stored in clear text at seed time, tests writing into production data), each fixed and pinned.
+**Strategy 1: unit and functional testing.** Selected because the contract invariants are the product's fairness guarantees. The suite runs 56 Solidity tests (including a fuzz test over pool reserves), 203 backend unit tests and 21 frontend tests. It covers premium maths (10% of the payout, rounded up), reverting sales the pool cannot cover, payouts that happen once and only below the threshold, and every audit finding pinned by a named regression test. Result: 293 tests green in total (the 13 integration scenarios of Strategy 2 included), and the suite caught real defects (a GET-versus-POST resend route, a password stored in clear text at seed time, tests writing into production data), each fixed and pinned.
 
 **Strategy 2: integration and end-to-end testing.** Selected because the guarantees span HTTP, storage, wallet and chain. Mocha drives the contracts through ethers.js as the application does (13 scenarios); auth routes run against a real Express server with cookie jars; the deployed system was exercised live, and the first policy was bought and paid out autonomously. Result: flows verified in production. Failures traced to wallet infrastructure (stale RPC state, wrong network) led to hardening: gas pre-estimated on the app's own RPC, account switches followed, wrong-chain signing refused.
 
