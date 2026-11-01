@@ -16,6 +16,7 @@ import {
 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/PageHeader';
+import { useI18n } from '../contexts/I18nContext';
 import { Avatar } from '../components/Avatar';
 import { ActivityList } from '../components/ActivityList';
 import { TextField, fieldInputClass } from '../components/auth/TextField';
@@ -28,6 +29,7 @@ import { buildActivity } from '../utils/activity';
 import type { ProfilePatch } from '../types/user';
 
 export function Profile() {
+  const { t } = useI18n();
   const { user, updateProfile } = useAuth();
   const { policies, balanceOf, walletOf, source } = usePolicies();
   const [editing, setEditing] = useState(false);
@@ -132,7 +134,7 @@ export function Profile() {
               {user.emailVerified !== false && <BadgeCheckIcon className="h-4 w-4 shrink-0 text-accent" aria-label="Verified" />}
             </h2>
             <p className="truncate text-sm text-muted">
-              {isFarmer ? `Smallholder farmer${user.primaryCrop ? ` · ${user.primaryCrop}` : ''}${user.farmSizeHa ? ` · ${user.farmSizeHa} ha` : ''}` : user.title ?? 'Administrator'}
+              {isFarmer ? `Smallholder farmer${user.primaryCrop ? ` · ${user.primaryCrop}` : ''}${user.farmSizeHa ? ` · ${user.farmSizeHa} ha` : ''}` : user.title || t(user.role === 'agent' ? 'role.agent' : user.role === 'admin' ? 'role.admin' : 'role.farmer')}
             </p>
           </div>
           <button
