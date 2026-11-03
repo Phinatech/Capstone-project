@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangleIcon, BellIcon, CheckIcon, GlobeIcon, KeyRoundIcon, Loader2Icon, PaletteIcon, RotateCcwIcon, ShieldIcon, SparklesIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/PageHeader';
@@ -293,6 +293,9 @@ export function Settings() {
           </Card>
 
           <Card id="danger" title={t('settings.account')} hint={t('settings.accountHint')}>
+            <p className="mb-3 text-sm text-muted">
+              <Link to="/terms#privacy" className="font-medium text-accent hover:underline">{t('legal.link')}</Link>
+            </p>
             <div className="flex flex-col gap-3 rounded-lg border border-line bg-danger-soft p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-danger">{t('settings.deleteAccount')}</p>

@@ -7,6 +7,7 @@ import { ThemeMenu } from '../layout/ThemeMenu';
 import { PreferencesMenu } from '../layout/PreferencesMenu';
 import { useI18n } from '../../contexts/I18nContext';
 import { oracleSources } from '../../data/rainfall';
+import { Link } from 'react-router-dom';
 
 interface AuthLayoutProps {
   title: string;
@@ -80,6 +81,9 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
             <div className="mt-1.5 text-sm text-muted">{subtitle}</div>
             <div className="mt-5 sm:mt-8">{children}</div>
             {footer && <div className="mt-6 text-center text-sm text-muted">{footer}</div>}
+            <p className="mt-4 text-center text-xs text-muted">
+              <Link to="/terms" className="hover:text-ink hover:underline">{t('legal.footerLink')}</Link>
+            </p>
           </motion.div>
         </div>
       </div>

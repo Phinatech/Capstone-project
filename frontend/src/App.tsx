@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -27,6 +27,7 @@ const ForgotPassword = page(() => import('./pages/auth/ForgotPassword'), 'Forgot
 const ResetPassword = page(() => import('./pages/auth/ResetPassword'), 'ResetPassword');
 const VerifyEmail = page(() => import('./pages/auth/VerifyEmail'), 'VerifyEmail');
 const AuthCallback = page(() => import('./pages/AuthCallback'), 'AuthCallback');
+const Legal = page(() => import('./pages/Legal'), 'Legal');
 const Profile = page(() => import('./pages/Profile'), 'Profile');
 const Settings = page(() => import('./pages/Settings'), 'Settings');
 const Notifications = page(() => import('./pages/Notifications'), 'Notifications');
@@ -66,6 +67,8 @@ function AppRoutes() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/terms" element={<Legal />} />
+            <Route path="/privacy" element={<Navigate to="/terms#privacy" replace />} />
             <Route path="/error" element={<ErrorPage fullScreen />} />
 
             <Route

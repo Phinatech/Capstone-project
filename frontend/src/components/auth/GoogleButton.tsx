@@ -4,6 +4,7 @@ import { useScript } from '../../hooks/useScript';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { GOOGLE_CLIENT_ID } from '../../data/authConfig';
+import { WithTermsLink } from '../TermsLink';
 
 export const GOOGLE_PENDING_KEY = 'sokoto-cover-google-pending';
 
@@ -74,8 +75,17 @@ export function GoogleButton({ mode }: GoogleButtonProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useGis, status, resolvedMode, language, mode]);
 
+  // Google sign-up skips the form and its checkbox, so the agreement is
+  // stated where the button is.
+  const consent = <p className="mt-2 text-center text-xs leading-snug text-muted"><WithTermsLink text={t('auth.googleConsent')} /></p>;
+
   if (useGis) {
-    return <div ref={container} className="flex min-h-[44px] w-full justify-center" aria-label={label} />;
+    return (
+      <div>
+        <div ref={container} className="flex min-h-[44px] w-full justify-center" aria-label={label} />
+        {consent}
+      </div>);
+
   }
 
   // No Client ID configured, so there is no button Google can issue a token

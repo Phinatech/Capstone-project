@@ -8,6 +8,7 @@ import { TextField, fieldInputClass } from '../components/auth/TextField';
 import { PasswordField } from '../components/auth/PasswordField';
 import { TurnstileWidget } from '../components/auth/TurnstileWidget';
 import { GoogleButton } from '../components/auth/GoogleButton';
+import { WithTermsLink } from '../components/TermsLink';
 import { AuthDivider, submitButtonClass } from '../components/auth/AuthDivider';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -192,7 +193,7 @@ export function SignUp() {
               onChange={(e) => setAgreed(e.target.checked)}
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-[var(--accent)]" />
             
-            <span className="leading-snug">{t('auth.terms')}</span>
+            <span className="leading-snug"><WithTermsLink text={t('auth.termsAgree')} /></span>
           </label>
           {errors.terms && <p className="mt-1.5 text-xs text-danger">{t(errors.terms)}</p>}
         </div>

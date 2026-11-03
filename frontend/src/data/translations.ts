@@ -1,4 +1,5 @@
 import * as activity from './i18n/activity';
+import * as legal from './i18n/legal';
 import * as placeholders from './i18n/placeholders';
 import * as tour from './i18n/tour';
 import * as research from './i18n/research';
@@ -105,7 +106,6 @@ export const en = {
   'auth.demoHint': 'Select an account to fill the form and sign in.',
   'auth.signingIn': 'Signing in…',
   'auth.creating': 'Creating account…',
-  'auth.terms': 'I agree that payouts are decided by rainfall data, not farm visits.',
   'auth.securityCheck': 'Security check',
   'auth.securityLoading': 'Loading security check…',
   'auth.securityFailed': "Security check couldn't load.",
@@ -222,6 +222,7 @@ export const en = {
   'notFound.title': 'Page not found',
   'notFound.body': "The page you're looking for doesn't exist or has moved.",
   ...activity.en,
+  ...legal.en,
   ...placeholders.en,
   ...tour.en,
   ...research.en,
@@ -324,7 +325,6 @@ export const ha: Dictionary = {
   'auth.demoHint': 'Zaɓi asusu don cike fom ɗin ka shiga.',
   'auth.signingIn': 'Ana shiga…',
   'auth.creating': 'Ana buɗe asusu…',
-  'auth.terms': 'Na yarda cewa bayanan ruwan sama ne ke yanke biyan kuɗi, ba ziyarar gona ba.',
   'auth.securityCheck': 'Binciken tsaro',
   'auth.securityLoading': 'Ana loda binciken tsaro…',
   'auth.securityFailed': 'Binciken tsaro bai loda ba.',
@@ -441,6 +441,7 @@ export const ha: Dictionary = {
   'notFound.title': 'Ba a sami shafin ba',
   'notFound.body': 'Shafin da kake nema babu shi ko an motsa shi.',
   ...activity.ha,
+  ...legal.ha,
   ...placeholders.ha,
   ...tour.ha,
   ...research.ha,
@@ -540,7 +541,6 @@ export const fr: Dictionary = {
   'auth.demoHint': 'Choisissez un compte pour remplir le formulaire et vous connecter.',
   'auth.signingIn': 'Connexion…',
   'auth.creating': 'Création du compte…',
-  'auth.terms': 'J’accepte que les indemnisations soient décidées par les données de pluie, et non par des visites.',
   'auth.securityCheck': 'Vérification de sécurité',
   'auth.securityLoading': 'Chargement de la vérification…',
   'auth.securityFailed': 'La vérification n’a pas pu se charger.',
@@ -657,6 +657,7 @@ export const fr: Dictionary = {
   'notFound.title': 'Page introuvable',
   'notFound.body': 'La page que vous cherchez n’existe pas ou a été déplacée.',
   ...activity.fr,
+  ...legal.fr,
   ...placeholders.fr,
   ...tour.fr,
   ...research.fr,
