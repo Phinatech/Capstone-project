@@ -75,6 +75,31 @@ router.get("/readings", cachedRead("readings", READINGS_TTL, readReadings, (read
 router.get("/evaluations", cachedRead("evaluations", EVALUATIONS_TTL, readPolicyEvaluations, (evaluations) => ({ evaluations })));
 
 /**
+ * Keeps the reads every page needs warm: once at start-up, then every two
+ * minutes, so the first visitor after a restart or a quiet spell is served
+ * from cache instead of waiting on the chain. One at a time, to stay gentle
+ * on the RPC; a failure is logged and retried on the next round.
+ */
+export function startCacheWarmer(): void {
+  const reads: [string, number, () => Promise<unknown>][] = [
+    ["policies", POLICIES_TTL, readPolicies],
+    ["windows", WINDOWS_TTL, readWindows],
+    ["oracles", ORACLES_TTL, readOracles],
+    ["evaluations", EVALUATIONS_TTL, readPolicyEvaluations],
+    ["pool", POOL_TTL, readPool]
+  ];
+  const warm = async () => {
+    for (const [name, ttl, read] of reads) {
+      await withCache(name, ttl, read, { headBlock }).catch((err) =>
+        console.error(`[cache] could not warm ${name}:`, err instanceof Error ? err.message : err)
+      );
+    }
+  };
+  void warm();
+  setInterval(() => void warm(), 2 * 60_000).unref();
+}
+
+/**
  * Naira quote used by the agent flow, where the farmer pays in local currency
  * and the contract is paid in ETH. Not chain data, so it is cached on its own
  * timer; a provider outage still answers, with `ethUsdSource`/`usdNgnSource`

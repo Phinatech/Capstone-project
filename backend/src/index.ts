@@ -7,7 +7,7 @@ import { authCodeStore, sessionStore, userStore } from "./authServices.js";
 import { demoRosterAccounts, legacyDemoIds, operatorAccounts } from "./utils/demoAccounts.js";
 import { parseSeedUsers } from "./utils/envAccounts.js";
 import { MAX_TOKEN_LENGTH, verifyTurnstileToken } from "./turnstile.js";
-import apiRouter from "./routes/api.js";
+import apiRouter, { startCacheWarmer } from "./routes/api.js";
 import { createAuthRouter } from "./routes/auth.js";
 
 const app = express();
@@ -120,6 +120,7 @@ const server = app.listen(config.port, () => {
   }
   startRelayer(config.oracleSources, config.relayerIntervalMinutes);
   startNotifier();
+  startCacheWarmer();
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

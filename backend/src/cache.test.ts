@@ -43,4 +43,30 @@ describe("withCache", () => {
     assert.equal(read.calls(), 1);
     assert.ok(Date.now() - started < 400, "a block far ahead of the node isn't waited for");
   });
+
+  it("serves an expired read at once and refreshes it in the background", async () => {
+    const read = reads("old", "new");
+    await withCache("swr", 1, read.fn, nodeAt(100));
+    await sleep(5);
+    assert.equal(await withCache("swr", 1, read.fn, nodeAt(101)), "old", "nobody waits for the re-read");
+    await sleep(5);
+    assert.equal(read.calls(), 2, "the re-read ran behind the scenes");
+    assert.equal(await withCache("swr", 60_000, read.fn, nodeAt(101)), "new");
+  });
+
+  it("shares one read between callers that arrive together", async () => {
+    let calls = 0;
+    const slow = async () => {
+      calls++;
+      await sleep(20);
+      return calls;
+    };
+    const results = await Promise.all([1, 2, 3].map(() => withCache("herd", 60_000, slow, nodeAt(100))));
+    assert.deepEqual(results, [1, 1, 1]);
+    assert.equal(calls, 1);
+  });
 });
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

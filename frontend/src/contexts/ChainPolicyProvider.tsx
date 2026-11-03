@@ -211,6 +211,25 @@ function writeMeta(insurance: string, id: number, entry: PolicyMeta[number]) {
 
 
 
+/** A balance read slower than this is left for the next block's refresh. */
+const BALANCE_TIMEOUT_MS = 6_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error('timed out')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(id);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(id);
+        reject(err);
+      }
+    );
+  });
+}
+
 function knownUsers(current: User | null): User[] {
   // Agents too, so the admin console can show an agent's wallet balance.
   const list = [...getTeam(), findUser('admin-1'), current].filter((u): u is User => !!u);
@@ -404,20 +423,24 @@ function ChainData({
   /** `minBlock`: ask the API for data read at or after this block, i.e. our own transaction's. */
   const load = useCallback(async (minBlock?: number): Promise<Snapshot> => {
     const users = knownUsers(user);
+    // Who owns a self-bought policy: each person's own wallet, with the account
+    // signing here (listed last) standing for the signed-in user. Mapping only
+    // the connected account left everyone else's purchases nameless.
     const idByAddress = new Map<string, string>();
     users.forEach((u) => {
-      const a = addressOf(u.id);
+      const a = walletFor(u);
       if (a) idByAddress.set(a.toLowerCase(), u.id);
     });
 
     // Fetch all data from the cached API instead of making dozens of RPC calls
     const apiUrl = '';
     const fresh = minBlock === undefined ? '' : `?minBlock=${minBlock}`;
-    const [policiesRes, oraclesRes, windowsRes, evaluationsRes] = await Promise.all([
+    const [policiesRes, oraclesRes, windowsRes, evaluationsRes, poolRes] = await Promise.all([
       fetch(`${apiUrl}/api/policies${fresh}`),
       fetch(`${apiUrl}/api/oracles${fresh}`),
       fetch(`${apiUrl}/api/windows${fresh}`),
       fetch(`${apiUrl}/api/evaluations${fresh}`),
+      fetch(`${apiUrl}/api/pool${fresh}`),
     ]);
 
     if (!policiesRes.ok || !oraclesRes.ok || !windowsRes.ok || !evaluationsRes.ok) {
@@ -511,28 +534,32 @@ function ChainData({
       policies.unshift(bought);
     }
 
+    // The admin console shows everyone's balance; anyone else needs only their
+    // own, so a farmer's page no longer waits on a read per registered user.
+    const balanceUsers = user?.role === 'admin' ? users : users.filter((u) => u.id === user?.id);
     const balances: Record<string, number> = {};
     await Promise.all(
-      users.map(async (u) => {
+      balanceUsers.map(async (u) => {
         const a = walletFor(u);
         if (!a) return;
-        // Neither read may take the snapshot down with it. A failed balance
-        // leaves the entry unset, and walletConnected is what lets the form
-        // call that "not connected" rather than "broke".
+        // Neither read may take the snapshot down with it, nor hold the page
+        // on a slow node. A failed balance leaves the entry unset, and
+        // walletConnected is what lets the form call that "not connected"
+        // rather than "broke"; the next block's refresh fills it in.
         try {
-          balances[u.id] = Number(formatEther(await readProvider.getBalance(a)));
+          balances[u.id] = Number(formatEther(await withTimeout(readProvider.getBalance(a), BALANCE_TIMEOUT_MS)));
         } catch {
           try {
-            balances[u.id] = Number(formatEther(await provider.getBalance(a)));
+            balances[u.id] = Number(formatEther(await withTimeout(provider.getBalance(a), BALANCE_TIMEOUT_MS)));
           } catch {
             /* leave unset rather than guess at 0 */
           }
         }
       })
     );
-    const poolEth = Number(await (await fetch(`${apiUrl}/api/pool${fresh}`)).json().then((r: { balance: string }) => r.balance));
+    const poolEth = poolRes.ok ? Number(((await poolRes.json()) as { balance: string }).balance) : 0;
     return { policies, balances, poolEth, windowCount: windows.length, windows: rawWindows };
-  }, [user, addressOf, walletFor, insurance, aggregator, provider, readProvider, config.insuranceAddress]);
+  }, [user, walletFor, insurance, aggregator, provider, readProvider, config.insuranceAddress]);
 
   // Reload on every new block; overlapping reloads collapse into one follow-up.
   const busy = useRef(false);
