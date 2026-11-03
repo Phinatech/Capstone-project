@@ -9,6 +9,7 @@ import { parseSeedUsers } from "./utils/envAccounts.js";
 import { MAX_TOKEN_LENGTH, verifyTurnstileToken } from "./turnstile.js";
 import apiRouter, { startCacheWarmer } from "./routes/api.js";
 import { createAuthRouter } from "./routes/auth.js";
+import { mailConfigured } from "./utils/mailer.js";
 
 const app = express();
 
@@ -110,7 +111,9 @@ void sessionStore.sweep().then(
 const server = app.listen(config.port, () => {
   console.log(`[api] listening on http://localhost:${config.port}`);
   if (!config.demoAuthCodes) {
-    console.log("[auth] AUTH_DEMO_CODES is off: verification codes go to this log, not to the client");
+    console.log(mailConfigured()
+      ? "[auth] AUTH_DEMO_CODES is off: verification codes are emailed, never logged"
+      : "[auth] AUTH_DEMO_CODES is off and no mail service is set: verification codes go to this log");
   }
   if (!config.demoAccounts) {
     console.log("[auth] AUTH_DEMO_ACCOUNTS is off: no demo accounts are seeded");

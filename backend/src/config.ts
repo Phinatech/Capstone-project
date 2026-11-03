@@ -89,6 +89,8 @@ export const config = {
   secureCookies: process.env.SECURE_COOKIES?.trim().toLowerCase() === "true",
   /** Google Client ID; without it Google sign-in answers 503. */
   googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() ?? "",
+  /** Shown on the privacy notice as the address to contact; optional. */
+  contactEmail: process.env.CONTACT_EMAIL?.trim() ?? "",
   /** Returns verification codes and reset tokens in the response (no mail service). */
   demoAuthCodes: process.env.AUTH_DEMO_CODES?.trim().toLowerCase() === "true",
   /** Serves GET /api/demo-credentials so the sign-in page can list demo logins. */

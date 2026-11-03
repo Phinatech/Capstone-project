@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckIcon, CloudRainIcon, Loader2Icon, XCircleIcon } from 'lucide-react';
+import { CheckIcon, CloudRainIcon, Loader2Icon, SproutIcon, UsersIcon, XCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -20,13 +20,17 @@ const STEP_MS = 480;
  * page wrote. The server verifies the signature and claims, so only the
  * opaque token has to make this round trip.
  */
-function readPendingCredential(): string | null {
+type Role = 'farmer' | 'agent';
+
+function readPendingCredential(): { credential: string; role?: Role } | null {
   try {
     const raw = window.sessionStorage.getItem(GOOGLE_PENDING_KEY);
     window.sessionStorage.removeItem(GOOGLE_PENDING_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as { credential?: unknown };
-    return typeof data.credential === 'string' && data.credential ? data.credential : null;
+    const data = JSON.parse(raw) as { credential?: unknown; role?: unknown };
+    if (typeof data.credential !== 'string' || !data.credential) return null;
+    const role = data.role === 'farmer' || data.role === 'agent' ? data.role : undefined;
+    return { credential: data.credential, role };
   } catch {
     return null;
   }
@@ -40,43 +44,60 @@ export function AuthCallback() {
   const [step, setStep] = useState(0);
   // A key when we have one, the server's own wording when we do not.
   const [error, setError] = useState<TranslationKey | string | null>(null);
+  // A new Google account from the sign-in page: the server wants a role
+  // before it creates anything, so the token is kept to send again.
+  const [choosingRole, setChoosingRole] = useState(false);
+  const credentialRef = useRef<string | null>(null);
+  const timers = useRef<number[]>([]);
   const started = useRef(false);
+
+  async function finish(credential: string, role?: Role) {
+    try {
+      const user = await completeGoogleSignIn(credential, role);
+      setStep(2);
+      timers.current.push(
+        window.setTimeout(() => {
+          toast.success(t('toast.welcome', { name: user.name.split(' ')[0] }));
+          navigate(homePath(user), { replace: true });
+        }, STEP_MS)
+      );
+    } catch (err) {
+      if (err instanceof AuthError && err.code === 'role_required') {
+        setChoosingRole(true);
+        return;
+      }
+      // Say why: "not set up on the server" and "too many attempts" need
+      // different responses from the person reading this.
+      setError(err instanceof AuthError ? err.key : 'error.googleFailed');
+    }
+  }
+
+  function chooseRole(role: Role) {
+    if (!credentialRef.current) return;
+    setChoosingRole(false);
+    setStep(1);
+    void finish(credentialRef.current, role);
+  }
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    const timers: number[] = [];
+    const pending = timers.current;
 
     if (params.get('error')) {
       setError('error.accessDenied');
       return;
     }
-    const credential = params.get('provider') === 'google' ? readPendingCredential() : null;
-    if (!credential) {
+    const pendingSignIn = params.get('provider') === 'google' ? readPendingCredential() : null;
+    if (!pendingSignIn) {
       setError('error.noCredential');
       return;
     }
+    credentialRef.current = pendingSignIn.credential;
 
-    timers.push(window.setTimeout(() => setStep(1), STEP_MS));
-    timers.push(
-      window.setTimeout(async () => {
-        try {
-          const user = await completeGoogleSignIn(credential);
-          setStep(2);
-          timers.push(
-            window.setTimeout(() => {
-              toast.success(t('toast.welcome', { name: user.name.split(' ')[0] }));
-              navigate(homePath(user), { replace: true });
-            }, STEP_MS)
-          );
-        } catch (err) {
-          // Say why: "not set up on the server" and "too many attempts" need
-          // different responses from the person reading this.
-          setError(err instanceof AuthError ? err.key : 'error.googleFailed');
-        }
-      }, STEP_MS * 2)
-    );
-    return () => timers.forEach((id) => window.clearTimeout(id));
+    pending.push(window.setTimeout(() => setStep(1), STEP_MS));
+    pending.push(window.setTimeout(() => void finish(pendingSignIn.credential, pendingSignIn.role), STEP_MS * 2));
+    return () => pending.forEach((id) => window.clearTimeout(id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -95,9 +116,29 @@ export function AuthCallback() {
           
           {error ? <XCircleIcon className="h-6 w-6" aria-hidden /> : <CloudRainIcon className="h-6 w-6" aria-hidden />}
         </span>
-        <h1 className="mt-4 text-lg font-semibold">{error ? t('callback.failed') : t('callback.verifying')}</h1>
+        <h1 className="mt-4 text-lg font-semibold">{error ? t('callback.failed') : choosingRole ? t('callback.roleTitle') : t('callback.verifying')}</h1>
 
-        {error ?
+        {choosingRole ?
+        <>
+            <p className="mt-2 text-sm text-muted">{t('callback.roleBody')}</p>
+            <div className="mt-5 grid gap-2 text-left">
+              {([['farmer', SproutIcon], ['agent', UsersIcon]] as const).map(([role, Icon]) =>
+            <button
+              key={role}
+              type="button"
+              onClick={() => chooseRole(role)}
+              className="flex items-start gap-3 rounded-lg border border-line p-3 text-left transition-colors duration-150 ease-out hover:border-accent hover:bg-accent-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  <Icon className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{t(`role.${role}`)}</span>
+                    <span className="block text-xs text-muted">{t(`role.${role}Hint`)}</span>
+                  </span>
+                </button>
+            )}
+            </div>
+            <p className="mt-3 text-xs text-muted">{t('auth.roleNote')}</p>
+          </> :
+        error ?
         <>
             <p className="mt-2 text-sm text-muted">{t(error)}</p>
             <Link

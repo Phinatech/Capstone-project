@@ -23,7 +23,7 @@ import { verifyTurnstileToken } from "../turnstile.js";
 import type { AuthCodeStore } from "../utils/authCodes.js";
 import { sessionClearCookie, sessionSetCookie } from "../utils/cookies.js";
 import { createGoogleVerifier, GoogleTokenError, type GoogleVerifier } from "../utils/googleAuth.js";
-import { mailLanguage, sendPasswordReset, sendVerificationCode, type MailLanguage } from "../utils/mailer.js";
+import { mailConfigured, mailLanguage, sendPasswordReset, sendVerificationCode, type MailLanguage } from "../utils/mailer.js";
 import { hashPassword, verifyPassword } from "../utils/passwords.js";
 import type { SessionStore } from "../utils/sessions.js";
 import { DEFAULT_SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from "../utils/sessions.js";
@@ -71,6 +71,12 @@ function rateLimited(key: string): boolean {
 function overLimit(key: string): boolean {
   const entry = attempts.get(key);
   return !!entry && entry.resetAt > Date.now() && entry.count >= MAX_ATTEMPTS;
+}
+
+/** "amina@example.com" as "am***@example.com", so logs identify an account without holding the address. */
+export function maskEmail(email: string): string {
+  const [local = "", domain = ""] = email.split("@");
+  return `${local.slice(0, 2)}***@${domain}`;
 }
 
 /** The audience a Google token claims, for the log only: it is read before any
@@ -139,10 +145,13 @@ export function createAuthRouter(deps: AuthDeps): Router {
     const last = lastEmailed.get(userId);
     if (last?.code === code && Date.now() - last.at < 30_000) return;
     lastEmailed.set(userId, { code, at: Date.now() });
-    // The code belongs in the recipient's inbox; with no mail service it goes
-    // to the server log for an operator to relay.
+    // The code belongs in the recipient's inbox. Only with no mail service at
+    // all (local development) does it go to the log for an operator to relay;
+    // a failed send on a configured server must not put a live code in the
+    // production log.
     if (!(await sendVerificationCode(email, code, language))) {
-      console.log(`[auth] verification code for ${email}: ${code}`);
+      if (mailConfigured()) console.warn(`[auth] could not email a verification code to ${maskEmail(email)}`);
+      else console.log(`[auth] verification code for ${email}: ${code}`);
     }
   }
 
@@ -286,7 +295,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
   // so the server can say which one it checks tokens against. That makes a
   // mismatch with the site's id visible without access to the server's logs.
   router.get("/config", (_req, res) => {
-    res.json({ googleClientId: config.googleClientId || null });
+    res.json({ googleClientId: config.googleClientId || null, contactEmail: config.contactEmail || null });
   });
 
   router.post("/google", async (req, res) => {
@@ -300,6 +309,14 @@ export function createAuthRouter(deps: AuthDeps): Router {
       fail(res, 400, "invalid_input", "Missing Google credential");
       return;
     }
+    // Only used when this Google account is new. As with /register, an
+    // administrator cannot be self-assigned.
+    const roleInput = text(req.body?.role);
+    if (roleInput && roleInput !== "farmer" && roleInput !== "agent") {
+      fail(res, 400, "invalid_role", "Role must be farmer or agent");
+      return;
+    }
+    const requestedRole: "farmer" | "agent" | undefined = roleInput === "farmer" || roleInput === "agent" ? roleInput : undefined;
     // Only rejected tokens spend the budget. Behind the Pages proxy every
     // visitor can arrive from the same Cloudflare address, so counting good
     // sign-ins too would lock everyone out after eight of them; a valid
@@ -338,13 +355,21 @@ export function createAuthRouter(deps: AuthDeps): Router {
     const existing = await users.findByEmail(identity.email);
     let record = existing;
     if (!record) {
+      // A first sign-in with no role (from the sign-in page) asks rather than
+      // guessing: the role decides which portal the account gets, and it
+      // cannot be changed from the profile afterwards. The token stays valid
+      // for an hour, so the page sends it again with the choice.
+      if (!requestedRole) {
+        res.status(409).json({ error: "Choose whether you are a farmer or a field agent", code: "role_required", name: identity.name });
+        return;
+      }
       try {
         record = await users.create(
           {
-            // Derived from Google's subject id, so a second sign-in finds the
-            // same account instead of creating a duplicate.
-            id: `farmer-${identity.sub.slice(-10)}`,
-            role: "farmer",
+            // Derived from Google's subject id, so the id is stable for this
+            // Google account (lookups go by email).
+            id: `${requestedRole}-${identity.sub.slice(-10)}`,
+            role: requestedRole,
             name: identity.name,
             email: identity.email,
             wallet: randomWallet(),
@@ -422,7 +447,9 @@ export function createAuthRouter(deps: AuthDeps): Router {
       ? `${origin}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
       : undefined;
     if (!(await sendPasswordReset(email, token, mailLanguage(req.body?.language), link))) {
-      console.log(`[auth] password reset token for ${email}: ${token}`);
+      // A reset token in a log is an account takeover for whoever reads it.
+      if (mailConfigured()) console.warn(`[auth] could not email a password reset to ${maskEmail(email)}`);
+      else console.log(`[auth] password reset token for ${email}: ${token}`);
     }
     res.json(config.demoAuthCodes ? { demoToken: token } : {});
   });

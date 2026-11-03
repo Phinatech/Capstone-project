@@ -87,7 +87,32 @@ export function SignUp() {
         </>
       }>
       
-      <GoogleButton mode="signup" />
+      {/* Above both ways in, so Google sign-up gets the same choice as the form. */}
+      <fieldset className="mb-5">
+        <legend className="text-sm font-medium">{t('auth.role')}</legend>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {(['farmer', 'agent'] as const).map((role) =>
+          <label
+            key={role}
+            className={`flex cursor-pointer flex-col rounded-lg border p-3 transition-colors duration-150 ease-out focus-within:ring-2 focus-within:ring-accent ${
+            form.role === role ? 'border-accent bg-accent-soft' : 'border-line hover:border-muted'}`
+            }>
+              <input
+              type="radio"
+              name="signup-role"
+              value={role}
+              checked={form.role === role}
+              onChange={() => setForm((f) => ({ ...f, role }))}
+              className="sr-only" />
+              <span className="text-sm font-semibold">{t(`role.${role}`)}</span>
+              <span className="mt-0.5 text-xs leading-snug text-muted">{t(`role.${role}Hint`)}</span>
+            </label>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-muted">{t('auth.roleNote')}</p>
+      </fieldset>
+
+      <GoogleButton mode="signup" role={form.role} />
       <AuthDivider label={t('auth.or')} />
 
       <form noValidate onSubmit={handleSubmit} className="space-y-4">
@@ -145,21 +170,6 @@ export function SignUp() {
             {lgas.map((l) =>
             <option key={l}>{l}</option>
             )}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="signup-role" className="block text-sm font-medium">
-            {t('auth.role')}
-          </label>
-          <select
-            id="signup-role"
-            value={form.role}
-            onChange={update('role')}
-            className={`${fieldInputClass} mt-1.5 border-line focus:border-accent`}>
-            
-            <option value="farmer">{t('role.farmer')}</option>
-            <option value="agent">{t('role.agent')}</option>
           </select>
         </div>
 

@@ -10,6 +10,9 @@ export const GOOGLE_PENDING_KEY = 'sokoto-cover-google-pending';
 
 interface GoogleButtonProps {
   mode: 'signin' | 'signup';
+  /** The role a new account gets; on the sign-in page there is none, and the
+   *  callback asks if the account turns out to be new. */
+  role?: 'farmer' | 'agent';
 }
 
 function GoogleMark() {
@@ -23,11 +26,15 @@ function GoogleMark() {
 
 }
 
-export function GoogleButton({ mode }: GoogleButtonProps) {
+export function GoogleButton({ mode, role }: GoogleButtonProps) {
   const navigate = useNavigate();
   const { resolvedMode } = useTheme();
   const { language, t } = useI18n();
   const container = useRef<HTMLDivElement>(null);
+  // Google calls back into the closure from when the button was set up, so the
+  // current choice is read from a ref rather than captured.
+  const roleRef = useRef(role);
+  roleRef.current = role;
   const useGis = GOOGLE_CLIENT_ID.length > 0;
   // `hl` sets the widget's language: renderButton's `locale` option is ignored
   // by GSI, so without this the button follows the browser locale and can show
@@ -45,7 +52,7 @@ export function GoogleButton({ mode }: GoogleButtonProps) {
    */
   function goToCallback(credential: string) {
     try {
-      window.sessionStorage.setItem(GOOGLE_PENDING_KEY, JSON.stringify({ credential }));
+      window.sessionStorage.setItem(GOOGLE_PENDING_KEY, JSON.stringify({ credential, role: roleRef.current }));
     } catch {
 
       /* storage unavailable */}

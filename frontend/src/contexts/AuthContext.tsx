@@ -73,7 +73,9 @@ interface AuthContextValue {
   ready: boolean;
   signInWithPassword: (email: string, password: string, remember: boolean) => Promise<User>;
   signUp: (input: SignUpInput, turnstileToken?: string) => Promise<User>;
-  completeGoogleSignIn: (credential: string) => Promise<User>;
+  /** `role` is used only when the Google account is new; without one the
+   *  server answers `role_required` so the page can ask. */
+  completeGoogleSignIn: (credential: string, role?: 'farmer' | 'agent') => Promise<User>;
   verifyEmail: (code: string) => Promise<User>;
   /** The freshly issued code, when the server is configured to disclose it. */
   resendVerification: () => Promise<string | null>;
@@ -169,11 +171,11 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
     }
   }, [language]);
 
-  const completeGoogleSignIn = useCallback(async (credential: string) => {
+  const completeGoogleSignIn = useCallback(async (credential: string, role?: 'farmer' | 'agent') => {
     try {
       const { user: signedIn } = await api<{ user: User }>('/auth/google', {
         method: 'POST',
-        body: { credential }
+        body: { credential, role }
       });
       setUser(signedIn);
       await loadDirectory();

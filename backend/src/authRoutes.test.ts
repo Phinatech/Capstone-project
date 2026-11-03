@@ -7,7 +7,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import express from 'express';
 import { authCodeStore, sessionStore, userStore } from './authServices.js';
 import { attachSession, requireAuth, requireRole, type SessionPrincipal } from './middleware/auth.js';
-import { createAuthRouter, resetAuthRateLimit } from './routes/auth.js';
+import { createAuthRouter, maskEmail, resetAuthRateLimit } from './routes/auth.js';
 import { demoAccounts } from './utils/demoAccounts.js';
 import { GoogleTokenError, type GoogleVerifier } from './utils/googleAuth.js';
 import { config } from './config.js';
@@ -28,6 +28,8 @@ import { config } from './config.js';
 const ACCEPTED_GOOGLE_TOKEN = 'fixture-google-id-token';
 // Genuine-looking tokens the server must refuse for its own reasons, not the token's.
 const OTHER_APP_GOOGLE_TOKEN = 'fixture-token-for-another-app';
+// A second genuine identity, so a first sign-in can be tested from scratch.
+const NEW_AGENT_GOOGLE_TOKEN = 'fixture-token-for-a-new-agent';
 const GOOGLE_DOWN_TOKEN = 'fixture-token-while-google-is-down';
 
 const fakeGoogle: GoogleVerifier = {
@@ -37,6 +39,9 @@ const fakeGoogle: GoogleVerifier = {
     if (audience !== config.googleClientId) throw new Error(`unexpected audience: ${audience}`);
     if (token === OTHER_APP_GOOGLE_TOKEN) throw new GoogleTokenError('token was not issued for this application', 'audience');
     if (token === GOOGLE_DOWN_TOKEN) throw new GoogleTokenError('could not fetch Google keys', 'unreachable');
+    if (token === NEW_AGENT_GOOGLE_TOKEN) {
+      return { sub: '104455667788990011223', email: 'bashir.lawal@gmail.com', name: 'Bashir Lawal', emailVerified: true };
+    }
     if (token !== ACCEPTED_GOOGLE_TOKEN) throw new Error('signature does not verify');
     return {
       sub: '118273645543210987654',
@@ -412,12 +417,19 @@ describe('a profile edit cannot change who an account is', () => {
   });
 });
 
+describe('log hygiene', () => {
+  it('masks email addresses for logs', () => {
+    assert.equal(maskEmail('amina.bello@mail.ng'), 'am***@mail.ng');
+    assert.equal(maskEmail('x'), 'x***@');
+  });
+});
+
 describe('Google sign-in is verified rather than decoded', () => {
   it('accepts a token the verifier vouches for', async () => {
     const browser = new Client();
     const res = await browser.call('/auth/google', {
       method: 'POST',
-      body: { credential: ACCEPTED_GOOGLE_TOKEN }
+      body: { credential: ACCEPTED_GOOGLE_TOKEN, role: 'farmer' }
     });
     assert.equal(res.status, 200);
     const first = (await json(res)).user as { id: string; email: string; provider: string; emailVerified: boolean };
@@ -452,7 +464,7 @@ describe('Google sign-in is verified rather than decoded', () => {
     // Everyone behind the Pages proxy can share one address, so a run of
     // successful sign-ins must not close the gate for the next person.
     for (let i = 0; i < 12; i++) {
-      const res = await new Client().call('/auth/google', { method: 'POST', body: { credential: ACCEPTED_GOOGLE_TOKEN } });
+      const res = await new Client().call('/auth/google', { method: 'POST', body: { credential: ACCEPTED_GOOGLE_TOKEN, role: 'farmer' } });
       assert.equal(res.status, 200, `good sign-in ${i + 1} must go through`);
     }
     let sawLimit = false;
@@ -478,7 +490,34 @@ describe('Google sign-in is verified rather than decoded', () => {
   it('publishes the client id it checks tokens against', async () => {
     const res = await new Client().call('/auth/config');
     assert.equal(res.status, 200);
-    assert.equal((await json(res)).googleClientId, config.googleClientId);
+    const body = await json(res);
+    assert.equal(body.googleClientId, config.googleClientId);
+    assert.ok('contactEmail' in body, 'the privacy notice reads its contact address here');
+  });
+
+  it('asks a new Google user to choose farmer or agent, and keeps that choice', async () => {
+    const google = (body: Record<string, unknown>) => new Client().call('/auth/google', { method: 'POST', body: { credential: NEW_AGENT_GOOGLE_TOKEN, ...body } });
+
+    const ask = await google({});
+    assert.equal(ask.status, 409);
+    const asked = await json(ask);
+    assert.equal(asked.code, 'role_required');
+    assert.equal(asked.name, 'Bashir Lawal');
+    assert.equal(await userStore.findByEmail('bashir.lawal@gmail.com'), undefined, 'no account before a role is chosen');
+
+    const created = await google({ role: 'agent' });
+    assert.equal(created.status, 200);
+    assert.equal(((await json(created)).user as { role: string }).role, 'agent');
+
+    // An existing account keeps its role whatever a later request claims.
+    const again = await google({ role: 'farmer' });
+    assert.equal(((await json(again)).user as { role: string }).role, 'agent');
+  });
+
+  it('never lets a Google sign-up choose the administrator role', async () => {
+    const res = await new Client().call('/auth/google', { method: 'POST', body: { credential: NEW_AGENT_GOOGLE_TOKEN, role: 'admin' } });
+    assert.equal(res.status, 400);
+    assert.equal((await json(res)).code, 'invalid_role');
   });
 
   it('does not create an account for a rejected token', async () => {

@@ -20,6 +20,11 @@ export const en = {
   'error.googleUnavailable': 'Google sign-in is not available right now. Sign in with your email and password instead.',
   'error.googleMisconfigured': 'Google sign-in is set up incorrectly on the server. Sign in with your email and password for now, and tell the administrator.',
   'error.googleUnreachable': "We couldn't reach Google to check your sign-in. Try again in a minute.",
+  'role.farmerHint': 'I farm and want cover for my own crops.',
+  'role.agentHint': 'I sell cover to farmers and collect their payments.',
+  'auth.roleNote': 'You choose this once: it decides which tools your account gets.',
+  'callback.roleTitle': 'One more step',
+  'callback.roleBody': 'This is your first time here. How will you use Sokoto Rainfall Cover?',
   'sales.saveFailed': 'The receipt could not be saved.'
 } as const;
 
@@ -46,6 +51,11 @@ export const ha: Strings = {
   'error.googleUnavailable': 'Shiga da Google ba ya aiki a yanzu. Shiga da imel da kalmar sirri maimakon haka.',
   'error.googleMisconfigured': 'An saita shiga da Google ba daidai ba a sabar. Shiga da imel da kalmar sirri a yanzu, kuma ka sanar da mai gudanarwa.',
   'error.googleUnreachable': 'Ba mu iya isa ga Google don tabbatar da shigarka ba. Sake gwadawa nan da minti ɗaya.',
+  'role.farmerHint': 'Ina noma kuma ina son inshora ga amfanin gonata.',
+  'role.agentHint': 'Ina sayar wa manoma inshora kuma ina karɓar kuɗinsu.',
+  'auth.roleNote': 'Sau ɗaya kake zaɓar wannan: shi ke tantance kayan aikin da asusunka zai samu.',
+  'callback.roleTitle': 'Mataki ɗaya ya rage',
+  'callback.roleBody': 'Wannan ne karon farko da ka zo nan. Ta yaya za ka yi amfani da Sokoto Rainfall Cover?',
   'sales.saveFailed': 'Ba a iya ajiye rasitin ba.'
 };
 
@@ -70,5 +80,10 @@ export const fr: Strings = {
   'error.googleUnavailable': 'La connexion Google est indisponible pour le moment. Connectez-vous avec votre e-mail et votre mot de passe.',
   'error.googleMisconfigured': 'La connexion Google est mal configurée sur le serveur. Connectez-vous avec votre e-mail et votre mot de passe pour l’instant, et prévenez l’administrateur.',
   'error.googleUnreachable': 'Impossible de joindre Google pour vérifier votre connexion. Réessayez dans une minute.',
+  'role.farmerHint': 'Je cultive et je veux couvrir mes propres cultures.',
+  'role.agentHint': 'Je vends des couvertures aux agriculteurs et j’encaisse leurs paiements.',
+  'auth.roleNote': 'Ce choix est définitif : il détermine les outils de votre compte.',
+  'callback.roleTitle': 'Une dernière étape',
+  'callback.roleBody': 'C’est votre première visite. Comment utiliserez-vous Sokoto Rainfall Cover ?',
   'sales.saveFailed': 'Le reçu n’a pas pu être enregistré.'
 };
