@@ -9,7 +9,7 @@ import { authCodeStore, sessionStore, userStore } from './authServices.js';
 import { attachSession, requireAuth, requireRole, type SessionPrincipal } from './middleware/auth.js';
 import { createAuthRouter, resetAuthRateLimit } from './routes/auth.js';
 import { demoAccounts } from './utils/demoAccounts.js';
-import type { GoogleVerifier } from './utils/googleAuth.js';
+import { GoogleTokenError, type GoogleVerifier } from './utils/googleAuth.js';
 import { config } from './config.js';
 
 /**
@@ -26,12 +26,17 @@ import { config } from './config.js';
  * accepts one literal token and rejects everything else.
  */
 const ACCEPTED_GOOGLE_TOKEN = 'fixture-google-id-token';
+// Genuine-looking tokens the server must refuse for its own reasons, not the token's.
+const OTHER_APP_GOOGLE_TOKEN = 'fixture-token-for-another-app';
+const GOOGLE_DOWN_TOKEN = 'fixture-token-while-google-is-down';
 
 const fakeGoogle: GoogleVerifier = {
   async verify(token, audience) {
     // Binds the audience the same way the real one does, so a mismatch between
     // the configured client id and what the handler passes would show up here.
     if (audience !== config.googleClientId) throw new Error(`unexpected audience: ${audience}`);
+    if (token === OTHER_APP_GOOGLE_TOKEN) throw new GoogleTokenError('token was not issued for this application', 'audience');
+    if (token === GOOGLE_DOWN_TOKEN) throw new GoogleTokenError('could not fetch Google keys', 'unreachable');
     if (token !== ACCEPTED_GOOGLE_TOKEN) throw new Error('signature does not verify');
     return {
       sub: '118273645543210987654',
@@ -457,6 +462,23 @@ describe('Google sign-in is verified rather than decoded', () => {
       else assert.equal(res.status, 401);
     }
     assert.ok(sawLimit, 'forged tokens must still be throttled');
+  });
+
+  it('says when the server is set up for a different Google app, without throttling', async () => {
+    for (let i = 0; i < 12; i++) {
+      const res = await new Client().call('/auth/google', { method: 'POST', body: { credential: OTHER_APP_GOOGLE_TOKEN } });
+      assert.equal(res.status, 401);
+      assert.equal((await json(res)).code, 'token_audience');
+    }
+    const down = await new Client().call('/auth/google', { method: 'POST', body: { credential: GOOGLE_DOWN_TOKEN } });
+    assert.equal(down.status, 502);
+    assert.equal((await json(down)).code, 'google_unreachable');
+  });
+
+  it('publishes the client id it checks tokens against', async () => {
+    const res = await new Client().call('/auth/config');
+    assert.equal(res.status, 200);
+    assert.equal((await json(res)).googleClientId, config.googleClientId);
   });
 
   it('does not create an account for a rejected token', async () => {

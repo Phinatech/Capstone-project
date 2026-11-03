@@ -22,7 +22,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { verifyTurnstileToken } from "../turnstile.js";
 import type { AuthCodeStore } from "../utils/authCodes.js";
 import { sessionClearCookie, sessionSetCookie } from "../utils/cookies.js";
-import { createGoogleVerifier, type GoogleVerifier } from "../utils/googleAuth.js";
+import { createGoogleVerifier, GoogleTokenError, type GoogleVerifier } from "../utils/googleAuth.js";
 import { mailLanguage, sendPasswordReset, sendVerificationCode, type MailLanguage } from "../utils/mailer.js";
 import { hashPassword, verifyPassword } from "../utils/passwords.js";
 import type { SessionStore } from "../utils/sessions.js";
@@ -71,6 +71,18 @@ function rateLimited(key: string): boolean {
 function overLimit(key: string): boolean {
   const entry = attempts.get(key);
   return !!entry && entry.resetAt > Date.now() && entry.count >= MAX_ATTEMPTS;
+}
+
+/** The audience a Google token claims, for the log only: it is read before any
+ *  check and never trusted. */
+function tokenAudience(token: string): string {
+  try {
+    const payload = token.split(".")[1] ?? "";
+    const aud = JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")).aud;
+    return typeof aud === "string" ? aud : JSON.stringify(aud);
+  } catch {
+    return "an unreadable audience";
+  }
 }
 
 /** Exported for tests, which share this module-level table. */
@@ -270,6 +282,13 @@ export function createAuthRouter(deps: AuthDeps): Router {
     });
   });
 
+  // The Google client id is public (it ships in every page with the button),
+  // so the server can say which one it checks tokens against. That makes a
+  // mismatch with the site's id visible without access to the server's logs.
+  router.get("/config", (_req, res) => {
+    res.json({ googleClientId: config.googleClientId || null });
+  });
+
   router.post("/google", async (req, res) => {
     noStore(res);
     if (!config.googleClientId) {
@@ -295,6 +314,19 @@ export function createAuthRouter(deps: AuthDeps): Router {
     try {
       identity = await google.verify(credential, config.googleClientId);
     } catch (err) {
+      // A wrong client id or an unreachable Google is the server's problem, not
+      // a guessed token, so neither counts toward the limit, and each gets its
+      // own code so the person signing in learns it isn't their account.
+      if (err instanceof GoogleTokenError && err.reason === "audience") {
+        console.error(`[auth] Google token was issued for ${tokenAudience(credential)}, but GOOGLE_CLIENT_ID is ${config.googleClientId}`);
+        fail(res, 401, "token_audience", "Google sign-in is set up for a different app on the server");
+        return;
+      }
+      if (err instanceof GoogleTokenError && err.reason === "unreachable") {
+        console.error("[auth] could not check a Google ID token:", err.message);
+        fail(res, 502, "google_unreachable", "Could not reach Google to check the sign-in");
+        return;
+      }
       rateLimited(limitKey);
       // The reason is useful in the log and useless — and slightly helpful to
       // an attacker — in the response.

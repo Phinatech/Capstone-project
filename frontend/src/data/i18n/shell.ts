@@ -18,6 +18,8 @@ export const en = {
   'error.invalidRole': 'Choose farmer or field agent.',
   'error.server': 'Something went wrong on our side. Please try again.',
   'error.googleUnavailable': 'Google sign-in is not available right now. Sign in with your email and password instead.',
+  'error.googleMisconfigured': 'Google sign-in is set up incorrectly on the server. Sign in with your email and password for now, and tell the administrator.',
+  'error.googleUnreachable': "We couldn't reach Google to check your sign-in. Try again in a minute.",
   'sales.saveFailed': 'The receipt could not be saved.'
 } as const;
 
@@ -42,6 +44,8 @@ export const ha: Strings = {
   'error.invalidRole': 'Zaɓi manomi ko wakilin filin aiki.',
   'error.server': 'Wani abu ya faru a ɓangarenmu. Da fatan za a sake gwadawa.',
   'error.googleUnavailable': 'Shiga da Google ba ya aiki a yanzu. Shiga da imel da kalmar sirri maimakon haka.',
+  'error.googleMisconfigured': 'An saita shiga da Google ba daidai ba a sabar. Shiga da imel da kalmar sirri a yanzu, kuma ka sanar da mai gudanarwa.',
+  'error.googleUnreachable': 'Ba mu iya isa ga Google don tabbatar da shigarka ba. Sake gwadawa nan da minti ɗaya.',
   'sales.saveFailed': 'Ba a iya ajiye rasitin ba.'
 };
 
@@ -64,5 +68,7 @@ export const fr: Strings = {
   'error.invalidRole': 'Choisissez agriculteur ou agent de terrain.',
   'error.server': 'Un problème est survenu de notre côté. Veuillez réessayer.',
   'error.googleUnavailable': 'La connexion Google est indisponible pour le moment. Connectez-vous avec votre e-mail et votre mot de passe.',
+  'error.googleMisconfigured': 'La connexion Google est mal configurée sur le serveur. Connectez-vous avec votre e-mail et votre mot de passe pour l’instant, et prévenez l’administrateur.',
+  'error.googleUnreachable': 'Impossible de joindre Google pour vérifier votre connexion. Réessayez dans une minute.',
   'sales.saveFailed': 'Le reçu n’a pas pu être enregistré.'
 };

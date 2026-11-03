@@ -31,6 +31,18 @@ export interface GoogleIdentity {
   emailVerified: boolean;
 }
 
+/**
+ * Why a token was refused, when the reason is the server's setup rather than
+ * the token: a client id that doesn't match the site's, or Google's key
+ * endpoint being unreachable. Those are worth telling the user and the
+ * operator apart from a bad token.
+ */
+export class GoogleTokenError extends Error {
+  constructor(message: string, readonly reason: "audience" | "unreachable") {
+    super(message);
+  }
+}
+
 export interface GoogleVerifier {
   /** Rejects with a message safe to log; callers should not surface it raw. */
   verify: (idToken: string, audience: string) => Promise<GoogleIdentity>;
@@ -78,7 +90,12 @@ export function createGoogleVerifier(options: GoogleVerifierOptions = {}): Googl
 
   async function keys(forceRefresh: boolean): Promise<JwksKey[]> {
     if (!forceRefresh && cached && Date.now() - cached.fetchedAt < cacheMs) return cached.keys;
-    const raw = await fetchJwks();
+    let raw: { keys: JsonWebKey[] };
+    try {
+      raw = await fetchJwks();
+    } catch (err) {
+      throw new GoogleTokenError(`could not fetch Google's keys: ${err instanceof Error ? err.message : String(err)}`, "unreachable");
+    }
     cached = {
       keys: (raw.keys ?? []).flatMap((jwk) => {
         const kid = typeof jwk.kid === "string" ? jwk.kid : undefined;
@@ -136,7 +153,7 @@ export function createGoogleVerifier(options: GoogleVerifierOptions = {}): Googl
       // Audience is the check that stops a token minted for some *other* Google
       // app from being replayed here.
       const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-      if (!audiences.includes(audience)) throw new Error("token was not issued for this application");
+      if (!audiences.includes(audience)) throw new GoogleTokenError("token was not issued for this application", "audience");
 
       const expiry = Number(payload.exp);
       if (!Number.isFinite(expiry) || expiry * 1000 <= now() - skewSeconds * 1000) {

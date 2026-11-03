@@ -33,6 +33,8 @@ const CODE_KEYS: Record<string, TranslationKey> = {
   current_password: 'error.currentPassword',
   token_rejected: 'error.googleFailed',
   not_configured: 'error.googleUnavailable',
+  token_audience: 'error.googleMisconfigured',
+  google_unreachable: 'error.googleUnreachable',
   captcha_required: 'error.completeCheck',
   captcha_failed: 'error.checkFailed',
   captcha_unavailable: 'error.checkUnavailable',

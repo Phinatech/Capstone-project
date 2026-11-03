@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createSign, generateKeyPairSync, type JsonWebKey, type KeyObject } from "node:crypto";
 import { describe, it } from "node:test";
-import { createGoogleVerifier } from "./utils/googleAuth.js";
+import { createGoogleVerifier, GoogleTokenError } from "./utils/googleAuth.js";
 
 /**
  * These tests exercise the property F-1 was raised over: a token that merely
@@ -104,6 +104,19 @@ describe("Google ID token verification", () => {
     // is the check that stops a real Google token from another app being
     // replayed here.
     await rejects(validToken(), /application/, "9999-other-app.apps.googleusercontent.com");
+  });
+
+  it("tags a wrong audience and an unreachable key set as server-side problems", async () => {
+    // These are configuration faults, not bad tokens, and the route answers
+    // them differently, so the verifier has to say which one it was.
+    await assert.rejects(
+      () => verifier().verify(validToken(), "9999-other-app.apps.googleusercontent.com"),
+      (err: unknown) => err instanceof GoogleTokenError && err.reason === "audience"
+    );
+    const offline = createGoogleVerifier({ fetchJwks: async () => { throw new Error("getaddrinfo ENOTFOUND"); }, now: () => NOW });
+    await assert.rejects(() => offline.verify(validToken(), AUDIENCE), (err: unknown) => err instanceof GoogleTokenError && err.reason === "unreachable");
+    // A forged token is still an ordinary rejection.
+    await assert.rejects(() => verifier().verify("a.b.c", AUDIENCE), (err: unknown) => !(err instanceof GoogleTokenError));
   });
 
   it("rejects an expired token", async () => {
