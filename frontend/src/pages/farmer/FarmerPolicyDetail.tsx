@@ -7,29 +7,33 @@ import { EvaluationResultPanel } from '../../components/EvaluationResultPanel';
 import { NotFound } from '../NotFound';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePolicies } from '../../contexts/PolicyContext';
-import { getWindow } from '../../utils/oracle';
+import { useI18n } from '../../contexts/I18nContext';
+import { useWindowName } from '../../contexts/PolicyContext';
+import { cropName } from '../../contexts/policyActivity';
 
 export function FarmerPolicyDetail() {
   const { policyId } = useParams();
   const { user } = useAuth();
   const { policies } = usePolicies();
+  const { t } = useI18n();
+  const windowName = useWindowName();
   const policy = policies.find((p) => p.id === Number(policyId) && p.farmerId === user?.id);
 
-  if (!policy) return <NotFound message="This policy doesn't exist or belongs to another farmer." />;
+  if (!policy) return <NotFound message={t('policy.notFound')} />;
 
   return (
     <div>
       <PageHeader
-        back={{ to: '/farmer/policies', label: 'My policies' }}
+        back={{ to: '/farmer/policies', label: t('nav.myPolicies') }}
         title={
         <span className="flex flex-wrap items-center gap-3">
-            {policy.lga} · {policy.crop}
+            {policy.lga} · {cropName(policy.crop, t)}
             <StatusBadge status={policy.status} />
           </span>
         }
         description={
         <>
-            Policy <span className="font-mono">#{policy.id}</span> · {getWindow(policy.windowId).label}
+            {t('policy.number', { id: policy.id })} · {windowName(policy.windowId)}
           </>
         } />
       
@@ -38,7 +42,7 @@ export function FarmerPolicyDetail() {
 
       <section aria-labelledby="settlement-heading" className="mt-6 rounded-lg border border-line bg-surface">
         <h2 id="settlement-heading" className="border-b border-line px-5 py-4 text-base font-semibold">
-          Settlement
+          {t('policy.settlement')}
         </h2>
         {policy.evaluation ?
         <EvaluationResultPanel result={policy.evaluation} payoutEth={policy.payoutEth} showValidation={false} /> :
@@ -48,11 +52,8 @@ export function FarmerPolicyDetail() {
               <ClockIcon className="h-4 w-4" aria-hidden />
             </span>
             <div>
-              <p className="text-sm font-medium">Awaiting oracle evaluation</p>
-              <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
-                When the coverage window closes, rainfall from CHIRPS, NASA POWER and Meteostat is compared and the
-                contract settles automatically. You don't need to file a claim.
-              </p>
+              <p className="text-sm font-medium">{t('policy.awaiting')}</p>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">{t('policy.awaitingBody')}</p>
             </div>
           </div>
         }

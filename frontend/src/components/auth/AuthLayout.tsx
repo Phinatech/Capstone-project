@@ -42,13 +42,13 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
               className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/20 px-3 py-2.5 lg:block">
               
                 <p className="truncate text-sm font-semibold">{s.name}</p>
-                <p className="truncate text-xs text-white/70">{s.kind}</p>
+                <p className="truncate text-xs text-white/70">{t(`source.${s.id}.kind`)}</p>
               </motion.li>
             )}
           </ul>
           <p className="mt-6 flex items-center gap-2 text-xs text-white/75">
             <ShieldCheckIcon className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="truncate">Reputation-weighted oracle · Sepolia testnet</span>
+            <span className="truncate">{t('shell.authTagline')}</span>
           </p>
         </motion.div>
         <p className="line-clamp-2 text-xs text-white/70">{t('brand.footer')}</p>

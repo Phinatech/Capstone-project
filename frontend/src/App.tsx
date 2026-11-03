@@ -10,6 +10,7 @@ import { PreferencesProvider, usePreferences } from './contexts/PreferencesConte
 import { NotificationProvider } from './contexts/NotificationContext';
 import { FxProvider } from './contexts/FxContext';
 import { AgentSalesProvider } from './contexts/AgentSalesContext';
+import { PolicyActivitySync } from './components/PolicyActivitySync';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { RequireRole, RoleRedirect } from './components/layout/RequireRole';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -158,6 +159,7 @@ export function App() {
                     <FxProvider>
                       <NotificationProvider>
                         <PolicyProvider>
+                          <PolicyActivitySync />
                           <AppRoutes />
                         </PolicyProvider>
                       </NotificationProvider>

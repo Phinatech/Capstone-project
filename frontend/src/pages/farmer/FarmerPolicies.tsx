@@ -5,22 +5,24 @@ import { PageHeader } from '../../components/PageHeader';
 import { PolicyBrowser } from '../../components/PolicyBrowser';
 import { btnPrimary } from '../../components/ui/buttons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useI18n } from '../../contexts/I18nContext';
 import { usePolicies } from '../../contexts/PolicyContext';
 
 export function FarmerPolicies() {
   const { user } = useAuth();
   const { policies } = usePolicies();
+  const { t } = useI18n();
   const mine = useMemo(() => policies.filter((p) => p.farmerId === user?.id), [policies, user]);
 
   return (
     <div>
       <PageHeader
-        title="My policies"
-        description="Every policy you hold, with its trigger and settlement status."
+        title={t('nav.myPolicies')}
+        description={t('farmerPolicies.description')}
         actions={
         <Link to="/farmer/policies/new" className={btnPrimary}>
             <PlusIcon className="h-4 w-4" aria-hidden />
-            Buy cover
+            {t('nav.buyCover')}
           </Link>
         } />
       

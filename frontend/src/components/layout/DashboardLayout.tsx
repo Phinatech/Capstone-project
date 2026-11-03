@@ -12,6 +12,7 @@ import { WelcomeModal } from '../modals/WelcomeModal';
 import { WhatsNewModal } from '../modals/WhatsNewModal';
 import { SignOutDialog } from '../modals/SignOutDialog';
 import { useAuth } from '../../contexts/AuthContext';
+import { useI18n } from '../../contexts/I18nContext';
 import { UIProvider, useUI } from '../../contexts/UIContext';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { RELEASE_VERSION } from '../../data/onboarding';
@@ -35,6 +36,7 @@ function markSeen(key: string) {
 
 function Shell({ user }: {user: User;}) {
   const { pathname } = useLocation();
+  const { t } = useI18n();
   const outlet = useOutlet();
   const ui = useUI();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,7 +102,7 @@ function Shell({ user }: {user: User;}) {
           </main>
           <footer className="hidden border-t border-line px-8 py-4 text-xs text-muted lg:block">
             <p className="truncate">
-              BSc Software Engineering prototype · Chinemerem Judith Ugbo · Supervisor: Dr Aaron Izang · Sepolia testnet only.
+              {t('shell.footer')}
             </p>
           </footer>
         </div>

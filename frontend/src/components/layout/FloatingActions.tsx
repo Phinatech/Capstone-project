@@ -36,15 +36,15 @@ export function FloatingActions({
   useEffect(() => setOpen(false), [pathname]);
   const nextPending = policies.find((p) => p.status === 'active');
   const actions: Action[] = role === 'admin' ? [{
-    label: nextPending ? `Evaluate policy #${nextPending.id}` : 'Evaluation queue',
+    label: nextPending ? t('quick.evaluate', { id: nextPending.id }) : t('quick.queue'),
     icon: ScaleIcon,
     run: () => navigate(nextPending ? `/admin/policies/${nextPending.id}` : '/admin')
   }, {
-    label: 'Farmers',
+    label: t('nav.farmers'),
     icon: UsersIcon,
     run: () => navigate('/admin/farmers')
   }, {
-    label: 'Run backtest',
+    label: t('quick.backtest'),
     icon: FlaskConicalIcon,
     run: () => navigate('/admin/backtest')
   }, {
@@ -54,15 +54,15 @@ export function FloatingActions({
   }] : [{
     label: t('nav.buyCover'),
     icon: PlusIcon,
-    run: () => navigate('/farmer/policies/new')
+    run: () => navigate(`/${role}/policies/new`)
   }, {
-    label: t('nav.payouts'),
+    label: t(role === 'agent' ? 'nav.policies' : 'nav.payouts'),
     icon: WalletIcon,
-    run: () => navigate('/farmer/payouts')
+    run: () => navigate(role === 'agent' ? '/agent/policies' : '/farmer/payouts')
   }, {
     label: t('nav.notifications'),
     icon: BellIcon,
-    run: () => navigate('/farmer/notifications')
+    run: () => navigate(`/${role}/notifications`)
   }, {
     label: t('nav.search'),
     icon: SearchIcon,

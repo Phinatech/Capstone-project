@@ -5,12 +5,8 @@ import { evaluatePolicy } from '../../utils/oracle';
 import { formatEth } from '../../utils/format';
 import type { AggregationMode, CorruptionType, EvaluationResult, Policy, SourceId } from '../../types/insurance';
 
-export const evaluationStages = [
-'Relayer fetching CHIRPS, NASA POWER and Meteostat',
-'Submitting each source’s reading on-chain',
-'Aggregator weighting readings by reputation',
-'Comparing against policy threshold',
-'Settling the policy on-chain'];
+/** Translation keys for each step, in order. */
+export const evaluationStages = ['stage.fetch', 'stage.submit', 'stage.weight', 'stage.compare', 'stage.settle'] as const;
 
 
 const STAGE_MS = 550;
@@ -58,7 +54,7 @@ export function useEvaluationRunner(policy: Policy) {
             toast('Policy settled with no payout', { description: 'Rainfall stayed above your threshold.' });
           }
         } catch (e) {
-          setError(e instanceof Error ? e.message : 'The oracle request failed. Try again.');
+          setError(e instanceof Error ? e.message : 'runner.failed');
           setStatus('error');
         }
       }, evaluationStages.length * STAGE_MS)

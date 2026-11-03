@@ -34,7 +34,7 @@ export function Topbar({ user }: {user: User;}) {
           <Brand to={home} compact />
         </div>
 
-        <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
+        <nav aria-label={t('shell.breadcrumb')} className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
           <Link to={home} className="truncate text-muted hover:text-ink">
             {t(portalKey)}
           </Link>

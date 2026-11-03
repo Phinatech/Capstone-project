@@ -82,6 +82,6 @@ export async function sendPasswordReset(to: string, token: string): Promise<bool
   return sendMail(
     to,
     "Password reset — Sokoto Rainfall Cover",
-    `Use this token to choose a new password: ${token}\n\nIt expires in 15 minutes. If you did not request this, ignore this message.\n\n${SIGNATURE}`
+    `Use this token to choose a new password: ${token}\n\nIt expires in 1 hour. If you did not request this, ignore this message.\n\n${SIGNATURE}`
   );
 }

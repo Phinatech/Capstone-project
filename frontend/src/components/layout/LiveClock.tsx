@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ClockIcon } from 'lucide-react';
 import { useI18n } from '../../contexts/I18nContext';
 import { usePreferences } from '../../contexts/PreferencesContext';
+import { formatClockDate } from '../../utils/format';
 
 const TIME_ZONE = 'Africa/Lagos';
 
@@ -23,7 +24,7 @@ export function LiveClock() {
     return () => window.clearInterval(id);
   }, []);
 
-  const date = safeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }, now);
+  const date = formatClockDate(now, TIME_ZONE);
   const time = safeFormat(
     locale,
     {

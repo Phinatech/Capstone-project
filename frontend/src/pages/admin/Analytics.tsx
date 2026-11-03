@@ -6,51 +6,55 @@ import { ChartCard, tooltipStyle } from '../../components/analytics/ChartCard';
 import { KpiStrip } from '../../components/analytics/KpiStrip';
 import { usePolicies } from '../../contexts/PolicyContext';
 import { useWindowRainfall } from '../../hooks/useWindowRainfall';
-import { configurationProfiles } from '../../data/configurations';
+import { useI18n } from '../../contexts/I18nContext';
+import { cropName } from '../../contexts/policyActivity';
+import type { TranslationKey } from '../../data/translations';
 import { byCrop, byLga, byStatus, byWindow, portfolioStats, triggerMargins } from '../../utils/analytics';
 import { runBacktest } from '../../utils/oracle';
 import { formatEth } from '../../utils/format';
 
 type Crop = 'all' | 'Millet' | 'Sorghum';
 const axis = { fontSize: 10, fill: 'var(--muted)' };
+const statusKeys: Record<string, TranslationKey> = { active: 'status.active', paid: 'status.paid', no_payout: 'status.noPayout' };
 
 export function Analytics() {
   const { policies, windows: windowOptions, poolEth: pool } = usePolicies();
   const rainfallOf = useWindowRainfall();
+  const { t } = useI18n();
   const [crop, setCrop] = useState<Crop>('all');
   const scoped = crop === 'all' ? policies : policies.filter((p) => p.crop === crop);
 
   const stats = portfolioStats(scoped);
   const windows = byWindow(scoped, windowOptions, rainfallOf);
   const lgaRows = byLga(scoped);
-  const status = byStatus(scoped);
+  const status = byStatus(scoped).map((s) => ({ ...s, label: t(statusKeys[s.key]) }));
   const crops = byCrop(policies);
   const margins = triggerMargins(scoped, windowOptions, rainfallOf);
   const wouldPay = margins.filter((m) => m.ratio > 1).length;
   const backtest = useMemo(
     () =>
     runBacktest().map((r) => ({
-      name: configurationProfiles.find((p) => p.mode === r.mode)!.shortName,
+      name: t(`mode.${r.mode}.short`),
       clean: Math.round(r.cleanAccuracy * 1000) / 10,
       corrupted: Math.round(r.corruptedAccuracy * 1000) / 10
     })),
-    []
+    [t]
   );
   const maxLga = Math.max(...lgaRows.map((r) => r.cover), 0.0001);
 
   return (
     <div>
       <PageHeader
-        title="Analytics"
-        description="Portfolio health, where cover is concentrated, and how the oracle designs compare."
+        title={t('nav.analytics')}
+        description={t('analytics.description')}
         actions={
         <FilterTabs<Crop>
-          label="Crop"
+          label={t('purchase.crop')}
           value={crop}
           onChange={setCrop}
           options={[
-          { value: 'all', label: 'All crops' },
-          ...crops.map((c) => ({ value: c.crop as Crop, label: c.crop, count: c.count }))]
+          { value: 'all', label: t('ui.allCrops') },
+          ...crops.map((c) => ({ value: c.crop as Crop, label: cropName(c.crop, t), count: c.count }))]
           } />
 
         } />
@@ -60,7 +64,7 @@ export function Analytics() {
         <KpiStrip stats={stats} pool={pool} />
 
         <div className="grid gap-3 sm:gap-6 lg:grid-cols-3">
-          <ChartCard title="Cover by coverage window" hint="Open exposure and paid-out cover, in ETH" className="lg:col-span-2">
+          <ChartCard title={t('analytics.byWindow')} hint={t('analytics.byWindowHint')} className="lg:col-span-2">
             <div className="h-56 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={windows} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
@@ -71,17 +75,17 @@ export function Analytics() {
                     contentStyle={tooltipStyle}
                     cursor={{ fill: 'var(--canvas)' }}
                     formatter={(value, name) =>
-                    name === 'Rainfall' ? `${Number(value).toFixed(1)} mm` : formatEth(Number(value))}
+                    name === t('analytics.rainfall') ? `${Number(value).toFixed(1)} mm` : formatEth(Number(value))}
                     />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="active" name="Open exposure" stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-                  <Bar dataKey="paid" name="Paid out" stackId="a" fill="var(--clay)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="active" name={t('analytics.openExposure')} stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="paid" name={t('analytics.paidOut')} stackId="a" fill="var(--clay)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </ChartCard>
 
-          <ChartCard title="Policy status" hint={`${stats.policies} policies`}>
+          <ChartCard title={t('analytics.status')} hint={t('analytics.policiesCount', { count: stats.policies })}>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:grid-cols-1">
               <div className="relative h-36 sm:h-44">
                 <ResponsiveContainer width="100%" height="100%">
@@ -96,7 +100,7 @@ export function Analytics() {
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                   <span className="font-mono text-xl font-semibold">{stats.policies}</span>
-                  <span className="text-[10px] text-muted">policies</span>
+                  <span className="text-[10px] text-muted">{t('analytics.policies')}</span>
                 </div>
               </div>
               <ul className="space-y-1.5 lg:grid lg:grid-cols-3 lg:gap-2 lg:space-y-0">
@@ -115,9 +119,9 @@ export function Analytics() {
         </div>
 
         <div className="grid gap-3 sm:gap-6 lg:grid-cols-2">
-          <ChartCard title="Cover by LGA" hint="Total cover written per local government area">
+          <ChartCard title={t('analytics.byLga')} hint={t('analytics.byLgaHint')}>
             {lgaRows.length === 0 ?
-            <p className="py-8 text-center text-sm text-muted">No policies for this crop.</p> :
+            <p className="py-8 text-center text-sm text-muted">{t('analytics.noCropPolicies')}</p> :
 
             <ul className="space-y-2.5">
                 {lgaRows.map((r) =>
@@ -135,7 +139,7 @@ export function Analytics() {
             }
           </ChartCard>
 
-          <ChartCard title="Oracle design accuracy" hint="Backtest accuracy, clean data vs one source corrupted (%)">
+          <ChartCard title={t('analytics.accuracy')} hint={t('analytics.accuracyHint')}>
             <div className="h-52 sm:h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={backtest} margin={{ top: 4, right: 4, left: -18, bottom: 0 }} barGap={4}>
@@ -144,8 +148,8 @@ export function Analytics() {
                   <YAxis domain={[0, 100]} tick={axis} tickLine={false} axisLine={false} width={48} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--canvas)' }} formatter={(v) => `${v}%`} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="clean" name="Clean" fill="var(--muted)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-                  <Bar dataKey="corrupted" name="Corrupted" fill="var(--accent)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="clean" name={t('analytics.clean')} fill="var(--muted)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="corrupted" name={t('analytics.corrupted')} fill="var(--accent)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -153,16 +157,16 @@ export function Analytics() {
         </div>
 
         <ChartCard
-          title="Trigger vs recorded rainfall"
-          hint="Each policy's trigger as a share of the rainfall its window has recorded. Above 100% means that window pays out."
+          title={t('analytics.margins')}
+          hint={t('analytics.marginsHint')}
           action={
           <span className="shrink-0 rounded-full bg-clay-soft px-2 py-0.5 text-[11px] font-medium text-clay">
-              {wouldPay}/{margins.length} would pay
+              {t('analytics.wouldPay', { count: wouldPay, total: margins.length })}
             </span>
           }>
           
           {margins.length === 0 ?
-          <p className="py-8 text-center text-sm text-muted">No policy's window has finished collecting readings yet.</p> :
+          <p className="py-8 text-center text-sm text-muted">{t('analytics.noMargins')}</p> :
 
           <ul className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
             {margins.map((m) => {

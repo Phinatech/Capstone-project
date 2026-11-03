@@ -1,5 +1,6 @@
 import { CloudOffIcon, RefreshCwIcon } from 'lucide-react';
 import { useAgentSales } from '../contexts/AgentSalesContext';
+import { useI18n } from '../contexts/I18nContext';
 
 /**
  * Warns when part of the agent's book exists only in this browser.
@@ -10,6 +11,7 @@ import { useAgentSales } from '../contexts/AgentSalesContext';
  */
 export function LedgerSyncBanner() {
   const { unsynced, error, refresh, loading } = useAgentSales();
+  const { t } = useI18n();
   if (unsynced === 0 && !error) return null;
 
   return (
@@ -20,8 +22,8 @@ export function LedgerSyncBanner() {
         <CloudOffIcon className="h-4 w-4 shrink-0" aria-hidden />
         <span className="min-w-0">
           {unsynced > 0 ?
-            `${unsynced} ${unsynced === 1 ? 'receipt is' : 'receipts are'} saved on this device only and will retry automatically.` :
-            'The sales ledger is unreachable — receipts taken now will not reach the backend yet.'
+            unsynced === 1 ? t('ledger.unsyncedOne') : t('ledger.unsyncedMany', { count: unsynced }) :
+            t('ledger.unreachable')
           }
         </span>
       </span>
@@ -31,7 +33,7 @@ export function LedgerSyncBanner() {
         disabled={loading}
         className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-danger px-3 py-1 text-xs font-semibold transition-colors duration-150 ease-out hover:bg-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-60">
         <RefreshCwIcon className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-        Retry now
+        {t('ledger.retry')}
       </button>
     </div>);
 }

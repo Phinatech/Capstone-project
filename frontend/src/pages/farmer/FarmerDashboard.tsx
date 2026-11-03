@@ -11,9 +11,9 @@ import { buildActivity } from '../../utils/activity';
 import { formatEth, shortAddress } from '../../utils/format';
 
 const steps = [
-{ title: 'Buy cover', text: 'Choose a window and the rainfall level that would hurt your harvest.' },
-{ title: 'Rainfall is checked', text: 'Three independent sources are compared when the window closes.' },
-{ title: 'Paid automatically', text: 'If rain falls short, the payout goes straight to your wallet.' }];
+{ title: 'farmerDash.step1.title', text: 'farmerDash.step1.text' },
+{ title: 'farmerDash.step2.title', text: 'farmerDash.step2.text' },
+{ title: 'farmerDash.step3.title', text: 'farmerDash.step3.text' }] as const;
 
 
 export function FarmerDashboard() {
@@ -32,11 +32,11 @@ export function FarmerDashboard() {
     <div>
       <PageHeader
         title={`${t('greeting.hello')}, ${firstName}`}
-        description={t('dash.coverFor', { place: user.lga ?? 'Sokoto State' })}
+        description={t('dash.coverFor', { place: user.lga ?? 'Sokoto' })}
         actions={
         <Link to="/farmer/policies/new" className={primaryButtonClass}>
             <PlusIcon className="h-4 w-4" aria-hidden />
-            Buy cover
+            {t('nav.buyCover')}
           </Link>
         } />
       
@@ -46,15 +46,15 @@ export function FarmerDashboard() {
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line p-4 md:p-6">
             <div>
               <h2 id="cover-heading" className="text-sm font-medium text-muted">
-                Active cover
+                {t('farmerDash.activeCover')}
               </h2>
               <p className="mt-1 font-mono text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">{formatEth(protectedEth)}</p>
               <p className="mt-1 text-sm text-muted">
-                protected across {active.length} active {active.length === 1 ? 'policy' : 'policies'}
+                {active.length === 1 ? t('farmerDash.protectedOne') : t('farmerDash.protectedMany', { count: active.length })}
               </p>
             </div>
             <Link to="/farmer/policies" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-              All policies
+              {t('farmerDash.allPolicies')}
               <ArrowRightIcon className="h-4 w-4" aria-hidden />
             </Link>
           </div>
@@ -64,9 +64,9 @@ export function FarmerDashboard() {
               basePath="/farmer/policies"
               emptyMessage={
               <>
-                  No active cover.{' '}
+                  {t('farmerDash.noActive')}{' '}
                   <Link to="/farmer/policies/new" className="font-medium text-accent hover:underline">
-                    Buy a policy
+                    {t('farmerDash.buyPolicy')}
                   </Link>
                 </>
               } />
@@ -77,23 +77,23 @@ export function FarmerDashboard() {
         <aside className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-1 lg:content-start">
           <section aria-labelledby="wallet-heading" className="min-w-0 rounded-lg border border-line bg-surface p-4 sm:p-5">
             <h2 id="wallet-heading" className="text-sm font-medium text-muted">
-              Wallet balance
+              {t('farmerDash.walletBalance')}
             </h2>
             <p className="mt-1 font-mono text-2xl font-semibold">{formatEth(balanceOf(user.id))}</p>
             <p className="mt-1 font-mono text-xs text-muted">{shortAddress(user.wallet)} · Sepolia</p>
             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4 text-sm">
-              <span className="text-muted">Payouts received</span>
+              <span className="text-muted">{t('farmerDash.payoutsReceived')}</span>
               <span className="font-mono text-clay">{formatEth(received)}</span>
             </div>
             <Link to="/farmer/payouts" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-              Payout history
+              {t('menu.payoutHistory')}
               <ArrowRightIcon className="h-4 w-4" aria-hidden />
             </Link>
           </section>
 
           <section aria-labelledby="how-heading" className="min-w-0 rounded-lg border border-line bg-surface p-4 sm:p-5">
             <h2 id="how-heading" className="text-sm font-semibold">
-              How payouts work
+              {t('farmerDash.howPayouts')}
             </h2>
             <ol className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
               {steps.map((s, i) =>
@@ -102,8 +102,8 @@ export function FarmerDashboard() {
                     {i + 1}
                   </span>
                   <div>
-                    <p className="text-sm font-medium">{s.title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted">{s.text}</p>
+                    <p className="text-sm font-medium">{t(s.title)}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted">{t(s.text)}</p>
                   </div>
                 </li>
               )}
@@ -113,7 +113,7 @@ export function FarmerDashboard() {
 
         <section aria-labelledby="activity-heading" className="min-w-0 rounded-lg border border-line bg-surface px-4 pt-4 sm:px-5 sm:pt-5 lg:col-span-2">
           <h2 id="activity-heading" className="text-base font-semibold">
-            Recent activity
+            {t('farmerDash.recentActivity')}
           </h2>
           <div className="pb-2">
             <ActivityList items={buildActivity(mine, 5)} basePath="/farmer/policies" />

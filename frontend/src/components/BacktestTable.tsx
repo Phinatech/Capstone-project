@@ -1,8 +1,10 @@
 import { configurationProfiles } from '../data/configurations';
+import { useI18n } from '../contexts/I18nContext';
 import { formatGas, formatPct } from '../utils/format';
 import type { BacktestSummary } from '../utils/oracle';
 
 export function BacktestTable({ results }: {results: BacktestSummary[];}) {
+  const { t } = useI18n();
   const rows = results.map((r) => {
     const profile = configurationProfiles.find((p) => p.mode === r.mode)!;
     return { ...r, profile, gas: profile.requestGas + profile.fulfillGas };
@@ -17,11 +19,11 @@ export function BacktestTable({ results }: {results: BacktestSummary[];}) {
   const cell = (isBest: boolean) => `py-3.5 pr-4 text-right font-mono ${isBest ? 'font-semibold text-accent-strong' : ''}`;
 
   const metrics = (r: (typeof rows)[number]) => [
-  { label: 'Payout accuracy', value: formatPct(r.cleanAccuracy), best: r.cleanAccuracy === best.clean },
-  { label: 'With one source corrupted', value: formatPct(r.corruptedAccuracy), best: r.corruptedAccuracy === best.corrupted },
-  { label: 'Error vs gauge', value: formatPct(r.corruptedMeanError), best: r.corruptedMeanError === best.error },
-  { label: 'Latency', value: `${r.profile.latencySec.toFixed(1)} s`, best: r.profile.latencySec === best.latency },
-  { label: 'Gas / decision', value: formatGas(r.gas), best: r.gas === best.gas }];
+  { label: t('btTable.accuracy'), value: formatPct(r.cleanAccuracy), best: r.cleanAccuracy === best.clean },
+  { label: t('btTable.withCorrupted'), value: formatPct(r.corruptedAccuracy), best: r.corruptedAccuracy === best.corrupted },
+  { label: t('btTable.error'), value: formatPct(r.corruptedMeanError), best: r.corruptedMeanError === best.error },
+  { label: t('btTable.latency'), value: `${r.profile.latencySec.toFixed(1)} s`, best: r.profile.latencySec === best.latency },
+  { label: t('btTable.gas'), value: formatGas(r.gas), best: r.gas === best.gas }];
 
 
   return (
@@ -33,9 +35,9 @@ export function BacktestTable({ results }: {results: BacktestSummary[];}) {
           className={`min-w-0 rounded-lg border bg-surface p-5 ${r.mode === 'reputation' ? 'border-accent' : 'border-line'}`}>
           
             <p className="flex items-center justify-between gap-2">
-              <span className="truncate font-semibold">{r.profile.name}</span>
+              <span className="truncate font-semibold">{t(`mode.${r.mode}.name`)}</span>
               {r.mode === 'reputation' &&
-            <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-strong">Proposed</span>
+            <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-strong">{t('btTable.proposed')}</span>
             }
             </p>
             <dl className="mt-4 divide-y divide-line">
@@ -52,15 +54,15 @@ export function BacktestTable({ results }: {results: BacktestSummary[];}) {
 
       <div className="hidden overflow-hidden rounded-lg border border-line bg-surface lg:block">
         <table className="w-full table-fixed text-sm">
-          <caption className="sr-only">Backtest results by oracle configuration</caption>
+          <caption className="sr-only">{t('btTable.caption')}</caption>
           <thead>
             <tr className="border-b border-line text-xs text-muted">
-              <th className="w-[26%] py-3 pl-5 pr-4 text-left font-medium">Configuration</th>
-              <th className="py-3 pr-4 text-right font-medium">Payout accuracy</th>
-              <th className="py-3 pr-4 text-right font-medium">One source corrupted</th>
-              <th className="py-3 pr-4 text-right font-medium">Error vs gauge</th>
-              <th className="py-3 pr-4 text-right font-medium">Latency</th>
-              <th className="py-3 pr-5 text-right font-medium">Gas / decision</th>
+              <th className="w-[26%] py-3 pl-5 pr-4 text-left font-medium">{t('btTable.configuration')}</th>
+              <th className="py-3 pr-4 text-right font-medium">{t('btTable.accuracy')}</th>
+              <th className="py-3 pr-4 text-right font-medium">{t('btTable.oneCorrupted')}</th>
+              <th className="py-3 pr-4 text-right font-medium">{t('btTable.error')}</th>
+              <th className="py-3 pr-4 text-right font-medium">{t('btTable.latency')}</th>
+              <th className="py-3 pr-5 text-right font-medium">{t('btTable.gas')}</th>
             </tr>
           </thead>
           <tbody>

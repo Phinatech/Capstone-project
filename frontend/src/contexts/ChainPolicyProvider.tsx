@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserProvider, Contract, JsonRpcProvider, Network, formatEther, parseEther, type EventLog, type Log } from 'ethers';
+import { BrowserProvider, Contract, JsonRpcProvider, Network, formatEther, isAddress, parseEther, type EventLog, type Log } from 'ethers';
 import { toast } from 'sonner';
 import abi from '../chain/abi.json';
 import { LOCAL_CHAIN_ID, SOURCE_BY_LABEL, localAccountIndex, type ChainConfig } from '../chain/config';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorPage } from '../pages/ErrorPage';
-import { findUser, getFarmers, ensureFarmerName } from '../utils/users';
+import { findUser, getTeam, ensureFarmerName } from '../utils/users';
 import { useAuth } from './AuthContext';
-import { useNotifications } from './NotificationContext';
+import { useI18n } from './I18nContext';
+import type { TranslationKey } from '../data/translations';
+import { formatDate } from '../utils/format';
+import { windowDays } from '../utils/windows';
 import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
-import { notifyPurchase, notifySettlement } from './policyNotifications';
 import type { EvaluationResult, Policy, SourceReading } from '../types/insurance';
 import type { User } from '../types/user';
 
@@ -116,6 +118,7 @@ async function connect(config: ChainConfig): Promise<Connection> {
 
 /** Policies read from, and transactions sent to, the deployed contracts. */
 export function ChainPolicyProvider({ config, children }: {config: ChainConfig;children: React.ReactNode;}) {
+  const { t } = useI18n();
   const [conn, setConn] = useState<Connection>({ phase: 'connecting' });
   const [attempt, setAttempt] = useState(0);
 
@@ -141,7 +144,7 @@ export function ChainPolicyProvider({ config, children }: {config: ChainConfig;c
     if (conn.phase === 'ready') conn.provider.destroy();
   }, [conn]);
 
-  if (conn.phase === 'connecting') return <LoadingScreen label="Connecting to the chain" />;
+  if (conn.phase === 'connecting') return <LoadingScreen label={t('chain.connecting')} />;
   // A configured chain that cannot be reached is an outage, not an invitation
   // to invent data: showing a simulated portfolio here once passed for real
   // state on the admin console. Say what failed and let the user retry.
@@ -162,26 +165,14 @@ interface Snapshot {
   balances: Record<string, number>;
   poolEth: number;
   windowCount: number;
-  windows: WindowOption[];
+  /** As the contract reports them; labels are built at render, in the reader's language. */
+  windows: RawWindow[];
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** A period id is YYYYMMD: 2026092 is 2026, September, second dekad. */
-function dekadLabel(period: number): string {
-  const month = Math.floor(period / 10) % 100;
-  return `${MONTHS[month - 1] ?? month} D${period % 10}`;
-}
-
-function windowCloses(salesCloseAt: number): string {
-  return new Date(salesCloseAt * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/** Which dekads a window insures, e.g. "Sep D2 – Oct D1". */
-function windowCovers(periods: number[]): string {
-  if (periods.length === 0) return '—';
-  if (periods.length === 1) return dekadLabel(periods[0]);
-  return `${dekadLabel(periods[0])} – ${dekadLabel(periods[periods.length - 1])}`;
+interface RawWindow {
+  id: number;
+  salesCloseAt: number;
+  periods: number[];
 }
 
 interface OracleInfo {
@@ -221,43 +212,46 @@ function writeMeta(insurance: string, id: number, entry: PolicyMeta[number]) {
 
 
 function knownUsers(current: User | null): User[] {
-  const list = [...getFarmers(), findUser('admin-1'), current].filter((u): u is User => !!u);
+  // Agents too, so the admin console can show an agent's wallet balance.
+  const list = [...getTeam(), findUser('admin-1'), current].filter((u): u is User => !!u);
   return [...new Map(list.map((u) => [u.id, u])).values()];
 }
 
-const FRIENDLY_REVERTS: Record<string, string> = {
-  'window not finalized yet': "The oracles haven't finalized every dekad in this window yet, so it can't be settled.",
-  'sales closed for window': 'Sales for this coverage window have closed.',
-  'pool cannot cover payout': "The payout pool can't cover this payout right now.",
-  'already settled': 'This policy has already been settled.',
-  'wrong premium': "The premium sent didn't match the contract's quote."
+type Translate = ReturnType<typeof useI18n>['t'];
+
+const FRIENDLY_REVERTS: Record<string, TranslationKey> = {
+  'window not finalized yet': 'chainErr.notFinalized',
+  'sales closed for window': 'chainErr.salesClosed',
+  'pool cannot cover payout': 'chainErr.poolShort',
+  'already settled': 'chainErr.alreadySettled',
+  'wrong premium': 'chainErr.wrongPremium'
 };
 
-function chainLabel(chainId: bigint): string {
-  if (chainId === 1n) return 'Ethereum mainnet';
-  if (chainId === 11155111n) return 'the Sepolia testnet';
-  return `chain ${chainId}`;
+function chainLabel(chainId: bigint, t: Translate): string {
+  if (chainId === 1n) return t('chain.mainnet');
+  if (chainId === 11155111n) return t('chain.sepolia');
+  return t('chain.other', { id: String(chainId) });
 }
 
-function chainErrorMessage(e: unknown): string {
+function chainErrorMessage(e: unknown, t: Translate): string {
   const err = e as {reason?: string;shortMessage?: string;message?: string;code?: string;};
   const reason = err.reason?.replace(/^\w+: /, '');
-  if (reason) return FRIENDLY_REVERTS[reason] ?? `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`;
+  if (reason) return FRIENDLY_REVERTS[reason] ? t(FRIENDLY_REVERTS[reason]) : `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`;
   const raw = err.shortMessage ?? err.message ?? '';
   // "missing revert data" is ethers' way of saying the node reported a failure
   // with no reason at all: no require() fired, so this is infrastructure — the
   // wallet's RPC failing or rate-limiting mid-estimate — or an account that
   // cannot cover the premium plus gas. Say so instead of echoing jargon.
   if (err.code === 'INSUFFICIENT_FUNDS' || /insufficient funds/i.test(raw)) {
-    return "The wallet says this account can't cover the premium plus gas. If MetaMask is showing a different account with funds, switch back to it or reload the page so the app picks up the account you're using now.";
+    return t('chainErr.insufficient');
   }
   if (/missing revert data/i.test(raw)) {
-    return "The node couldn't say why the transaction failed — usually the wallet's RPC is busy, or this account doesn't cover the premium plus gas. Check the balance in MetaMask, wait a moment, then try again.";
+    return t('chainErr.noReason');
   }
   if (/network changed|chain.?changed/i.test(raw)) {
-    return 'MetaMask changed networks while the page was open. Reload the page on the right network and try again.';
+    return t('chainErr.networkChanged');
   }
-  return raw || 'The transaction failed.';
+  return raw || t('chainErr.failed');
 }
 
 function chainEvaluation(
@@ -319,7 +313,10 @@ function ChainData({
 
 }: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;rpcUrl: string;children: React.ReactNode;}) {
   const { user } = useAuth();
-  const { notify } = useNotifications();
+  const { t } = useI18n();
+  // Read through a ref by load/refresh, so changing language never refetches the chain.
+  const tRef = useRef(t);
+  tRef.current = t;
   // The wallet's account list is captured when the page loads. Once the user
   // switches accounts in MetaMask, paying from the stale entry makes the node
   // answer "insufficient funds" while the panel shows a funded account — so
@@ -344,15 +341,15 @@ function ChainData({
     const onChain = (...args: unknown[]) => {
       const next = typeof args[0] === 'string' ? BigInt(args[0]) : null;
       if (next !== null && next !== chainId) {
-        toast.warning('MetaMask switched networks', {
-          description: `This app trades on ${chainLabel(chainId)}. Switch MetaMask back before buying cover — a purchase sent now would go out on ${chainLabel(next)}.`,
+        toast.warning(t('chainErr.switchedTitle'), {
+          description: t('chainErr.switchedBody', { expected: chainLabel(chainId, t), actual: chainLabel(next, t) }),
           duration: 12000
         });
       }
     };
     eth.on('chainChanged', onChain);
     return () => eth.removeListener('chainChanged', onChain);
-  }, [isWallet, chainId]);
+  }, [isWallet, chainId, t]);
   const local = chainId === LOCAL_CHAIN_ID && liveAccounts.length > 0;
   const insurance = useMemo(() => new Contract(config.insuranceAddress, abi.WeatherIndexInsurance, provider), [config, provider]);
   const aggregator = useMemo(() => new Contract(config.aggregatorAddress, abi.OracleAggregator, provider), [config, provider]);
@@ -389,6 +386,21 @@ function ChainData({
     [local, isWallet, liveAccounts]
   );
 
+  /**
+   * Whose wallet to read for a user: the account signing in this browser for
+   * the person using it, everyone else's own profile wallet. Reading the
+   * connected account for every user showed the admin's own balance and
+   * address against each farmer.
+   */
+  const walletFor = useCallback(
+    (u: User): string | undefined => {
+      if (local) return liveAccounts[localAccountIndex(u.id)];
+      if (u.id === user?.id) return addressOf(u.id) ?? (isAddress(u.wallet) ? u.wallet : undefined);
+      return isAddress(u.wallet) ? u.wallet : undefined;
+    },
+    [local, liveAccounts, user, addressOf]
+  );
+
   /** `minBlock`: ask the API for data read at or after this block, i.e. our own transaction's. */
   const load = useCallback(async (minBlock?: number): Promise<Snapshot> => {
     const users = knownUsers(user);
@@ -409,27 +421,16 @@ function ChainData({
     ]);
 
     if (!policiesRes.ok || !oraclesRes.ok || !windowsRes.ok || !evaluationsRes.ok) {
-      throw new Error('Failed to fetch data from the API');
+      throw new Error(tRef.current('chainErr.apiFailed'));
     }
 
-    const { policies: rawPolicies } = await policiesRes.json() as { policies: Array<{ id: number; farmer: string; windowId: number; droughtThresholdMm: number; payoutAmount: string; premiumPaid: string; settled: boolean; farmerId?: string; farmerName?: string; lga?: string; crop?: string }> };
+    const { policies: rawPolicies } = await policiesRes.json() as { policies: Array<{ id: number; farmer: string; windowId: number; droughtThresholdMm: number; payoutAmount: string; premiumPaid: string; settled: boolean; agentId?: string; farmerId?: string; farmerName?: string; lga?: string; crop?: string }> };
     const { oracles: rawOracles } = await oraclesRes.json() as { oracles: Array<{ address: string; label: string; registered: boolean; reputationWeight: number }> };
     const { windows: rawWindows } = await windowsRes.json() as { windows: Array<{ id: number; salesCloseAt: number; periods: number[] }> };
     const { evaluations: rawEvaluations } = await evaluationsRes.json() as { evaluations: Array<{ policyId: number; settlement: { policyId: number; triggered: boolean; rainfallMm: number; txHash: string; blockNumber: number } | null; readings: Array<{ period: number; oracle: string; rainfallMm: number }>; periodWeights: Record<string, number>; gasUsed: string; purchasedAtTimestamp: number; settlementTimestamp: number }> };
 
     const oracles: OracleInfo[] = rawOracles.map((o) => ({ address: o.address.toLowerCase(), label: o.label, registered: o.registered }));
     const windows = rawWindows.map((w) => w.periods.map(BigInt));
-    const windowOptions: WindowOption[] = rawWindows.map((w) => {
-      const closes = windowCloses(w.salesCloseAt);
-      return {
-        id: String(w.id),
-        label: `Window #${w.id} · closes ${closes}`,
-        open: w.salesCloseAt * 1000 > Date.now(),
-        covers: windowCovers(w.periods),
-        closes,
-        periods: w.periods
-      };
-    });
     const readings = new Map<string, bigint>();
     for (const r of rawEvaluations.flatMap((e) => e.readings)) {
       readings.set(`${r.period}:${r.oracle.toLowerCase()}`, BigInt(r.rainfallMm));
@@ -471,6 +472,8 @@ function ChainData({
       const policy: Policy = {
         id: p.id,
         farmerId,
+        agentId: p.agentId,
+        holder: farmerAddress,
         lga: p.lga ?? saved?.lga ?? farmer?.lga ?? '—',
         crop: p.crop ?? saved?.crop ?? farmer?.primaryCrop ?? 'Millet',
         windowId: String(windowIndex),
@@ -478,6 +481,7 @@ function ChainData({
         premiumEth: Number(p.premiumPaid),
         payoutEth: Number(p.payoutAmount),
         purchasedAt: new Date((evalData?.purchasedAtTimestamp ?? 0) * 1000).toISOString().slice(0, 10),
+        purchasedAtTime: evalData?.purchasedAtTimestamp ? new Date(evalData.purchasedAtTimestamp * 1000).toISOString() : undefined,
         status: 'active'
       };
       const s = evalData?.settlement ?? null;
@@ -510,7 +514,7 @@ function ChainData({
     const balances: Record<string, number> = {};
     await Promise.all(
       users.map(async (u) => {
-        const a = addressOf(u.id);
+        const a = walletFor(u);
         if (!a) return;
         // Neither read may take the snapshot down with it. A failed balance
         // leaves the entry unset, and walletConnected is what lets the form
@@ -527,8 +531,8 @@ function ChainData({
       })
     );
     const poolEth = Number(await (await fetch(`${apiUrl}/api/pool${fresh}`)).json().then((r: { balance: string }) => r.balance));
-    return { policies, balances, poolEth, windowCount: windows.length, windows: windowOptions };
-  }, [user, addressOf, insurance, aggregator, provider, readProvider, config.insuranceAddress]);
+    return { policies, balances, poolEth, windowCount: windows.length, windows: rawWindows };
+  }, [user, addressOf, walletFor, insurance, aggregator, provider, readProvider, config.insuranceAddress]);
 
   // Reload on every new block; overlapping reloads collapse into one follow-up.
   const busy = useRef(false);
@@ -543,7 +547,7 @@ function ChainData({
       setSnapshot(await load());
       setLoadError(null);
     } catch (e) {
-      setLoadError(chainErrorMessage(e));
+      setLoadError(chainErrorMessage(e, tRef.current));
     } finally {
       busy.current = false;
       if (again.current) {
@@ -565,7 +569,7 @@ function ChainData({
   const purchasePolicy = useCallback(
     async (farmerId: string, input: PurchaseInput) => {
       const from = addressOf(farmerId);
-      if (!from) throw new Error('Buying cover on this network needs a browser wallet. Connect MetaMask and try again.');
+      if (!from) throw new Error(t('chainErr.buyNeedsWallet'));
       // The wallet may sit on a different chain than this app trades on —
       // MetaMask switched to Ethereum mainnet, say. It would then sign a
       // mainnet transfer to an address that only holds this contract on
@@ -589,19 +593,15 @@ function ChainData({
           current = await walletChain();
         }
         if (current !== chainId) {
-          throw new Error(
-            `MetaMask is on ${chainLabel(current)}, but this purchase belongs on ${chainLabel(chainId)}. ` +
-            `Switch MetaMask to ${chainLabel(chainId)} and try again — confirming now would send funds on the wrong chain. ` +
-            `If MetaMask already shows ${chainLabel(chainId)}, its link to this page is stale: restart the browser, then reload.`
-          );
+          throw new Error(t('chainErr.wrongChain', { actual: chainLabel(current, t), expected: chainLabel(chainId, t) }));
         }
       }
       // The form passes the contract's own window id, so there is no lookup
       // table to translate through — that was how the wrong window got bought.
       const windowId = Number(input.windowId);
-      const option = (snapshotRef.current?.windows ?? []).find((w) => w.id === input.windowId);
-      if (!Number.isInteger(windowId) || !option || !option.open) {
-        throw new Error('This coverage window is not on sale on the contract.');
+      const option = (snapshotRef.current?.windows ?? []).find((w) => w.id === windowId);
+      if (!Number.isInteger(windowId) || !option || option.salesCloseAt * 1000 <= Date.now()) {
+        throw new Error(t('chainErr.notOnSale'));
       }
       let id: number;
       let premium: bigint;
@@ -631,10 +631,7 @@ function ChainData({
           );
         }
         if (onChain < premium) {
-          throw new Error(
-            `${from} holds ${formatEther(onChain)} ETH on Sepolia, which does not cover the ` +
-            `${formatEther(premium)} ETH premium plus gas. Send Sepolia ETH to that account and try again.`
-          );
+          throw new Error(t('chainErr.lowBalance', { account: from, balance: formatEther(onChain), premium: formatEther(premium) }));
         }
         // Estimate gas here, on the RPC this app trusts, and hand the wallet an
         // explicit limit. Without one, ethers asks the wallet's own endpoint to
@@ -655,7 +652,7 @@ function ChainData({
         id = Number(event!.args.policyId);
         block = receipt.blockNumber;
       } catch (e) {
-        throw new Error(chainErrorMessage(e));
+        throw new Error(chainErrorMessage(e, t));
       }
       // The premium is paid, so from here on the purchase must never be reported as failed.
       writeMeta(config.insuranceAddress, id, { lga: input.lga, crop: input.crop, farmer: from.toLowerCase(), farmerId });
@@ -665,39 +662,35 @@ function ChainData({
         farmerId,
         premiumEth: Number(formatEther(premium)),
         purchasedAt: new Date().toISOString().slice(0, 10),
+        purchasedAtTime: new Date().toISOString(),
         status: 'active'
       };
       unindexed.current.set(id, bought);
       const next = await load(block).catch(() => null);
       if (next) setSnapshot(next);else
       setSnapshot((s) => s && { ...s, policies: [bought, ...s.policies.filter((p) => p.id !== id)] });
-      const policy = next?.policies.find((p) => p.id === id) ?? bought;
-      notifyPurchase(notify, policy);
-      return policy;
+      return next?.policies.find((p) => p.id === id) ?? bought;
     },
-    [addressOf, isWallet, chainId, provider, readProvider, insurance, insuranceRead, config.insuranceAddress, load, notify]
+    [addressOf, isWallet, chainId, provider, readProvider, insurance, insuranceRead, config.insuranceAddress, load, t]
   );
 
   const settleOnChain = useCallback(
     async (policyId: number) => {
       const from = addressOf(user?.id ?? 'admin-1');
-      if (!from) throw new Error('Settling on this network needs a browser wallet. Connect MetaMask and try again.');
+      if (!from) throw new Error(t('chainErr.settleNeedsWallet'));
       let block: number;
       try {
         const signer = await provider.getSigner(from);
         const tx = await (insurance.connect(signer) as Contract).checkAndSettle(policyId);
         block = (await tx.wait()).blockNumber;
       } catch (e) {
-        throw new Error(chainErrorMessage(e));
+        throw new Error(chainErrorMessage(e, t));
       }
       // Settled on-chain; a failed reload shouldn't turn that into an error.
       const next = await load(block).catch(() => null);
-      if (!next) return;
-      setSnapshot(next);
-      const policy = next.policies.find((p) => p.id === policyId);
-      if (policy?.evaluation) notifySettlement(notify, policy, policy.evaluation.aggregateMm, policy.evaluation.triggered);
+      if (next) setSnapshot(next);
     },
-    [addressOf, user, provider, insurance, load, notify]
+    [addressOf, user, provider, insurance, load, t]
   );
 
   const value = useMemo<PolicyContextValue | null>(
@@ -705,25 +698,35 @@ function ChainData({
     snapshot && {
       source: { kind: 'chain', chainId, local },
       policies: snapshot.policies,
-      windows: snapshot.windows,
+      windows: snapshot.windows.map((w): WindowOption => {
+        const closes = formatDate(new Date(w.salesCloseAt * 1000).toISOString());
+        return {
+          id: String(w.id),
+          label: t('window.label', { id: w.id, closes }),
+          open: w.salesCloseAt * 1000 > Date.now(),
+          covers: windowDays(w.periods),
+          closes,
+          periods: w.periods
+        };
+      }),
       poolEth: snapshot.poolEth,
       // Without a wallet there is no account to read, so balanceOf answers 0
       // for everyone. Forms check this rather than blaming a funded wallet.
       walletConnected: isWallet,
       balanceOf: (userId: string) => snapshot.balances[userId] ?? 0,
-      walletOf: (u: User) => addressOf(u.id) ?? u.wallet,
+      walletOf: (u: User) => walletFor(u) ?? u.wallet,
       purchasePolicy,
       recordEvaluation: () => {},
       settleOnChain
     },
-    [snapshot, chainId, local, isWallet, addressOf, purchasePolicy, settleOnChain]
+    [snapshot, chainId, local, isWallet, walletFor, purchasePolicy, settleOnChain, t]
   );
 
   if (!value) {
     // Same rule as the connect failure: a chain read that failed is an outage,
     // never a reason to render invented data over the real state.
     if (loadError) return <ErrorPage error={new Error(loadError)} onRetry={() => void refresh()} />;
-    return <LoadingScreen label="Reading the contracts" />;
+    return <LoadingScreen label={t('chain.reading')} />;
   }
   return <PolicyContext.Provider value={value}>{children}</PolicyContext.Provider>;
 }

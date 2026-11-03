@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '../../contexts/I18nContext';
 import { oracleSources } from '../../data/rainfall';
 import { useRainfallSeries } from '../../hooks/useRainfallSeries';
 import { deviationsFrom } from '../../utils/oracle';
@@ -12,6 +13,7 @@ function cellStyle(v: number | null): React.CSSProperties {
 }
 
 export function AgreementHeatmap() {
+  const { t } = useI18n();
   const { dekads, live } = useRainfallSeries();
   const devs = deviationsFrom(dekads);
   const columns = `repeat(${dekads.length}, minmax(0, 1fr))`;
@@ -19,9 +21,9 @@ export function AgreementHeatmap() {
   if (dekads.length === 0) {
     return (
       <section aria-labelledby="heatmap-heading" className="min-w-0 rounded-lg border border-line bg-surface p-4 sm:p-6">
-        <h2 id="heatmap-heading" className="text-base font-semibold">Peer agreement by dekad</h2>
+        <h2 id="heatmap-heading" className="text-base font-semibold">{t('heatmap.title')}</h2>
         <p className="mt-1 text-xs text-muted sm:text-sm">
-          No readings have been submitted yet, so there is nothing to compare.
+          {t('heatmap.empty')}
         </p>
       </section>
     );
@@ -32,9 +34,9 @@ export function AgreementHeatmap() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0">
           <h2 id="heatmap-heading" className="text-base font-semibold">
-            Peer agreement by dekad
+            {t('heatmap.title')}
           </h2>
-          <p className="text-xs text-muted sm:text-sm">How far each reading sat from the mean of the other two. Darker means more disagreement.</p>
+          <p className="text-xs text-muted sm:text-sm">{t('heatmap.hint')}</p>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted">
           <span>0%</span>
@@ -72,7 +74,7 @@ export function AgreementHeatmap() {
               key={dekads[i].period || i}
               className="flex h-7 min-w-0 items-center justify-center rounded-sm font-mono text-[9px] text-ink sm:h-8 md:text-[10px]"
               style={cellStyle(v)}
-              title={`${s.name} · ${dekads[i].label}: ${v === null ? 'not scored' : `${(v * 100).toFixed(1)}% from peers`}`}>
+              title={`${s.name} · ${dekads[i].label}: ${v === null ? t('heatmap.notScored') : t('heatmap.fromPeers', { pct: `${(v * 100).toFixed(1)}%` })}`}>
 
                   <span className="hidden xl:inline">{v === null ? '–' : Math.round(v * 100)}</span>
                 </span>
@@ -83,8 +85,8 @@ export function AgreementHeatmap() {
       </div>
       <p className="mt-3 text-[11px] text-muted">
         {live ?
-        'Grey cells are dekads a source did not report, or where peers together measured under 5 mm.' :
-        'Grey cells are dry dekads (peers under 5 mm), excluded from scoring.'}
+        t('heatmap.greyLive') :
+        t('heatmap.greySim')}
       </p>
     </section>);
 

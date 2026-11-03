@@ -1,8 +1,10 @@
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useI18n } from '../contexts/I18nContext';
 import { oracleSources } from '../data/rainfall';
 import { useRainfallSeries } from '../hooks/useRainfallSeries';
 
 export function RainfallChart() {
+  const { t } = useI18n();
   const { dekads, live } = useRainfallSeries();
 
   const data = dekads.map((d) => {
@@ -17,11 +19,11 @@ export function RainfallChart() {
     };
   });
 
-  const range = dekads.length ? `${dekads[0].label} to ${dekads[dekads.length - 1].label}` : 'no dekads yet';
-  const compareName = live ? 'Mean of the sources' : 'Gauge reference';
+  const range = dekads.length ? t('chart.range', { from: dekads[0].label, to: dekads[dekads.length - 1].label }) : t('chart.noDekads');
+  const compareName = live ? t('chart.meanOfSources') : t('chart.gauge');
 
   return (
-    <div className="h-72 w-full" role="img" aria-label={`Dekadal rainfall for Sokoto, ${range}, from ${live ? 'readings submitted on-chain by three sources' : 'three sources and the gauge reference'}`}>
+    <div className="h-72 w-full" role="img" aria-label={t(live ? 'chart.rainfallLive' : 'chart.rainfallSim', { range })}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
           <CartesianGrid stroke="var(--line)" vertical={false} />

@@ -20,13 +20,13 @@ import type { TranslationKey } from '../data/translations';
 
 type SectionId = 'appearance' | 'language' | 'notifications' | 'security' | 'accessibility' | 'danger';
 
-const sections: {id: SectionId;label: string;icon: typeof PaletteIcon;}[] = [
-{ id: 'appearance', label: 'Appearance', icon: PaletteIcon },
-{ id: 'language', label: 'Language & time', icon: GlobeIcon },
-{ id: 'notifications', label: 'Notifications', icon: BellIcon },
-{ id: 'security', label: 'Security', icon: ShieldIcon },
-{ id: 'accessibility', label: 'Accessibility', icon: SparklesIcon },
-{ id: 'danger', label: 'Account', icon: AlertTriangleIcon }];
+const sections: {id: SectionId;label: TranslationKey;icon: typeof PaletteIcon;}[] = [
+{ id: 'appearance', label: 'settings.appearance', icon: PaletteIcon },
+{ id: 'language', label: 'settings.languageTime', icon: GlobeIcon },
+{ id: 'notifications', label: 'settings.notifications', icon: BellIcon },
+{ id: 'security', label: 'settings.security', icon: ShieldIcon },
+{ id: 'accessibility', label: 'settings.accessibility', icon: SparklesIcon },
+{ id: 'danger', label: 'settings.account', icon: AlertTriangleIcon }];
 
 
 const optionClass = (active: boolean) =>
@@ -84,27 +84,27 @@ export function Settings() {
     try {
       await changePassword(pw.current, pw.next);
       setPw({ current: '', next: '', confirm: '' });
-      toast.success('Password updated');
+      toast.success(t('settings.passwordUpdated'));
     } catch (err) {
-      setPwError(err instanceof AuthError ? t(err.key) : 'Could not update password');
+      setPwError(err instanceof AuthError ? t(err.key) : t('settings.passwordFailed'));
     } finally {
       setPwSaving(false);
     }
   }
 
   const notifRows: {key: keyof typeof prefs.notifications;label: string;description: string;}[] = [
-  { key: 'payouts', label: 'Payouts', description: 'When a policy pays out to a wallet.' },
-  { key: 'evaluations', label: 'Evaluations and policies', description: 'Purchases, settlements and evaluation reminders.' },
-  { key: 'oracle', label: 'Oracle feeds', description: 'Rainfall source updates, latency and reputation changes.' },
-  { key: 'updates', label: 'Product updates', description: 'New features and system announcements.' }];
+  { key: 'payouts', label: t('settings.notifPayouts'), description: t('settings.notifPayoutsHint') },
+  { key: 'evaluations', label: t('settings.notifEvaluations'), description: t('settings.notifEvaluationsHint') },
+  { key: 'oracle', label: t('settings.notifOracle'), description: t('settings.notifOracleHint') },
+  { key: 'updates', label: t('settings.notifUpdates'), description: t('settings.notifUpdatesHint') }];
 
 
   return (
     <div>
-      <PageHeader title={t('settings.title')} description="Appearance, language, notifications and account security." />
+      <PageHeader title={t('settings.title')} description={t('settings.pageDescription')} />
 
       <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-        <nav aria-label="Settings sections" className="scroll-area -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 lg:sticky lg:top-0 lg:mx-0 lg:self-start lg:overflow-visible lg:px-0">
+        <nav aria-label={t('settings.sections')} className="scroll-area -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 lg:sticky lg:top-0 lg:mx-0 lg:self-start lg:overflow-visible lg:px-0">
           <ul className="flex gap-1 lg:flex-col">
             {sections.map((s) =>
             <li key={s.id} className="shrink-0">
@@ -117,7 +117,7 @@ export function Settings() {
                 }>
                 
                   <s.icon className="h-4 w-4 shrink-0" aria-hidden />
-                  {s.label}
+                  {t(s.label)}
                 </button>
               </li>
             )}
@@ -125,7 +125,7 @@ export function Settings() {
         </nav>
 
         <div className="min-w-0 space-y-6">
-          <Card id="appearance" title="Appearance" hint={t('settings.modeHint')}>
+          <Card id="appearance" title={t('settings.appearance')} hint={t('settings.modeHint')}>
             <p className="mb-2 text-xs font-medium text-muted">{t('theme.mode')}</p>
             <div role="radiogroup" aria-label={t('theme.mode')} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {modeOptions.map((m) => {
@@ -156,13 +156,13 @@ export function Settings() {
             <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-canvas p-4">
               <span className="text-xs text-muted">{t('settings.preview')}</span>
               <span className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white">{t('auth.signIn')}</span>
-              <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-strong">Active</span>
-              <span className="rounded-full bg-clay-soft px-2.5 py-0.5 text-xs font-medium text-clay">Paid out</span>
+              <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-strong">{t('status.active')}</span>
+              <span className="rounded-full bg-clay-soft px-2.5 py-0.5 text-xs font-medium text-clay">{t('status.paid')}</span>
               <span className="text-xs font-medium text-accent underline">{t('nav.myPolicies')}</span>
             </div>
           </Card>
 
-          <Card id="language" title="Language & time" hint={t('settings.languageHint')}>
+          <Card id="language" title={t('settings.languageTime')} hint={t('settings.languageHint')}>
             <div role="radiogroup" aria-label={t('lang.label')} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {languages.map((l) => {
                 const on = language === l.value;
@@ -176,7 +176,7 @@ export function Settings() {
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="mb-2 text-xs font-medium text-muted">Clock format</p>
+                <p className="mb-2 text-xs font-medium text-muted">{t('settings.clockFormat')}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {(['24h', '12h'] as const).map((f) =>
                   <button key={f} type="button" onClick={() => setPref('timeFormat', f)} className={optionClass(prefs.timeFormat === f)}>
@@ -186,37 +186,37 @@ export function Settings() {
                 </div>
               </div>
               <div className="divide-y divide-line">
-                <Switch checked={prefs.showSeconds} onChange={(v) => setPref('showSeconds', v)} label="Show seconds" description="In the navbar clock." />
+                <Switch checked={prefs.showSeconds} onChange={(v) => setPref('showSeconds', v)} label={t('settings.showSeconds')} description={t('settings.showSecondsHint')} />
               </div>
             </div>
-            <p className="mt-3 text-xs text-muted">Times are shown in West Africa Time (WAT, UTC+1).</p>
+            <p className="mt-3 text-xs text-muted">{t('settings.timezone')}</p>
           </Card>
 
-          <Card id="notifications" title="Notifications" hint="Choose which events notify you and how.">
+          <Card id="notifications" title={t('settings.notifications')} hint={t('settings.notifHint')}>
             <div className="divide-y divide-line">
 
               {notifRows.map((r) =>
               <Switch key={r.key} checked={prefs.notifications[r.key]} onChange={(v) => setNotificationPref(r.key, v)} label={r.label} description={r.description} />
               )}
             </div>
-            <p className="mb-1 mt-5 text-xs font-medium text-muted">Delivery</p>
+            <p className="mb-1 mt-5 text-xs font-medium text-muted">{t('settings.delivery')}</p>
             <div className="divide-y divide-line">
-              <Switch checked={prefs.notifications.email} onChange={(v) => setNotificationPref('email', v)} label="Email" description={user.email} />
+              <Switch checked={prefs.notifications.email} onChange={(v) => setNotificationPref('email', v)} label={t('settings.email')} description={user.email} />
               <Switch
                 checked={prefs.notifications.sms}
                 onChange={(v) => setNotificationPref('sms', v)}
-                label="SMS"
-                description={user.phone ? user.phone : 'Add a phone number in your profile to enable SMS.'}
+                label={t('settings.sms')}
+                description={user.phone ? user.phone : t('settings.smsNeedsPhone')}
                 disabled={!user.phone} />
               
             </div>
           </Card>
 
-          <Card id="security" title="Security" hint={hasPw ? 'Change your password and protect your account.' : 'You sign in with Google. Set a password to also sign in with email.'}>
+          <Card id="security" title={t('settings.security')} hint={hasPw ? t('settings.securityHint') : t('settings.securityGoogleHint')}>
             <form onSubmit={submitPassword} className="grid gap-4 sm:grid-cols-2">
               {hasPw &&
               <PasswordField
-                label="Current password"
+                label={t('settings.currentPassword')}
                 autoComplete="current-password"
                 value={pw.current}
                 onChange={(e) => setPw((p) => ({ ...p, current: e.target.value }))}
@@ -225,7 +225,7 @@ export function Settings() {
               }
               <div className="min-w-0">
                 <PasswordField
-                  label="New password"
+                  label={t('settings.newPassword')}
                   autoComplete="new-password"
                   value={pw.next}
                   onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} />
@@ -233,7 +233,7 @@ export function Settings() {
                 <PasswordStrength password={pw.next} />
               </div>
               <PasswordField
-                label="Confirm new password"
+                label={t('settings.confirmNewPassword')}
                 autoComplete="new-password"
                 value={pw.confirm}
                 onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))}
@@ -247,7 +247,7 @@ export function Settings() {
               <div className="sm:col-span-2 sm:flex sm:justify-end">
                 <button type="submit" disabled={pwSaving || !pw.next} className={`${btnPrimary} w-full sm:w-auto`}>
                   {pwSaving ? <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden /> : <KeyRoundIcon className="h-4 w-4" aria-hidden />}
-                  {hasPw ? 'Update password' : 'Set password'}
+                  {hasPw ? t('settings.updatePassword') : t('settings.setPassword')}
                 </button>
               </div>
             </form>
@@ -256,21 +256,21 @@ export function Settings() {
                 checked={!!user.twoFactor}
                 onChange={async (v) => {
                   await updateProfile({ twoFactor: v });
-                  toast.success(v ? 'Two-step verification on' : 'Two-step verification off');
+                  toast.success(v ? t('settings.twoStepOn') : t('settings.twoStepOff'));
                 }}
-                label="Two-step verification"
-                description="Ask for a one-time code when signing in on a new device (demo)." />
+                label={t('settings.twoStep')}
+                description={t('settings.twoStepHint')} />
               
             </div>
           </Card>
 
-          <Card id="accessibility" title="Accessibility" hint="Motion and onboarding.">
+          <Card id="accessibility" title={t('settings.accessibility')} hint={t('settings.accessibilityHint')}>
             <div className="divide-y divide-line">
-              <Switch checked={prefs.reduceMotion} onChange={(v) => setPref('reduceMotion', v)} label="Reduce motion" description="Turn off page transitions and animated effects." />
+              <Switch checked={prefs.reduceMotion} onChange={(v) => setPref('reduceMotion', v)} label={t('settings.reduceMotion')} description={t('settings.reduceMotionHint')} />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => ui.open('welcome')} className={btnSecondary}>
-                Replay welcome tour
+                {t('settings.replayTour')}
               </button>
               <button type="button" onClick={() => ui.open('whatsNew')} className={btnSecondary}>
                 {t('menu.whatsNew')}
@@ -279,26 +279,26 @@ export function Settings() {
                 type="button"
                 onClick={() => {
                   resetPrefs();
-                  toast('Preferences reset');
+                  toast(t('settings.prefsReset'));
                 }}
                 className={btnSecondary}>
                 
                 <RotateCcwIcon className="h-4 w-4" aria-hidden />
-                Reset preferences
+                {t('settings.resetPrefs')}
               </button>
             </div>
           </Card>
 
-          <Card id="danger" title="Account" hint="Sign out everywhere or permanently delete this account.">
+          <Card id="danger" title={t('settings.account')} hint={t('settings.accountHint')}>
             <div className="flex flex-col gap-3 rounded-lg border border-line bg-danger-soft p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-danger">Delete account</p>
+                <p className="text-sm font-semibold text-danger">{t('settings.deleteAccount')}</p>
                 <p className="mt-0.5 text-xs text-muted">
-                  {user.role === 'admin' ? 'Demo administrator accounts cannot be deleted.' : 'Removes your profile from this browser. On-chain policies remain on the contract.'}
+                  {user.role === 'admin' ? t('settings.adminNoDelete') : t('settings.deleteHint')}
                 </p>
               </div>
               <button type="button" disabled={user.role === 'admin'} onClick={() => setDeleteOpen(true)} className={`${btnDanger} shrink-0`}>
-                Delete account
+                {t('settings.deleteAccount')}
               </button>
             </div>
           </Card>
@@ -314,8 +314,8 @@ export function Settings() {
             <AlertTriangleIcon className="h-5 w-5" aria-hidden />
           </span>
         }
-        title="Delete your account?"
-        description="This can't be undone."
+        title={t('settings.deleteTitle')}
+        description={t('settings.deleteBody')}
         footer={
         <>
             <button type="button" onClick={() => setDeleteOpen(false)} className={btnSecondary}>
@@ -330,21 +330,21 @@ export function Settings() {
               } catch (err) {
                 // Stay put and say why — navigating away from a failed delete
                 // would leave the account exactly where it was.
-                toast.error(err instanceof AuthError ? t(err.key) : 'Could not delete account');
+                toast.error(err instanceof AuthError ? t(err.key) : t('settings.deleteFailed'));
                 return;
               }
-              toast('Account deleted');
+              toast(t('settings.deleted'));
               navigate('/sign-in', { replace: true });
             }}
             className={btnDanger}>
             
-              Delete account
+              {t('settings.deleteAccount')}
             </button>
           </>
         }>
         
         <label className="block text-sm">
-          Type <span className="font-mono font-semibold">DELETE</span> to confirm
+          {t('settings.typeToConfirm', { word: 'DELETE' })}
           <input
             data-autofocus
             value={confirmText}

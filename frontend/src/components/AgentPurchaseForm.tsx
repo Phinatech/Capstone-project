@@ -14,6 +14,8 @@ import type { PaymentMethod } from '../types/agent';
 import { formatEth } from '../utils/format';
 import { formatNgn } from '../utils/currency';
 import { getFarmers } from '../utils/users';
+import { useI18n } from '../contexts/I18nContext';
+import { cropName } from '../contexts/policyActivity';
 
 const fieldClass =
   'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
@@ -23,13 +25,17 @@ export function AgentPurchaseForm() {
   const { user } = useAuth();
   const { ethToNgn, approximate, rate } = useFx();
   const { record } = useAgentSales();
+  const { t } = useI18n();
   const balanceEth = user ? balanceOf(user.id) : 0;
   const navigate = useNavigate();
   const farmers = getFarmers();
   // Only windows the contract would still accept a purchase for.
   const sellable = useMemo(() => windows.filter((w) => w.open), [windows]);
   const [farmerId, setFarmerId] = useState(farmers[0]?.id ?? '');
-  const [lga, setLga] = useState(lgas[0]);
+  // The farmer list can arrive after the form opens; until one is picked, the
+  // first farmer is the one the dropdown shows, so it is the one to insure.
+  const selectedFarmer = farmers.find((f) => f.id === farmerId) ?? farmers[0];
+  const [lga, setLga] = useState(farmers[0]?.lga ?? lgas[0]);
   const [crop, setCrop] = useState(crops[0]);
   const [windowId, setWindowId] = useState(sellable[0]?.id ?? '');
   const [threshold, setThreshold] = useState('85');
@@ -47,7 +53,6 @@ export function AgentPurchaseForm() {
     [rainfallOf, windows, windowId]
   );
   const premiumEth = payoutEth * premiumRate;
-  const selectedFarmer = farmers.find((f) => f.id === farmerId);
 
   // Naira figures the farmer is quoted, locked in at the rate on screen.
   const payoutNgn = ethToNgn(payoutEth);
@@ -58,33 +63,33 @@ export function AgentPurchaseForm() {
     e.preventDefault();
     const thresholdMm = Number(threshold);
     if (!Number.isFinite(thresholdMm) || thresholdMm <= 0) {
-      setError('Enter a rainfall threshold above 0 mm.');
+      setError('purchase.errThreshold');
       return;
     }
     // A missing wallet also reads as a zero balance, so say which it is rather
     // than telling a funded account that it is broke.
     if (walletConnected === false) {
-      setError('No wallet is connected to Sepolia. Unlock MetaMask, pick this site, then reload.');
+      setError('purchase.errNoWallet');
       return;
     }
     if (premiumEth > balanceEth) {
-      setError('Not enough ETH in your agent wallet to pay this premium.');
+      setError('agentForm.errFunds');
       return;
     }
     if (!user) {
-      setError('Sign in as an agent to buy cover.');
+      setError('agentForm.errSignIn');
       return;
     }
     if (!selectedFarmer) {
-      setError('Select a farmer to insure.');
+      setError('agentForm.errFarmer');
       return;
     }
     if (!paymentReference.trim()) {
-      setError('Enter the payment reference the farmer settled with.');
+      setError('agentForm.errReference');
       return;
     }
     if (!windowId) {
-      setError('There is no coverage window open for sale right now.');
+      setError('purchase.errNoWindow');
       return;
     }
     setError(null);
@@ -113,53 +118,52 @@ export function AgentPurchaseForm() {
 
       // The policy is on-chain either way, so only the receipt's fate differs.
       if (saved.synced) {
-        toast.success(`Policy #${policy.id} confirmed`, {
-          description: `${formatNgn(premiumNgn)} collected from ${selectedFarmer.name}.`
+        toast.success(t('purchase.confirmed', { id: policy.id }), {
+          description: t('agentForm.confirmedBody', { amount: formatNgn(premiumNgn), farmer: selectedFarmer.name })
         });
       } else if (saved.retryable) {
-        toast.warning(`Policy #${policy.id} bought — receipt pending sync`, {
-          description: `Saved on this device and retried automatically. ${saved.error ?? ''}`,
+        toast.warning(t('agentForm.pendingTitle', { id: policy.id }), {
+          description: t('agentForm.pendingBody', { error: saved.error ? t(saved.error) : '' }),
           duration: 12_000
         });
       } else {
         // The backend checked the receipt against the contract and it did not
         // match. The cover is real, so do not pretend the sale failed — but the
         // agent must escalate rather than quietly move on.
-        toast.error(`Policy #${policy.id} bought — receipt rejected`, {
-          description: `${saved.error ?? 'The receipt did not match the contract.'} The cover exists on-chain; tell your supervisor.`,
+        toast.error(t('agentForm.rejectedTitle', { id: policy.id }), {
+          description: t('agentForm.rejectedBody', { error: saved.error ? t(saved.error) : t('agentForm.rejectedDefault') }),
           duration: 20_000
         });
       }
       navigate(`/agent/policies/${policy.id}`);
     }).
-    catch((err: unknown) => setError(err instanceof Error ? err.message : 'The purchase failed. Try again.')).
+    catch((err: unknown) => setError(err instanceof Error ? err.message : 'purchase.failed')).
     finally(() => setSubmitting(false));
   }
 
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-surface p-5" noValidate>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold">Buy cover for a farmer</h2>
+        <h2 className="text-base font-semibold">{t('agentBuy.title')}</h2>
         <span className="whitespace-nowrap text-xs text-muted">
-          Agent balance <span className="font-mono text-ink">{formatEth(balanceEth)}</span>
+          {t('agentForm.agentBalance')} <span className="font-mono text-ink">{formatEth(balanceEth)}</span>
         </span>
       </div>
-      <p className="mt-1 text-sm text-muted">
-        Collect naira from the farmer, then pay the premium from your wallet. The farmer is paid automatically if rainfall falls short.
-      </p>
+      <p className="mt-1 text-sm text-muted">{t('agentForm.intro')}</p>
 
       <label className="mt-4 block text-sm font-medium">
-        Farmer
+        {t('agentForm.farmer')}
         <div className="relative">
           <UserIcon className="pointer-events-none absolute left-3 top-1/2 mt-[3px] h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
           <select
             className={`${fieldClass} pl-9`}
-            value={farmerId}
+            value={selectedFarmer?.id ?? ''}
             onChange={(e) => {
               setFarmerId(e.target.value);
               const f = farmers.find((x) => x.id === e.target.value);
               if (f?.lga) setLga(f.lga);
             }}>
+            {farmers.length === 0 && <option value="">{t('agentForm.noFarmers')}</option>}
             {farmers.map((f) =>
             <option key={f.id} value={f.id}>
                 {f.name} — {f.lga}
@@ -169,14 +173,14 @@ export function AgentPurchaseForm() {
         </div>
         {selectedFarmer &&
         <span className="mt-1.5 block text-xs font-normal text-muted">
-            {selectedFarmer.village ? `${selectedFarmer.village}, ` : ''}{selectedFarmer.lga} · {selectedFarmer.primaryCrop} · {selectedFarmer.farmSizeHa} ha
+            {selectedFarmer.village ? `${selectedFarmer.village}, ` : ''}{selectedFarmer.lga}{selectedFarmer.primaryCrop ? ` · ${cropName(selectedFarmer.primaryCrop, t)}` : ''}{selectedFarmer.farmSizeHa ? ` · ${selectedFarmer.farmSizeHa} ha` : ''}
           </span>
         }
       </label>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="text-sm font-medium">
-          LGA
+          {t('purchase.lga')}
           <select className={fieldClass} value={lga} onChange={(e) => setLga(e.target.value)}>
             {lgas.map((l) =>
             <option key={l}>{l}</option>
@@ -184,17 +188,17 @@ export function AgentPurchaseForm() {
           </select>
         </label>
         <label className="text-sm font-medium">
-          Crop
+          {t('purchase.crop')}
           <select className={fieldClass} value={crop} onChange={(e) => setCrop(e.target.value)}>
             {crops.map((c) =>
-            <option key={c}>{c}</option>
+            <option key={c} value={c}>{cropName(c, t)}</option>
             )}
           </select>
         </label>
       </div>
 
       <label className="mt-4 block text-sm font-medium">
-        Coverage window
+        {t('policy.coverageWindow')}
         <select className={fieldClass} value={windowId} onChange={(e) => setWindowId(e.target.value)}>
           {sellable.map((w) =>
           <option key={w.id} value={w.id}>
@@ -205,7 +209,7 @@ export function AgentPurchaseForm() {
       </label>
 
       <label className="mt-4 block text-sm font-medium">
-        Rainfall threshold
+        {t('purchase.threshold')}
         <div className="relative">
           <input
             type="number"
@@ -218,15 +222,15 @@ export function AgentPurchaseForm() {
           <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">mm</span>
         </div>
         <span id="threshold-hint" className="mt-1.5 block text-xs font-normal text-muted">
-          Rainfall recorded for this window:{' '}
+          {t('purchase.recorded')}{' '}
           <span className="font-mono">
-            {windowRainfall === null ? 'not finalised yet' : `${windowRainfall.toFixed(1)} mm`}
+            {windowRainfall === null ? t('purchase.notFinalised') : `${windowRainfall.toFixed(1)} mm`}
           </span>
         </span>
       </label>
 
       <fieldset className="mt-4">
-        <legend className="text-sm font-medium">Payout amount</legend>
+        <legend className="text-sm font-medium">{t('purchase.payoutAmount')}</legend>
         <div className="mt-1.5 grid grid-cols-3 gap-2">
           {payoutOptionsEth.map((opt) =>
           <button
@@ -245,7 +249,7 @@ export function AgentPurchaseForm() {
       </fieldset>
 
       <fieldset className="mt-4">
-        <legend className="text-sm font-medium">How the farmer paid you</legend>
+        <legend className="text-sm font-medium">{t('agentForm.howPaid')}</legend>
         <div className="mt-1.5 grid grid-cols-3 gap-2">
           {PAYMENT_METHODS.map((m) =>
           <button
@@ -256,12 +260,12 @@ export function AgentPurchaseForm() {
             className={`whitespace-nowrap rounded-md border px-2 py-2 text-xs transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             paymentMethod === m ? 'border-accent bg-accent-soft text-accent-strong' : 'border-line text-ink hover:border-muted'}`
             }>
-              {PAYMENT_METHOD_LABELS[m]}
+              {t(PAYMENT_METHOD_LABELS[m])}
             </button>
           )}
         </div>
         <label className="mt-3 block text-sm font-medium">
-          Payment reference
+          {t('agentForm.reference')}
           <input
             type="text"
             maxLength={24}
@@ -271,36 +275,36 @@ export function AgentPurchaseForm() {
             placeholder="SKT-0000"
             aria-describedby="reference-hint" />
           <span id="reference-hint" className="mt-1.5 block text-xs font-normal text-muted">
-            Read this back to the farmer; it ties their naira payment to the policy.
+            {t('agentForm.referenceHint')}
           </span>
         </label>
       </fieldset>
 
       <div className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
         <div className="flex items-baseline justify-between">
-          <span className="text-muted">Farmer pays you</span>
+          <span className="text-muted">{t('agentForm.farmerPays')}</span>
           <span className="font-mono text-lg font-semibold">{formatNgn(premiumNgn)}</span>
         </div>
         <div className="flex items-baseline justify-between">
-          <span className="text-muted">You pay on-chain</span>
+          <span className="text-muted">{t('agentForm.youPay')}</span>
           <span className="font-mono">{formatEth(premiumEth)}</span>
         </div>
         <div className="flex items-baseline justify-between">
-          <span className="text-muted">Your commission (10%)</span>
+          <span className="text-muted">{t('agentPolicy.commission')}</span>
           <span className="font-mono text-clay">{formatNgn(commissionNgnAmount)}</span>
         </div>
         <p className="flex items-start gap-1.5 pt-1 text-xs text-muted">
           <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           {approximate ?
-          'The exchange rate could not be refreshed, so these naira figures are approximate.' :
-          'The naira figure is fixed at the rate shown above. The contract always settles in ETH.'
+          t('agentForm.approx') :
+          t('agentForm.fixed')
           }
         </p>
       </div>
 
       {error &&
       <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-          {error}
+          {t(error)}
         </p>
       }
 
@@ -311,10 +315,10 @@ export function AgentPurchaseForm() {
         {submitting ?
         <>
             <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />
-            Confirming transaction…
+            {t('purchase.confirming')}
           </> :
 
-        `Collect ${formatNgn(premiumNgn)} & buy policy`
+        t('agentForm.submit', { amount: formatNgn(premiumNgn) })
         }
       </button>
     </form>);

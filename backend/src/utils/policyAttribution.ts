@@ -11,6 +11,8 @@ import type { AgentSale } from "./agentStore.js";
  * admin sees an unnamed policy.
  */
 export type AttributedPolicy = PolicyData & {
+  /** The agent who sold it, so their portal can follow the policy to settlement. */
+  agentId?: string;
   farmerId?: string;
   farmerName?: string;
   lga?: string;
@@ -31,6 +33,7 @@ export function attributePolicies(policies: PolicyData[], sales: AgentSale[]): A
     return sale
       ? {
           ...policy,
+          agentId: sale.agentId,
           farmerId: sale.farmerId,
           farmerName: sale.farmerName,
           lga: sale.lga,

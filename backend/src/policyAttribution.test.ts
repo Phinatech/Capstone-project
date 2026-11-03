@@ -31,6 +31,7 @@ test("a policy sold through an agent carries that farmer's identity", () => {
   assert.equal(p?.farmerName, "Amina Bello");
   assert.equal(p?.lga, "Wamakko");
   assert.equal(p?.crop, "Millet");
+  assert.equal(p?.agentId, "agent-1", "the selling agent's portal follows it too");
 });
 
 test("a policy with no sale receipt is passed through untouched", () => {

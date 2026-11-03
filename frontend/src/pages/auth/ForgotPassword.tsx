@@ -93,9 +93,9 @@ export function ForgotPassword() {
             <button type="button" onClick={() => setSent(null)} className={`${btnSecondary} w-full`}>
               {t('reset.requestNew')}
             </button>
-            <p className="rounded-md bg-canvas px-3 py-2.5 text-xs leading-relaxed text-muted">
-              Demo: no email is sent. If the address belongs to an account, use the button above to open the reset link.
-            </p>
+            {sent.resetToken &&
+          <p className="rounded-md bg-canvas px-3 py-2.5 text-xs leading-relaxed text-muted">{t('forgot.demoNote')}</p>
+          }
           </motion.div> :
 
         <motion.form

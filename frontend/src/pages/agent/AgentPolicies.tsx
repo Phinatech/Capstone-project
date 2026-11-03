@@ -13,6 +13,8 @@ import { ViewToggle } from '../../components/ui/ViewToggle';
 import type { ViewMode } from '../../components/ui/ViewToggle';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { useAuth } from '../../contexts/AuthContext';
+import { useI18n } from '../../contexts/I18nContext';
+import { cropName } from '../../contexts/policyActivity';
 import { usePolicies } from '../../contexts/PolicyContext';
 import { useAgentSales } from '../../contexts/AgentSalesContext';
 import { agentBook, summariseBook } from '../../utils/agentSales';
@@ -28,6 +30,7 @@ export function AgentPolicies() {
   const { user } = useAuth();
   const { policies } = usePolicies();
   const { sales, loading } = useAgentSales();
+  const { t } = useI18n();
   const [view, setView] = usePersistentState<ViewMode>('sokoto-cover-view-agent-policies', 'grid');
   const [query, setQuery] = useState('');
   const [outcome, setOutcome] = useState<Outcome>('all');
@@ -42,7 +45,7 @@ export function AgentPolicies() {
     return (
       String(sale.policyId) === q ||
       sale.paymentReference.toLowerCase().includes(q) ||
-      `${sale.farmerName} ${sale.lga} ${sale.crop}`.toLowerCase().includes(q)
+      `${sale.farmerName} ${sale.lga} ${sale.crop} ${cropName(sale.crop, t)}`.toLowerCase().includes(q)
     );
   });
 
@@ -56,26 +59,26 @@ export function AgentPolicies() {
   return (
     <div>
       <PageHeader
-        title="Policies you sold"
-        description="Every policy you issued, the naira the farmer paid and the commission you earned."
-        back={{ to: '/agent', label: 'Dashboard' }} />
+        title={t('agentPolicies.title')}
+        description={t('agentPolicies.description')}
+        back={{ to: '/agent', label: t('nav.dashboard') }} />
       
 
       <dl className="mb-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:mb-6 sm:grid-cols-3">
         <div className="min-w-0 bg-surface p-4 sm:p-5">
-          <dt className="text-xs text-muted">Premium collected</dt>
+          <dt className="text-xs text-muted">{t('agentDash.premiumCollected')}</dt>
           <dd className="mt-1 truncate font-mono text-xl font-semibold sm:text-2xl">{formatNgnCompact(summary.premiumNgn)}</dd>
-          <dd className="mt-0.5 truncate font-mono text-xs text-muted">{formatEth(summary.premiumEth)} paid on-chain</dd>
+          <dd className="mt-0.5 truncate font-mono text-xs text-muted">{t('agentDash.paidOnChain', { amount: formatEth(summary.premiumEth) })}</dd>
         </div>
         <div className="min-w-0 bg-surface p-4 sm:p-5">
-          <dt className="text-xs text-muted">Cover sold</dt>
+          <dt className="text-xs text-muted">{t('agentDash.coverSold')}</dt>
           <dd className="mt-1 truncate font-mono text-xl font-semibold sm:text-2xl">{formatNgnCompact(summary.coverSoldNgn)}</dd>
-          <dd className="mt-0.5 truncate text-xs text-muted">total payout value</dd>
+          <dd className="mt-0.5 truncate text-xs text-muted">{t('agentPolicies.totalPayoutValue')}</dd>
         </div>
         <div className="col-span-2 min-w-0 bg-surface p-4 sm:col-span-1 sm:p-5">
-          <dt className="text-xs text-muted">Commission earned</dt>
+          <dt className="text-xs text-muted">{t('agentDash.commissionEarned')}</dt>
           <dd className="mt-1 truncate font-mono text-xl font-semibold text-clay sm:text-2xl">{formatNgnCompact(summary.commissionNgn)}</dd>
-          <dd className="mt-0.5 truncate text-xs text-muted">10% of premium</dd>
+          <dd className="mt-0.5 truncate text-xs text-muted">{t('agentDash.tenPercent')}</dd>
         </div>
       </dl>
 
@@ -89,21 +92,21 @@ export function AgentPolicies() {
         <FilterBar
           search={query}
           onSearch={setQuery}
-          searchPlaceholder="Search farmer, LGA, crop or reference"
+          searchPlaceholder={t('agentPolicies.search')}
           activeCount={activeCount}
           onReset={reset}
           resultCount={shown.length}
           trailing={<ViewToggle value={view} onChange={setView} />}>
           
           <FilterSelect<Outcome>
-            label="Outcome"
+            label={t('payouts.outcome')}
             value={outcome}
             onChange={setOutcome}
             options={[
-            { value: 'all', label: 'All outcomes' },
-            { value: 'active', label: 'Active' },
-            { value: 'paid', label: 'Paid out' },
-            { value: 'no_payout', label: 'No payout' }]
+            { value: 'all', label: t('payouts.allOutcomes') },
+            { value: 'active', label: t('status.active') },
+            { value: 'paid', label: t('status.paid') },
+            { value: 'no_payout', label: t('status.noPayout') }]
             } />
           
         </FilterBar>
@@ -111,11 +114,11 @@ export function AgentPolicies() {
         {shown.length === 0 ?
         <EmptyState
           icon={FileTextIcon}
-          title={loading ? 'Loading your book…' : book.length === 0 ? 'No policies sold yet' : 'No matches'}
-          body={loading ? undefined : book.length === 0 ? 'Policies you insure will appear here with the naira receipt the farmer was given.' : 'Try a different search or filter.'}
+          title={loading ? t('agentPolicies.loading') : book.length === 0 ? t('agentPolicies.empty') : t('ui.noMatches')}
+          body={loading ? undefined : book.length === 0 ? t('agentPolicies.emptyBody') : t('ui.tryDifferent')}
           action={!loading && book.length === 0 ?
           <Link to="/agent/policies/new" className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 ease-out hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-              Insure a farmer
+              {t('agentDash.insureFarmer')}
             </Link> : undefined}
           /> :
 
@@ -133,22 +136,22 @@ export function AgentPolicies() {
                   <div className="min-w-0">
                     <p className="font-mono text-xs text-muted">#{sale.policyId}</p>
                     <p className="mt-1 truncate font-semibold">{sale.farmerName}</p>
-                    <p className="truncate text-xs text-muted">{sale.lga} · {sale.crop}</p>
+                    <p className="truncate text-xs text-muted">{sale.lga} · {cropName(sale.crop, t)}</p>
                   </div>
                   {policy ? <StatusBadge status={policy.status} /> :
-                  <span className="whitespace-nowrap rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-muted">Pending</span>
+                  <span className="whitespace-nowrap rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-muted">{t('agentDash.pending')}</span>
                   }
                 </div>
                 <p className="mt-4 truncate font-mono text-2xl font-semibold">{formatNgn(sale.payoutNgn)}</p>
                 <p className="mt-1 truncate text-xs text-muted">
-                  farmer paid <span className="font-mono">{formatNgn(sale.premiumNgn)}</span> · you earn {formatNgn(sale.commissionNgn)}
+                  {t('agentPolicies.farmerPaid', { premium: formatNgn(sale.premiumNgn), commission: formatNgn(sale.commissionNgn) })}
                 </p>
                 <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-4 text-xs">
                   <span className="truncate text-muted">
-                    {PAYMENT_METHOD_LABELS[sale.paymentMethod]} · <span className="font-mono">{sale.paymentReference}</span>
+                    {t(PAYMENT_METHOD_LABELS[sale.paymentMethod])} · <span className="font-mono">{sale.paymentReference}</span>
                   </span>
                   <Link to={`/agent/policies/${sale.policyId}`} className="inline-flex shrink-0 items-center gap-1 font-medium text-accent hover:underline">
-                    Details
+                    {t('payouts.details')}
                     <ArrowUpRightIcon className="h-3.5 w-3.5" aria-hidden />
                   </Link>
                 </div>
@@ -158,11 +161,11 @@ export function AgentPolicies() {
 
         <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
             <li className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 px-5 py-3 text-xs text-muted md:grid">
-              <span>Policy</span>
-              <span>Paid by farmer</span>
-              <span>Payment</span>
-              <span>Outcome</span>
-              <span className="text-right">Commission</span>
+              <span>{t('payouts.colPolicy')}</span>
+              <span>{t('agentPolicies.colPaidByFarmer')}</span>
+              <span>{t('agentPolicies.colPayment')}</span>
+              <span>{t('payouts.outcome')}</span>
+              <span className="text-right">{t('agentPolicies.colCommission')}</span>
             </li>
             {shown.map(({ sale, policy }, i) =>
           <motion.li
@@ -181,17 +184,17 @@ export function AgentPolicies() {
                       {sale.farmerName}
                     </p>
                     <p className="truncate text-xs text-muted">
-                      {sale.lga} · {sale.crop}
+                      {sale.lga} · {cropName(sale.crop, t)}
                       <span className="md:hidden"> · {formatDate(sale.soldAt)}</span>
                     </p>
                   </div>
                   <span className="hidden truncate font-mono text-sm md:block">{formatNgn(sale.premiumNgn)}</span>
                   <span className="hidden truncate text-xs text-muted md:block">
-                    {PAYMENT_METHOD_LABELS[sale.paymentMethod]} · <span className="font-mono">{sale.paymentReference}</span>
+                    {t(PAYMENT_METHOD_LABELS[sale.paymentMethod])} · <span className="font-mono">{sale.paymentReference}</span>
                   </span>
                   <span className="hidden md:block">
                     {policy ? <StatusBadge status={policy.status} /> :
-                    <span className="whitespace-nowrap rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-muted">Pending</span>
+                    <span className="whitespace-nowrap rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-muted">{t('agentDash.pending')}</span>
                     }
                   </span>
                   <span className="truncate text-right font-mono text-sm text-clay">{formatNgn(sale.commissionNgn)}</span>

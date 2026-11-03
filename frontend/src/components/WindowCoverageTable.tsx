@@ -1,3 +1,4 @@
+import { useI18n } from '../contexts/I18nContext';
 import { usePolicies } from '../contexts/PolicyContext';
 
 /**
@@ -7,17 +8,18 @@ import { usePolicies } from '../contexts/PolicyContext';
  */
 export function WindowCoverageTable() {
   const { windows } = usePolicies();
+  const { t } = useI18n();
   const onSale = windows.filter((w) => w.open);
   if (onSale.length === 0) return null;
 
   return (
     <table className="mt-4 w-full text-sm">
-      <caption className="sr-only">Coverage windows currently on sale</caption>
+      <caption className="sr-only">{t('windows.caption')}</caption>
       <thead>
         <tr className="border-b border-line text-left text-xs text-muted">
-          <th className="py-2 font-medium">Window</th>
-          <th className="py-2 font-medium">Covers</th>
-          <th className="py-2 text-right font-medium">Closes</th>
+          <th className="py-2 font-medium">{t('windows.window')}</th>
+          <th className="py-2 font-medium">{t('windows.covers')}</th>
+          <th className="py-2 text-right font-medium">{t('windows.closes')}</th>
         </tr>
       </thead>
       <tbody>

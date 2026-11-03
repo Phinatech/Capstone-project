@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useI18n } from '../../contexts/I18nContext';
 import { ArrowDownIcon, CpuIcon, FileCode2Icon, RadioTowerIcon } from 'lucide-react';
 import { oracleSources } from '../../data/rainfall';
 import { useOracleTrust } from '../../hooks/useOracleTrust';
@@ -8,6 +9,7 @@ import { SOURCE_IDS } from '../../utils/oracle';
 const ease = [0.23, 1, 0.32, 1] as const;
 
 export function TrustOverview() {
+  const { t } = useI18n();
   const { sources } = useOracleTrust();
   const { dekads } = useRainfallSeries();
   const byId = new Map(sources.map((s) => [s.sourceId, s]));
@@ -22,9 +24,9 @@ export function TrustOverview() {
   const fullCoverage = dekads.filter((d) => SOURCE_IDS.every((id) => d[id] !== null)).length;
 
   const pipeline = [
-  { icon: RadioTowerIcon, title: 'Oracle relayer', text: 'Fetches the 3 rainfall APIs and submits each reading' },
-  { icon: CpuIcon, title: 'Oracle aggregator', text: 'Combines the readings on-chain, weighted by reputation' },
-  { icon: FileCode2Icon, title: 'Policy contract', text: 'Receives one value and compares it with the trigger' }];
+  { icon: RadioTowerIcon, title: t('trust.relayer'), text: t('trust.relayerText') },
+  { icon: CpuIcon, title: t('trust.aggregator'), text: t('trust.aggregatorText') },
+  { icon: FileCode2Icon, title: t('trust.contract'), text: t('trust.contractText') }];
 
 
   return (
@@ -33,20 +35,20 @@ export function TrustOverview() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="trust-heading" className="text-sm font-medium text-muted">
-              Trust distribution
+              {t('trust.title')}
             </h2>
             <p className="mt-1 text-lg font-semibold leading-snug sm:text-xl">
               {meanDeviation === null ?
-              'Not enough readings to compare the sources yet' :
-              <>Sources agree within <span className="font-mono text-accent-strong">{(meanDeviation * 100).toFixed(1)}%</span> of each other on average</>}
+              t('trust.notEnough') :
+              t('trust.agreeWithin', { pct: `${(meanDeviation * 100).toFixed(1)}%` })}
             </p>
           </div>
           <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${healthy ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${healthy ? 'bg-success' : 'bg-danger'}`} aria-hidden />{reporting} of {sources.length} feeds reporting
+            <span className={`h-1.5 w-1.5 rounded-full ${healthy ? 'bg-success' : 'bg-danger'}`} aria-hidden />{t('trust.feedsReporting', { count: reporting, total: sources.length })}
           </span>
         </div>
 
-        <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full bg-canvas" role="img" aria-label="Reputation weight of each source on the contract">
+        <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full bg-canvas" role="img" aria-label={t('trust.weightBar')}>
           {oracleSources.map((s, i) =>
           <motion.span
             key={s.id}
@@ -72,22 +74,22 @@ export function TrustOverview() {
 
         <dl className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-md border border-line bg-line text-sm">
           <div className="min-w-0 bg-surface px-3 py-2.5">
-            <dt className="truncate text-[11px] text-muted">Most weight</dt>
+            <dt className="truncate text-[11px] text-muted">{t('trust.mostWeight')}</dt>
             <dd className="mt-0.5 truncate font-medium">{leader?.name ?? '—'}</dd>
           </div>
           <div className="min-w-0 bg-surface px-3 py-2.5">
-            <dt className="truncate text-[11px] text-muted">Dekads with all 3</dt>
-            <dd className="mt-0.5 truncate font-mono">{fullCoverage} of {dekads.length}</dd>
+            <dt className="truncate text-[11px] text-muted">{t('trust.allThree')}</dt>
+            <dd className="mt-0.5 truncate font-mono">{t('trust.ofTotal', { count: fullCoverage, total: dekads.length })}</dd>
           </div>
           <div className="min-w-0 bg-surface px-3 py-2.5">
-            <dt className="truncate text-[11px] text-muted">Weighting</dt>
-            <dd className="mt-0.5 truncate font-medium">Reputation × agreement</dd>
+            <dt className="truncate text-[11px] text-muted">{t('trust.weighting')}</dt>
+            <dd className="mt-0.5 truncate font-medium">{t('trust.weightingValue')}</dd>
           </div>
         </dl>
       </div>
 
       <div className="min-w-0 border-t border-line bg-canvas p-4 sm:p-6 lg:border-l lg:border-t-0">
-        <h2 className="text-sm font-medium text-muted">Oracle pipeline</h2>
+        <h2 className="text-sm font-medium text-muted">{t('trust.pipeline')}</h2>
         <ol className="mt-4 grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-0">
           {pipeline.map((p, i) =>
           <li key={p.title} className="min-w-0">

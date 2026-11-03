@@ -35,6 +35,7 @@ export async function loadDirectory(): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const res = await fetch(`${API_URL}/api/users/directory`, { credentials: 'include' });
+      if (res.status === 401) return; // signed out: there is nothing to retry for
       if (!res.ok) throw new Error(`the directory answered ${res.status}`);
       const body = (await res.json()) as { users?: unknown };
       if (Array.isArray(body.users)) setDirectory(body.users as User[]);

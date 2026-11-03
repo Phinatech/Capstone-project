@@ -13,7 +13,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePolicies } from '../../contexts/PolicyContext';
 import { useAgentSales } from '../../contexts/AgentSalesContext';
 import { PAYMENT_METHOD_LABELS } from '../../types/agent';
-import { getWindow } from '../../utils/oracle';
+import { useI18n } from '../../contexts/I18nContext';
+import { useWindowName } from '../../contexts/PolicyContext';
+import { cropName } from '../../contexts/policyActivity';
 import { formatEth, formatDateTime } from '../../utils/format';
 import { formatNgn } from '../../utils/currency';
 
@@ -27,6 +29,8 @@ export function AgentPolicyDetail() {
   const { user } = useAuth();
   const { policies } = usePolicies();
   const { salesFor, loading } = useAgentSales();
+  const { t } = useI18n();
+  const windowName = useWindowName();
   const id = Number(policyId);
 
   const sale = salesFor(id);
@@ -37,24 +41,24 @@ export function AgentPolicyDetail() {
   if (loading && !sale) return <PageSkeleton />;
 
   if (!sale || !user || sale.agentId !== user.id) {
-    return <NotFound message="You have no record of this policy." />;
+    return <NotFound message={t('agentPolicy.noRecord')} />;
   }
 
   return (
     <div>
       <PageHeader
-        back={{ to: '/agent/policies', label: 'Policies you sold' }}
+        back={{ to: '/agent/policies', label: t('agentPolicies.title') }}
         title={
         <span className="flex flex-wrap items-center gap-3">
             {sale.farmerName}
             {policy ? <StatusBadge status={policy.status} /> :
-            <span className="whitespace-nowrap rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-muted">Pending</span>
+            <span className="whitespace-nowrap rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-muted">{t('agentDash.pending')}</span>
             }
           </span>
         }
         description={
         <>
-            Policy <span className="font-mono">#{sale.policyId}</span> · {sale.lga} · {sale.crop} · {getWindow(sale.windowId).label}
+            {t('policy.number', { id: sale.policyId })} · {sale.lga} · {cropName(sale.crop, t)} · {windowName(sale.windowId)}
           </>
         } />
       
@@ -62,28 +66,28 @@ export function AgentPolicyDetail() {
       <section aria-labelledby="receipt-heading" className="rounded-lg border border-line bg-surface">
         <h2 id="receipt-heading" className="flex items-center gap-2 border-b border-line px-5 py-4 text-base font-semibold">
           <ReceiptTextIcon className="h-4 w-4 text-muted" aria-hidden />
-          Naira receipt
+          {t('agentPolicy.receipt')}
         </h2>
         <dl className="space-y-3 px-5 py-4 text-sm">
-          <Row label="Premium collected">
+          <Row label={t('agentPolicy.premiumCollected')}>
             <span className="font-mono text-base font-semibold">{formatNgn(sale.premiumNgn)}</span>
-            <span className="ml-2 font-mono text-xs text-muted">({formatEth(sale.premiumEth)} paid on-chain)</span>
+            <span className="ml-2 font-mono text-xs text-muted">{t('agentPolicy.paidOnChain', { amount: formatEth(sale.premiumEth) })}</span>
           </Row>
-          <Row label="Payout if rainfall falls short">
+          <Row label={t('agentPolicy.payoutIfShort')}>
             <span className="font-mono text-base font-semibold text-clay">{formatNgn(sale.payoutNgn)}</span>
-            <span className="ml-2 font-mono text-xs text-muted">({formatEth(sale.payoutEth)} from the pool)</span>
+            <span className="ml-2 font-mono text-xs text-muted">{t('agentPolicy.fromPool', { amount: formatEth(sale.payoutEth) })}</span>
           </Row>
-          <Row label="Your commission (10%)">
+          <Row label={t('agentPolicy.commission')}>
             <span className="font-mono text-clay">{formatNgn(sale.commissionNgn)}</span>
           </Row>
-          <Row label="Paid by the farmer">
-            {PAYMENT_METHOD_LABELS[sale.paymentMethod]}
+          <Row label={t('agentPolicy.paidBy')}>
+            {t(PAYMENT_METHOD_LABELS[sale.paymentMethod])}
             <span className="ml-2 font-mono text-xs text-muted">{sale.paymentReference}</span>
           </Row>
-          <Row label="Rate at the time of sale">
-            <span className="font-mono">1 ETH ≈ {formatNgn(sale.ethNgnRate)}</span>
+          <Row label={t('agentPolicy.rate')}>
+            <span className="font-mono">{t('fx.oneEth')} {formatNgn(sale.ethNgnRate)}</span>
           </Row>
-          <Row label="Sold">{formatDateTime(sale.soldAt)}</Row>
+          <Row label={t('agentPolicy.sold')}>{formatDateTime(sale.soldAt)}</Row>
         </dl>
       </section>
 
@@ -103,7 +107,7 @@ export function AgentPolicyDetail() {
 
           <section aria-labelledby="settlement-heading" className="mt-6 rounded-lg border border-line bg-surface">
             <h2 id="settlement-heading" className="border-b border-line px-5 py-4 text-base font-semibold">
-              Settlement
+              {t('policy.settlement')}
             </h2>
             {policy.evaluation ?
           <EvaluationResultPanel result={policy.evaluation} payoutEth={policy.payoutEth} showValidation={false} /> :
@@ -113,11 +117,8 @@ export function AgentPolicyDetail() {
                 <ClockIcon className="h-4 w-4" aria-hidden />
               </span>
               <div>
-                <p className="text-sm font-medium">Awaiting oracle evaluation</p>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
-                  When the coverage window closes, rainfall from CHIRPS, NASA POWER and Meteostat is compared and the
-                  contract pays the farmer automatically. No claim has to be filed.
-                </p>
+                <p className="text-sm font-medium">{t('policy.awaiting')}</p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">{t('agentPolicy.awaitingBody')}</p>
               </div>
             </div>
           }

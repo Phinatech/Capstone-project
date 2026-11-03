@@ -3,16 +3,18 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CheckIcon, ChevronDownIcon, Loader2Icon, PlayIcon, ScaleIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePolicies } from '../../contexts/PolicyContext';
+import { useI18n } from '../../contexts/I18nContext';
+import type { TranslationKey } from '../../data/translations';
 import { configurationProfiles } from '../../data/configurations';
 import { oracleSources } from '../../data/rainfall';
 import { EvaluationResultPanel } from '../EvaluationResultPanel';
 import { evaluationStages, useEvaluationRunner } from './useEvaluationRunner';
 import type { CorruptionType, Policy, SourceId } from '../../types/insurance';
 
-const corruptionOptions: {value: CorruptionType;label: string;}[] = [
-{ value: 'inflated', label: 'Inflated (×2.5)' },
-{ value: 'understated', label: 'Understated (×0.3)' },
-{ value: 'outage', label: 'Outage (reports 0 mm)' }];
+const corruptionOptions: {value: CorruptionType;label: TranslationKey;}[] = [
+{ value: 'inflated', label: 'runner.inflated' },
+{ value: 'understated', label: 'runner.understated' },
+{ value: 'outage', label: 'runner.outage' }];
 
 
 const selectClass =
@@ -21,6 +23,7 @@ const selectClass =
 export function EvaluationRunner({ policy }: {policy: Policy;}) {
   const r = useEvaluationRunner(policy);
   const { source, settleOnChain } = usePolicies();
+  const { t } = useI18n();
   const onChain = source.kind === 'chain';
   const [settling, setSettling] = useState(false);
   const [settleError, setSettleError] = useState<string | null>(null);
@@ -33,9 +36,9 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
     setSettleError(null);
     try {
       await settleOnChain(policy.id);
-      toast.success(`Policy #${policy.id} settled on-chain`);
+      toast.success(t('runner.settled', { id: policy.id }));
     } catch (e) {
-      setSettleError(e instanceof Error ? e.message : 'Settlement failed.');
+      setSettleError(e instanceof Error ? e.message : t('runner.settleFailed'));
     } finally {
       setSettling(false);
     }
@@ -46,19 +49,19 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
     <section aria-labelledby="evaluate-heading" className="rounded-lg border border-line bg-surface">
       <div className="border-b border-line p-5">
         <h2 id="evaluate-heading" className="text-base font-semibold">
-          Oracle evaluation
+          {t('runner.title')}
         </h2>
         <p className="mt-1 text-sm text-muted">
           {onChain ?
           settled ?
-          'Settled on-chain. Re-runs are simulations on the illustrative 2023 rainfall and move no funds.' :
-          'Settlement happens on-chain once the oracles have finalized every dekad in the window. Simulations use the illustrative 2023 rainfall and move no funds.' :
+          t('runner.chainSettled') :
+          t('runner.chainActive') :
           settled ?
-          'This policy is settled. Re-runs are simulations and move no funds.' :
-          'Requests rainfall for the coverage window and settles the policy automatically.'}
+          t('runner.simSettled') :
+          t('runner.simActive')}
         </p>
 
-        <div role="radiogroup" aria-label="Aggregation configuration" className="mt-4 grid gap-2 md:grid-cols-3">
+        <div role="radiogroup" aria-label={t('runner.configuration')} className="mt-4 grid gap-2 md:grid-cols-3">
           {configurationProfiles.map((p) => {
             const active = r.mode === p.mode;
             return (
@@ -73,8 +76,8 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
                 active ? 'border-accent bg-accent-soft' : 'border-line hover:border-muted'}`
                 }>
                 
-                <span className={`text-sm font-semibold ${active ? 'text-accent-strong' : ''}`}>{p.name}</span>
-                <span className="mt-1 text-xs leading-relaxed text-muted">{p.description}</span>
+                <span className={`text-sm font-semibold ${active ? 'text-accent-strong' : ''}`}>{t(`mode.${p.mode}.name`)}</span>
+                <span className="mt-1 text-xs leading-relaxed text-muted">{t(`mode.${p.mode}.description`)}</span>
               </button>);
 
           })}
@@ -89,14 +92,14 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
             }}>
             
             <span>
-              Stress test: corrupt one source
-              {r.corruptionEnabled && <span className="ml-2 rounded bg-danger-soft px-1.5 py-0.5 text-xs text-danger">On</span>}
+              {t('runner.stressTest')}
+              {r.corruptionEnabled && <span className="ml-2 rounded bg-danger-soft px-1.5 py-0.5 text-xs text-danger">{t('runner.on')}</span>}
             </span>
             <ChevronDownIcon className="h-4 w-4 text-muted transition-transform duration-200 ease-out group-open:rotate-180" aria-hidden />
           </summary>
           <div className="grid gap-3 border-t border-line p-3 sm:grid-cols-2">
             <label className="text-sm font-medium">
-              Source
+              {t('runner.source')}
               <select
                 className={selectClass}
                 value={r.corruptSource}
@@ -111,7 +114,7 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
               </select>
             </label>
             <label className="text-sm font-medium">
-              Fault
+              {t('runner.fault')}
               <select
                 className={selectClass}
                 value={r.corruptType}
@@ -120,7 +123,7 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
                 
                 {corruptionOptions.map((o) =>
                 <option key={o.value} value={o.value}>
-                    {o.label}
+                    {t(o.label)}
                   </option>
                 )}
               </select>
@@ -135,7 +138,7 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
           className="mt-4 inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 ease-out hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70">
           
           {running ? <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden /> : <PlayIcon className="h-4 w-4" aria-hidden />}
-          {running ? 'Evaluating…' : settled || onChain ? 'Run simulation' : 'Request oracle evaluation'}
+          {running ? t('runner.evaluating') : settled || onChain ? t('runner.runSimulation') : t('runner.request')}
         </button>
         {onChain && !settled &&
         <button
@@ -144,12 +147,12 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
           disabled={settling}
           className="ml-2 mt-4 inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-line px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ease-out hover:border-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-70">
             {settling ? <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden /> : <ScaleIcon className="h-4 w-4" aria-hidden />}
-            {settling ? 'Settling…' : 'Settle on-chain'}
+            {settling ? t('runner.settling') : t('runner.settle')}
           </button>
         }
         {settleError &&
         <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-            {settleError}
+            {t(settleError)}
           </p>
         }
       </div>
@@ -181,7 +184,7 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
                   <Loader2Icon className="h-3 w-3 animate-spin text-accent" aria-hidden /> :
                   null}
                   </span>
-                  {label}
+                  {t(label)}
                 </li>);
 
           })}
@@ -190,7 +193,7 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
 
         {r.status === 'error' &&
         <motion.p key="error" role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="m-5 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-            {r.error}
+            {r.error && t(r.error)}
           </motion.p>
         }
 
@@ -208,7 +211,7 @@ export function EvaluationRunner({ policy }: {policy: Policy;}) {
 
         {!running && !shownResult && r.status === 'idle' &&
         <p key="empty" className="p-5 text-sm text-muted">
-            No evaluation yet. Choose a configuration and request an evaluation.
+            {t('runner.empty')}
           </p>
         }
       </AnimatePresence>

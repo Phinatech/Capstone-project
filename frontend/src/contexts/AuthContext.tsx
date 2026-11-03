@@ -103,10 +103,26 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
     };
   }, []);
 
-  // Names, LGAs and wallets come from the server too.
+  // Names, LGAs and wallets come from the server too, for signed-in users only.
+  // Re-read every minute and whenever the tab regains focus, so a farmer who
+  // signs up or edits their profile appears in an agent's or admin's open
+  // portal without a reload. Signing out clears it, so the next person on
+  // this browser never sees the previous account's view.
+  const signedInAs = user ? `${user.id}:${user.role}` : null;
   useEffect(() => {
+    if (!signedInAs) {
+      setDirectory([]);
+      return;
+    }
     void loadDirectory();
-  }, []);
+    const reload = () => void loadDirectory();
+    const id = window.setInterval(reload, 60_000);
+    window.addEventListener('focus', reload);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', reload);
+    };
+  }, [signedInAs]);
 
   const signInWithPassword = useCallback(
     async (email: string, password: string, remember: boolean) => {

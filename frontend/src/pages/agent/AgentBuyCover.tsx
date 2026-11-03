@@ -2,14 +2,16 @@ import { PageHeader } from '../../components/PageHeader';
 import { AgentPurchaseForm } from '../../components/AgentPurchaseForm';
 import { FxRateNote } from '../../components/FxRateNote';
 import { WindowCoverageTable } from '../../components/WindowCoverageTable';
+import { useI18n } from '../../contexts/I18nContext';
 
 export function AgentBuyCover() {
+  const { t } = useI18n();
   return (
     <div>
       <PageHeader
-        back={{ to: '/agent/policies', label: 'Policies you sold' }}
-        title="Buy cover for a farmer"
-        description="Collect the premium in naira, pay it on-chain in ETH, and the farmer is paid automatically if the season falls short." />
+        back={{ to: '/agent/policies', label: t('agentPolicies.title') }}
+        title={t('agentBuy.title')}
+        description={t('agentBuy.description')} />
 
       <div className="mb-3 sm:mb-6">
         <FxRateNote />
@@ -22,25 +24,22 @@ export function AgentBuyCover() {
         <aside className="lg:col-span-2">
           <section aria-labelledby="guide-heading" className="rounded-lg border border-line bg-surface p-5">
             <h2 id="guide-heading" className="text-sm font-semibold">
-              Choosing a threshold
+              {t('buy.guideTitle')}
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted">
-              A threshold just below the rainfall you expect pays out in a dry spell. The farmer is paid on the
-              contract's own reading, so it helps to know which dekads a window covers before setting it.
-            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">{t('agentBuy.guideBody')}</p>
             <WindowCoverageTable />
           </section>
 
           <section aria-labelledby="agent-guide-heading" className="mt-4 rounded-lg border border-line bg-surface p-5">
             <h2 id="agent-guide-heading" className="text-sm font-semibold">
-              How agent purchase works
+              {t('agentBuy.howTitle')}
             </h2>
             <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-relaxed text-muted">
-              <li>Select the farmer you are insuring from the list.</li>
-              <li>Set the rainfall threshold — the level below which the crop is considered damaged.</li>
-              <li>Pay the premium from your own wallet (10% of the payout amount).</li>
-              <li>The farmer is paid automatically if seasonal rainfall falls below the threshold.</li>
-              <li>The farmer does not need a wallet or any crypto knowledge.</li>
+              <li>{t('agentBuy.how1')}</li>
+              <li>{t('agentBuy.how2')}</li>
+              <li>{t('agentBuy.how3')}</li>
+              <li>{t('agentBuy.how4')}</li>
+              <li>{t('agentBuy.how5')}</li>
             </ol>
           </section>
         </aside>

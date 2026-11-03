@@ -1,11 +1,14 @@
+import { useI18n } from '../contexts/I18nContext';
+
 
 function Bar({ className }: {className: string;}) {
   return <div className={`animate-pulse rounded-md bg-line ${className}`} />;
 }
 
 export function PageSkeleton() {
+  const { t } = useI18n();
   return (
-    <div role="status" aria-label="Loading page" className="space-y-8">
+    <div role="status" aria-label={t('ui.loadingPage')} className="space-y-8">
       <div className="space-y-3">
         <Bar className="h-7 w-56 max-w-full" />
         <Bar className="h-4 w-96 max-w-full" />

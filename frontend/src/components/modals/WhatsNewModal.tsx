@@ -18,7 +18,7 @@ export function WhatsNewModal({ open, onClose }: {open: boolean;onClose: () => v
         </span>
       }
       title={t('menu.whatsNew')}
-      description={`Version ${RELEASE_VERSION}`}
+      description={t('shell.version', { version: RELEASE_VERSION })}
       footer={
       <button type="button" data-autofocus onClick={onClose} className={btnPrimary}>
           {t('common.done')}
@@ -38,8 +38,8 @@ export function WhatsNewModal({ open, onClose }: {open: boolean;onClose: () => v
               <CheckIcon className="h-3 w-3" aria-hidden />
             </span>
             <div>
-              <p className="text-sm font-medium">{n.title}</p>
-              <p className="mt-0.5 text-sm leading-relaxed text-muted">{n.body}</p>
+              <p className="text-sm font-medium">{t(n.title)}</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-muted">{t(n.body)}</p>
             </div>
           </motion.li>
         )}

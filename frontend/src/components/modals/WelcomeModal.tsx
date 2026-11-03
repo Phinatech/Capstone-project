@@ -83,8 +83,8 @@ export function WelcomeModal({ open, onClose, user }: WelcomeModalProps) {
             <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-strong">
               <Icon className="h-7 w-7" aria-hidden />
             </span>
-            <h2 className="mt-5 text-xl font-semibold tracking-tight">{step.title}</h2>
-            <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">{step.body}</p>
+            <h2 className="mt-5 text-xl font-semibold tracking-tight">{t(step.title)}</h2>
+            <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">{t(step.body)}</p>
           </motion.div>
         </AnimatePresence>
       </div>

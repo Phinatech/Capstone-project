@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { BanknoteIcon, CircleSlashIcon, FileCheckIcon } from 'lucide-react';
+import { useI18n } from '../contexts/I18nContext';
+import { cropName } from '../contexts/policyActivity';
 import { formatDate, formatEth } from '../utils/format';
 import { findUser } from '../utils/users';
 import type { ActivityItem } from '../utils/activity';
@@ -11,14 +13,15 @@ interface ActivityListProps {
 }
 
 const meta = {
-  purchase: { icon: FileCheckIcon, tone: 'bg-canvas text-muted', verb: 'Policy purchased' },
-  paid: { icon: BanknoteIcon, tone: 'bg-clay-soft text-clay', verb: 'Payout sent' },
-  no_payout: { icon: CircleSlashIcon, tone: 'bg-canvas text-muted', verb: 'Settled, no payout' }
+  purchase: { icon: FileCheckIcon, tone: 'bg-canvas text-muted', verb: 'activityList.purchase' as const },
+  paid: { icon: BanknoteIcon, tone: 'bg-clay-soft text-clay', verb: 'activityList.paid' as const },
+  no_payout: { icon: CircleSlashIcon, tone: 'bg-canvas text-muted', verb: 'activityList.noPayout' as const }
 };
 
 export function ActivityList({ items, basePath, showFarmer }: ActivityListProps) {
+  const { t } = useI18n();
   if (items.length === 0) {
-    return <p className="py-6 text-sm text-muted">No activity yet.</p>;
+    return <p className="py-6 text-sm text-muted">{t('activityList.empty')}</p>;
   }
   return (
     <ul className="divide-y divide-line">
@@ -37,11 +40,11 @@ export function ActivityList({ items, basePath, showFarmer }: ActivityListProps)
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">
-                  {m.verb}
+                  {t(m.verb)}
                   {farmer && <span className="font-normal text-muted"> · {farmer.name}</span>}
                 </span>
                 <span className="block truncate text-xs text-muted">
-                  #{item.policy.id} · {item.policy.lga} {item.policy.crop} · {formatDate(item.date)}
+                  #{item.policy.id} · {item.policy.lga} {cropName(item.policy.crop, t)} · {formatDate(item.date)}
                 </span>
               </span>
               {item.kind !== 'no_payout' &&

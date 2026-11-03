@@ -1,4 +1,5 @@
-import { createContext, useContext } from 'react';
+import { createContext, useCallback, useContext } from 'react';
+import { useI18n } from './I18nContext';
 import type { EvaluationResult, Policy } from '../types/insurance';
 import type { User } from '../types/user';
 
@@ -60,4 +61,20 @@ export function usePolicies(): PolicyContextValue {
   const ctx = useContext(PolicyContext);
   if (!ctx) throw new Error('usePolicies must be used inside PolicyProvider');
   return ctx;
+}
+
+/**
+ * Names a policy's coverage window by its id and the days it covers, e.g.
+ * "#19 · 11 Sep – 10 Oct 2026", in the reader's language.
+ */
+export function useWindowName(): (windowId: string) => string {
+  const { windows } = usePolicies();
+  const { t } = useI18n();
+  return useCallback(
+    (windowId: string) => {
+      const w = windows.find((x) => x.id === windowId);
+      return w ? `#${w.id} · ${w.covers}` : t('window.number', { id: windowId });
+    },
+    [windows, t]
+  );
 }

@@ -16,7 +16,10 @@ import { usePersistentState } from '../../hooks/usePersistentState';
 import { usePolicies } from '../../contexts/PolicyContext';
 import { crops, lgas } from '../../data/policies';
 import { getTeam } from '../../utils/users';
-import { getWindow } from '../../utils/oracle';
+import { useI18n } from '../../contexts/I18nContext';
+import { useWindowName } from '../../contexts/PolicyContext';
+import { cropName } from '../../contexts/policyActivity';
+import type { Policy } from '../../types/insurance';
 import { formatDate, formatEth, shortAddress } from '../../utils/format';
 import type { User } from '../../types/user';
 
@@ -24,9 +27,15 @@ type Sort = 'name' | 'policies' | 'cover' | 'joined';
 type Activity = 'all' | 'covered' | 'uncovered';
 const ease = [0.23, 1, 0.32, 1] as const;
 
+/** A farmer's own policies, or the ones an agent sold. */
+const policiesOf = (u: User, policies: Policy[]) =>
+policies.filter((p) => (u.role === 'agent' ? p.agentId : p.farmerId) === u.id);
+
 export function Farmers() {
   const { policies, balanceOf, walletOf } = usePolicies();
   const [params, setParams] = useSearchParams();
+  const { t } = useI18n();
+  const windowName = useWindowName();
   const [view, setView] = usePersistentState<ViewMode>('sokoto-cover-view-farmers-v2', 'grid');
   const [lga, setLga] = useState('all');
   const [crop, setCrop] = useState('all');
@@ -39,7 +48,7 @@ export function Farmers() {
     const q = query.trim().toLowerCase();
     return getTeam().
     map((f) => {
-      const mine = policies.filter((p) => p.farmerId === f.id);
+      const mine = policiesOf(f, policies);
       const active = mine.filter((p) => p.status === 'active');
       return { farmer: f, mine, active, cover: active.reduce((s, p) => s + p.payoutEth, 0) };
     }).
@@ -66,54 +75,55 @@ export function Farmers() {
     setActivity('all');
     setSort('name');
   };
-  const selectedPolicies = selected ? policies.filter((p) => p.farmerId === selected.id) : [];
+  const selectedPolicies = selected ? policiesOf(selected, policies) : [];
+  const isAgent = selected?.role === 'agent';
 
   return (
     <div>
-      <PageHeader title="Farmers & agents" description={`${getTeam().length} registered on the platform.`} />
+      <PageHeader title={t('team.title')} description={t('team.description', { count: getTeam().length })} />
 
       <div className="space-y-3 sm:space-y-4">
         <FilterBar
           search={query}
           onSearch={setQuery}
-          searchPlaceholder="Search name, email, LGA or village"
+          searchPlaceholder={t('team.search')}
           activeCount={activeCount}
           onReset={reset}
           resultCount={rows.length}
           trailing={<ViewToggle value={view} onChange={setView} />}>
           
-          <FilterSelect label="LGA" value={lga} onChange={setLga} options={[{ value: 'all', label: 'All LGAs' }, ...lgas.map((l) => ({ value: l, label: l }))]} />
+          <FilterSelect label={t('purchase.lga')} value={lga} onChange={setLga} options={[{ value: 'all', label: t('ui.allLgas') }, ...lgas.map((l) => ({ value: l, label: l }))]} />
           <FilterSelect
-            label="Primary crop"
+            label={t('profile.primaryCrop')}
             value={crop}
             onChange={setCrop}
-            options={[{ value: 'all', label: 'All crops' }, ...crops.map((c) => ({ value: c, label: c }))]} />
+            options={[{ value: 'all', label: t('ui.allCrops') }, ...crops.map((c) => ({ value: c, label: cropName(c, t) }))]} />
           
           <FilterSelect<Activity>
-            label="Cover"
+            label={t('team.cover')}
             value={activity}
             onChange={setActivity}
             options={[
-            { value: 'all', label: 'Any cover' },
-            { value: 'covered', label: 'Has active cover' },
-            { value: 'uncovered', label: 'No active cover' }]
+            { value: 'all', label: t('team.anyCover') },
+            { value: 'covered', label: t('team.hasCover') },
+            { value: 'uncovered', label: t('team.noCover') }]
             } />
           
           <FilterSelect<Sort>
-            label="Sort by"
+            label={t('ui.sortBy')}
             value={sort}
             onChange={setSort}
             options={[
-            { value: 'name', label: 'Name A–Z' },
-            { value: 'policies', label: 'Most policies' },
-            { value: 'cover', label: 'Most active cover' },
-            { value: 'joined', label: 'Recently joined' }]
+            { value: 'name', label: t('team.sortName') },
+            { value: 'policies', label: t('team.sortPolicies') },
+            { value: 'cover', label: t('team.sortCover') },
+            { value: 'joined', label: t('team.sortJoined') }]
             } />
           
         </FilterBar>
 
         {rows.length === 0 ?
-        <EmptyState icon={UsersIcon} title="No farmers match" body="Try a different search or clear your filters." /> :
+        <EmptyState icon={UsersIcon} title={t('team.noMatch')} body={t('team.noMatchBody')} /> :
         view === 'grid' ?
         <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
             {rows.map(({ farmer: f, mine, active, cover }, i) =>
@@ -136,7 +146,7 @@ export function Farmers() {
                         {f.name}
                         {f.role === 'agent' &&
                         <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent-strong">
-                            Agent
+                            {t('team.agent')}
                           </span>
                         }
                       </p>
@@ -151,23 +161,23 @@ export function Farmers() {
                   </div>
                   <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 sm:mt-5 sm:pt-4">
                     <div className="min-w-0">
-                      <dt className="truncate text-xs text-muted">Policies</dt>
+                      <dt className="truncate text-xs text-muted">{t(f.role === 'agent' ? 'team.policiesSold' : 'team.policies')}</dt>
                       <dd className="mt-0.5 font-mono text-sm">
                         {active.length}
                         <span className="text-muted">/{mine.length}</span>
                       </dd>
                     </div>
                     <div className="min-w-0">
-                      <dt className="truncate text-xs text-muted">Cover</dt>
+                      <dt className="truncate text-xs text-muted">{t('team.cover')}</dt>
                       <dd className="mt-0.5 truncate font-mono text-sm">{Number(cover.toFixed(3))}</dd>
                     </div>
                     <div className="min-w-0">
-                      <dt className="truncate text-xs text-muted">Balance</dt>
+                      <dt className="truncate text-xs text-muted">{t('team.balance')}</dt>
                       <dd className="mt-0.5 truncate font-mono text-sm">{Number(balanceOf(f.id).toFixed(3))}</dd>
                     </div>
                   </dl>
                   <p className="mt-auto truncate pt-3 text-xs text-muted sm:pt-4">
-                    {f.primaryCrop ?? 'Crop not set'} · joined {formatDate(f.joinedAt)}
+                    {f.role === 'agent' ? t('role.agent') : f.primaryCrop ? cropName(f.primaryCrop, t) : t('team.cropNotSet')} · {t('team.joined', { date: formatDate(f.joinedAt) })}
                   </p>
                 </button>
               </motion.li>
@@ -176,11 +186,11 @@ export function Farmers() {
 
         <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
             <li className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 px-5 py-3 text-xs text-muted lg:grid">
-              <span>Farmer</span>
-              <span>LGA</span>
-              <span>Wallet</span>
-              <span className="text-right">Policies</span>
-              <span className="text-right">Active cover</span>
+              <span>{t('team.colPerson')}</span>
+              <span>{t('team.colLga')}</span>
+              <span>{t('team.colWallet')}</span>
+              <span className="text-right">{t('team.policies')}</span>
+              <span className="text-right">{t('team.colActiveCover')}</span>
               <span className="w-4" />
             </li>
             {rows.map(({ farmer: f, mine, active, cover }, i) =>
@@ -202,12 +212,12 @@ export function Farmers() {
                         {f.name}
                         {f.role === 'agent' &&
                         <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent-strong">
-                            Agent
+                            {t('team.agent')}
                           </span>
                         }
                       </span>
                       <span className="block truncate text-xs text-muted">
-                        <span className="lg:hidden">{f.lga} · {active.length} active · </span>
+                        <span className="lg:hidden">{f.lga} · {t('team.activeCount', { count: active.length })} · </span>
                         {f.email}
                       </span>
                     </span>
@@ -233,15 +243,15 @@ export function Farmers() {
         size="lg"
         icon={selected ? <Avatar name={selected.name} src={selected.avatarUrl} size="md" /> : undefined}
         title={selected?.name}
-        description={selected ? `Farmer since ${formatDate(selected.joinedAt)}` : undefined}
+        description={selected ? t(isAgent ? 'team.agentSince' : 'team.farmerSince', { date: formatDate(selected.joinedAt) }) : undefined}
         footer={
         selected &&
         <>
               <button type="button" onClick={() => setSelected(null)} className={btnSecondary}>
-                Close
+                {t('common.close')}
               </button>
               <Link to={`/admin/policies?q=${encodeURIComponent(selected.name)}`} className={btnPrimary}>
-                View all policies
+                {t('team.viewPolicies')}
               </Link>
             </>
 
@@ -251,13 +261,13 @@ export function Farmers() {
         <div className="space-y-6">
             <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {[
-            { icon: MailIcon, label: 'Email', value: selected.email },
-            { icon: PhoneIcon, label: 'Phone', value: selected.phone ?? '—' },
-            { icon: MapPinIcon, label: 'Location', value: `${selected.village ? `${selected.village}, ` : ''}${selected.lga ?? '—'}` },
+            { icon: MailIcon, label: t('profile.email'), value: selected.email },
+            { icon: PhoneIcon, label: t('profile.phone'), value: selected.phone ?? '—' },
+            { icon: MapPinIcon, label: t('profile.location'), value: `${selected.village ? `${selected.village}, ` : ''}${selected.lga ?? '—'}` },
             {
               icon: SproutIcon,
-              label: 'Farm',
-              value: `${selected.primaryCrop ?? '—'}${selected.farmSizeHa ? ` · ${selected.farmSizeHa} ha` : ''}`
+              label: t('team.farm'),
+              value: `${selected.primaryCrop ? cropName(selected.primaryCrop, t) : '—'}${selected.farmSizeHa ? ` · ${selected.farmSizeHa} ha` : ''}`
             }].
             map((d) =>
             <div key={d.label} className="flex min-w-0 items-start gap-3">
@@ -273,10 +283,10 @@ export function Farmers() {
             </dl>
             <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line">
               {[
-            { label: 'Wallet balance', value: formatEth(balanceOf(selected.id)) },
-            { label: 'Premiums paid', value: formatEth(selectedPolicies.reduce((s, p) => s + p.premiumEth, 0)) },
+            { label: t('profile.walletBalance'), value: formatEth(balanceOf(selected.id)) },
+            { label: t(isAgent ? 'team.premiumsCollected' : 'team.premiumsPaid'), value: formatEth(selectedPolicies.reduce((s, p) => s + p.premiumEth, 0)) },
             {
-              label: 'Payouts received',
+              label: t(isAgent ? 'team.paidOut' : 'team.payoutsReceived'),
               value: formatEth(selectedPolicies.filter((p) => p.status === 'paid').reduce((s, p) => s + p.payoutEth, 0))
             }].
             map((s) =>
@@ -287,9 +297,9 @@ export function Farmers() {
             )}
             </div>
             <div>
-              <p className="mb-2 text-sm font-semibold">Policies</p>
+              <p className="mb-2 text-sm font-semibold">{t('team.policies')}</p>
               {selectedPolicies.length === 0 ?
-            <p className="text-sm text-muted">No policies yet.</p> :
+            <p className="text-sm text-muted">{t('team.noPolicies')}</p> :
 
             <ul className="divide-y divide-line rounded-lg border border-line">
                   {selectedPolicies.map((p) =>
@@ -300,7 +310,7 @@ export function Farmers() {
                   
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium">
-                            #{p.id} · {p.crop}, {getWindow(p.windowId).label}
+                            #{p.id} · {cropName(p.crop, t)}, {windowName(p.windowId)}
                           </span>
                           <span className="block truncate text-xs text-muted">
                             &lt; {p.thresholdMm} mm · {formatEth(p.payoutEth)}

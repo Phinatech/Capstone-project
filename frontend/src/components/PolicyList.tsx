@@ -5,7 +5,9 @@ import { ChevronRightIcon, CloudRainIcon, FileTextIcon } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { Avatar } from './Avatar';
 import { EmptyState } from './ui/EmptyState';
-import { getWindow } from '../utils/oracle';
+import { useI18n } from '../contexts/I18nContext';
+import { useWindowName } from '../contexts/PolicyContext';
+import { cropName } from '../contexts/policyActivity';
 import { findUser } from '../utils/users';
 import { formatEth } from '../utils/format';
 import type { ViewMode } from './ui/ViewToggle';
@@ -22,8 +24,10 @@ interface PolicyListProps {
 const ease = [0.23, 1, 0.32, 1] as const;
 
 export function PolicyList({ policies, basePath, emptyMessage, view = 'list', showFarmer = false }: PolicyListProps) {
+  const { t } = useI18n();
+  const windowName = useWindowName();
   if (policies.length === 0) {
-    return <EmptyState icon={FileTextIcon} title="No policies" body={emptyMessage ?? 'No policies to show.'} />;
+    return <EmptyState icon={FileTextIcon} title={t('policyList.emptyTitle')} body={emptyMessage ?? t('policyList.emptyBody')} />;
   }
 
   if (view === 'grid') {
@@ -47,9 +51,9 @@ export function PolicyList({ policies, basePath, emptyMessage, view = 'list', sh
                   <div className="min-w-0">
                     <p className="font-mono text-xs text-muted">#{p.id}</p>
                     <p className="mt-0.5 truncate text-[15px] font-semibold sm:mt-1 sm:text-base">
-                      {p.lga} · {p.crop}
+                      {p.lga} · {cropName(p.crop, t)}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{getWindow(p.windowId).label}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{windowName(p.windowId)}</p>
                   </div>
                   <StatusBadge status={p.status} />
                 </div>
@@ -57,12 +61,12 @@ export function PolicyList({ policies, basePath, emptyMessage, view = 'list', sh
                   <div className="min-w-0">
                     <dt className="flex items-center gap-1 text-xs text-muted">
                       <CloudRainIcon className="h-3 w-3" aria-hidden />
-                      Trigger
+                      {t('policy.trigger')}
                     </dt>
                     <dd className="mt-0.5 truncate font-mono text-sm">&lt; {p.thresholdMm} mm</dd>
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-xs text-muted">Payout</dt>
+                    <dt className="text-xs text-muted">{t('policy.payout')}</dt>
                     <dd className="mt-0.5 truncate font-mono text-sm">{formatEth(p.payoutEth)}</dd>
                   </div>
                 </dl>
@@ -73,7 +77,7 @@ export function PolicyList({ policies, basePath, emptyMessage, view = 'list', sh
                       <span className="truncate text-xs text-muted">{farmer.name}</span>
                     </span> :
 
-                  <span className="truncate text-xs text-muted">Premium {formatEth(p.premiumEth)}</span>
+                  <span className="truncate text-xs text-muted">{t('policy.premiumAmount', { amount: formatEth(p.premiumEth) })}</span>
                   }
                   <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted transition-transform duration-150 ease-out group-hover:translate-x-0.5" aria-hidden />
                 </div>
@@ -88,7 +92,6 @@ export function PolicyList({ policies, basePath, emptyMessage, view = 'list', sh
   return (
     <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
       {policies.map((p, i) => {
-        const coverage = getWindow(p.windowId);
         const farmer = showFarmer ? findUser(p.farmerId) : undefined;
         return (
           <motion.li
@@ -110,11 +113,11 @@ export function PolicyList({ policies, basePath, emptyMessage, view = 'list', sh
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
                     <span className="mr-2 font-mono text-xs font-normal text-muted">#{p.id}</span>
-                    {farmer ? farmer.name : `${p.lga} · ${p.crop}`}
+                    {farmer ? farmer.name : `${p.lga} · ${cropName(p.crop, t)}`}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-muted">
-                    {farmer ? `${p.lga} · ${p.crop} · ` : ''}
-                    {coverage.label}
+                    {farmer ? `${p.lga} · ${cropName(p.crop, t)} · ` : ''}
+                    {windowName(p.windowId)}
                     <span className="md:hidden">
                       {' '}
                       · &lt; {p.thresholdMm} mm · {formatEth(p.payoutEth)}
@@ -123,11 +126,11 @@ export function PolicyList({ policies, basePath, emptyMessage, view = 'list', sh
                 </div>
               </div>
               <div className="hidden min-w-0 md:block">
-                <p className="truncate text-xs text-muted">Pays below</p>
+                <p className="truncate text-xs text-muted">{t('policy.paysBelow')}</p>
                 <p className="truncate font-mono text-sm">{p.thresholdMm} mm</p>
               </div>
               <div className="hidden min-w-0 md:block">
-                <p className="truncate text-xs text-muted">Payout</p>
+                <p className="truncate text-xs text-muted">{t('policy.payout')}</p>
                 <p className="truncate font-mono text-sm">{formatEth(p.payoutEth)}</p>
               </div>
               <div className="hidden md:block">

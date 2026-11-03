@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from '../../contexts/I18nContext';
 import { motion } from 'framer-motion';
 import { ChevronRightIcon, ExternalLinkIcon } from 'lucide-react';
 import { ScoreRing } from './ScoreRing';
@@ -13,7 +14,7 @@ import type { OracleSource } from '../../types/insurance';
 
 const ease = [0.23, 1, 0.32, 1] as const;
 
-function Sparkline({ values, color }: {values: (number | null)[];color: string;}) {
+function Sparkline({ values, color, label }: {values: (number | null)[];color: string;label: string;}) {
   const pts = values.map((v, i) => ({ i, v })).filter((p): p is {i: number;v: number;} => p.v !== null);
   const max = Math.max(0.25, ...pts.map((p) => p.v));
   const w = 120;
@@ -22,13 +23,14 @@ function Sparkline({ values, color }: {values: (number | null)[];color: string;}
   const y = (v: number) => h - v / max * (h - 4) - 2;
   const d = pts.map((p, k) => `${k === 0 ? 'M' : 'L'}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-7 w-full" preserveAspectRatio="none" role="img" aria-label="Deviation from peers across the season">
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-7 w-full" preserveAspectRatio="none" role="img" aria-label={label}>
       <path d={d} fill="none" stroke={color} strokeWidth={1.75} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
     </svg>);
 
 }
 
 export function SourceRegistry() {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<OracleSource | null>(null);
   const { sources } = useOracleTrust();
   const { dekads } = useRainfallSeries();
@@ -42,20 +44,20 @@ export function SourceRegistry() {
       <div className="mb-2.5 flex items-end justify-between gap-3 sm:mb-3">
         <div className="min-w-0">
           <h2 id="registry-heading" className="text-base font-semibold">
-            Source registry
+            {t('registry.title')}
           </h2>
-          <p className="truncate text-xs text-muted sm:text-sm">Ranked by reputation · select a source for its full profile</p>
+          <p className="truncate text-xs text-muted sm:text-sm">{t('registry.hint')}</p>
         </div>
       </div>
 
       <ul className="overflow-hidden rounded-lg border border-line bg-surface">
         <li className="hidden grid-cols-[minmax(0,2.2fr)_4rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_1rem] items-center gap-4 border-b border-line px-5 py-2.5 text-xs text-muted lg:grid">
-          <span>Source</span>
-          <span>Score</span>
-          <span className="text-right">Base weight</span>
-          <span className="text-right">Mean deviation</span>
-          <span className="text-right">Reported</span>
-          <span>Deviation, first → last dekad</span>
+          <span>{t('registry.source')}</span>
+          <span>{t('registry.score')}</span>
+          <span className="text-right">{t('registry.baseWeight')}</span>
+          <span className="text-right">{t('registry.meanDeviation')}</span>
+          <span className="text-right">{t('registry.reported')}</span>
+          <span>{t('registry.deviationTrend')}</span>
           <span />
         </li>
         {ranked.map((s, i) => {
@@ -81,24 +83,24 @@ export function SourceRegistry() {
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-sm font-semibold">{s.name}</span>
-                      {i === 0 && <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-px text-[10px] font-medium text-accent-strong">Top</span>}
+                      {i === 0 && <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-px text-[10px] font-medium text-accent-strong">{t('registry.top')}</span>}
                     </span>
-                    <span className="block truncate text-xs text-muted">{s.kind}</span>
+                    <span className="block truncate text-xs text-muted">{t(`source.${s.id}.kind`)}</span>
                   </span>
                 </span>
 
                 {/* Mobile / tablet summary */}
                 <span className="grid w-[9.5rem] grid-cols-3 gap-2 text-right sm:w-56 lg:hidden">
                   <span className="min-w-0">
-                    <span className="block truncate text-[10px] text-muted">Weight</span>
+                    <span className="block truncate text-[10px] text-muted">{t('registry.weight')}</span>
                     <span className="block truncate font-mono text-xs">{formatPct(rep?.weight ?? 0)}</span>
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[10px] text-muted">Dev.</span>
+                    <span className="block truncate text-[10px] text-muted">{t('registry.dev')}</span>
                     <span className="block truncate font-mono text-xs">{rep?.meanDeviation == null ? '—' : formatPct(rep.meanDeviation)}</span>
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[10px] text-muted">Reported</span>
+                    <span className="block truncate text-[10px] text-muted">{t('registry.reported')}</span>
                     <span className="block truncate font-mono text-xs">{rep?.dekadsReported ?? 0}/{rep?.dekadsTotal ?? 0}</span>
                   </span>
                 </span>
@@ -110,7 +112,7 @@ export function SourceRegistry() {
                 <span className="hidden text-right font-mono text-sm lg:block">{rep?.meanDeviation == null ? '—' : formatPct(rep.meanDeviation)}</span>
                 <span className="hidden text-right font-mono text-sm lg:block">{rep?.dekadsReported ?? 0} / {rep?.dekadsTotal ?? 0}</span>
                 <span className="hidden min-w-0 lg:block">
-                  <Sparkline values={devs[s.id]} color={s.color} />
+                  <Sparkline values={devs[s.id]} color={s.color} label={t('registry.deviationSeason')} />
                 </span>
                 <ChevronRightIcon className="h-4 w-4 text-muted transition-transform duration-150 ease-out group-hover:translate-x-0.5" aria-hidden />
               </button>
@@ -131,9 +133,9 @@ export function SourceRegistry() {
         <div className="space-y-4">
             <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line">
               {[
-            { label: 'Reputation', value: `${((selectedTrust?.score ?? 0) * 100).toFixed(1)}` },
-            { label: 'Contract weight', value: formatPct(selectedTrust?.weight ?? 0) },
-            { label: 'Dekads reported', value: `${selectedTrust?.dekadsReported ?? 0} / ${selectedTrust?.dekadsTotal ?? 0}` }].
+            { label: t('registry.reputation'), value: `${((selectedTrust?.score ?? 0) * 100).toFixed(1)}` },
+            { label: t('registry.contractWeight'), value: formatPct(selectedTrust?.weight ?? 0) },
+            { label: t('registry.dekadsReported'), value: `${selectedTrust?.dekadsReported ?? 0} / ${selectedTrust?.dekadsTotal ?? 0}` }].
             map((m) =>
             <div key={m.label} className="min-w-0 bg-surface px-3 py-2.5">
                   <p className="truncate text-[11px] text-muted">{m.label}</p>
@@ -142,20 +144,20 @@ export function SourceRegistry() {
             )}
             </div>
             <div>
-              <p className="mb-1 text-xs font-medium text-muted">Deviation from peers across the season</p>
+              <p className="mb-1 text-xs font-medium text-muted">{t('registry.deviationSeason')}</p>
               <div className="rounded-md border border-line px-3 py-2">
-                <Sparkline values={devs[selected.id]} color={selected.color} />
+                <Sparkline values={devs[selected.id]} color={selected.color} label={t('registry.deviationSeason')} />
               </div>
             </div>
             <dl className="divide-y divide-line rounded-lg border border-line text-sm">
               {[
-            ['Product', oracleMeta[selected.id].product],
-            ['Method', oracleMeta[selected.id].method],
-            ['Resolution', oracleMeta[selected.id].resolution],
-            ['Update cadence', oracleMeta[selected.id].cadence],
-            ['Mean deviation', selectedTrust?.meanDeviation == null ? '—' : formatPct(selectedTrust.meanDeviation)],
-            ['Registered on-chain', selectedTrust?.registered ? 'Yes' : 'No — every address deactivated'],
-            ['Licence', oracleMeta[selected.id].licence]].
+            [t('registry.product'), oracleMeta[selected.id].product],
+            [t('registry.method'), t(`source.${selected.id}.method`)],
+            [t('registry.resolution'), t(`source.${selected.id}.resolution`)],
+            [t('registry.cadence'), t(`source.${selected.id}.cadence`)],
+            [t('registry.meanDeviation'), selectedTrust?.meanDeviation == null ? '—' : formatPct(selectedTrust.meanDeviation)],
+            [t('registry.registered'), selectedTrust?.registered ? t('registry.yes') : t('registry.noDeactivated')],
+            [t('registry.licence'), t(`source.${selected.id}.licence`)]].
             map(([k, v]) =>
             <div key={k} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 px-3 py-2.5">
                   <dt className="text-xs text-muted">{k}</dt>

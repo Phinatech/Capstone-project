@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useI18n } from '../../contexts/I18nContext';
 
 interface ModalProps {
   open: boolean;
@@ -37,6 +38,7 @@ export function Modal({
   bodyClassName = 'px-4 py-4 sm:px-6 sm:py-5',
   placement = 'sheet'
 }: ModalProps) {
+  const { t: translate } = useI18n();
   const isWide = useMediaQuery('(min-width: 640px)');
   const isDesktop = isWide || placement !== 'sheet';
   const panelRef = useRef<HTMLDivElement>(null);
@@ -133,7 +135,7 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={translate('common.close')}
               className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors duration-150 ease-out hover:bg-canvas hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
               
                     <XIcon className="h-4 w-4" aria-hidden />

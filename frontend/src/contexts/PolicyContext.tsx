@@ -3,7 +3,7 @@ import { readChainConfig } from '../chain/config';
 import { ChainPolicyProvider } from './ChainPolicyProvider';
 import { ErrorPage } from '../pages/ErrorPage';
 
-export { usePolicies } from './policyContextCore';
+export { usePolicies, useWindowName } from './policyContextCore';
 export type { DataSource, PolicyContextValue, PurchaseInput } from './policyContextCore';
 
 /**

@@ -6,8 +6,8 @@ import { Modal } from "../ui/Modal";
 import { Avatar } from "../Avatar";
 import { allNavItems } from "./navigation";
 import { useI18n } from "../../contexts/I18nContext";
-import { usePolicies } from "../../contexts/PolicyContext";
-import { getWindow } from "../../utils/oracle";
+import { usePolicies, useWindowName } from "../../contexts/PolicyContext";
+import { cropName } from "../../contexts/policyActivity";
 import { findUser, getFarmers } from "../../utils/users";
 import { User } from "../../types/user";
 interface Result {
@@ -35,6 +35,7 @@ export function CommandPalette({
   const {
     policies
   } = usePolicies();
+  const windowName = useWindowName();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -53,15 +54,16 @@ export function CommandPalette({
       to: i.to,
       icon: i.icon
     })).filter((r) => !q || r.label.toLowerCase().includes(q));
-    const scoped = user.role === 'admin' ? policies : policies.filter((p) => p.farmerId === user.id);
+    // The policies this person can open: all for the admin, the ones an agent sold, a farmer's own.
+    const scoped = user.role === 'admin' ? policies : policies.filter((p) => (user.role === 'agent' ? p.agentId : p.farmerId) === user.id);
     const policyResults: Result[] = q ? scoped.filter((p) => {
       const farmer = findUser(p.farmerId)?.name.toLowerCase() ?? '';
-      return `#${p.id} ${p.id} ${p.lga} ${p.crop} ${farmer}`.toLowerCase().includes(q);
+      return `#${p.id} ${p.id} ${p.lga} ${p.crop} ${cropName(p.crop, t)} ${farmer}`.toLowerCase().includes(q);
     }).slice(0, 6).map((p) => ({
       id: `p-${p.id}`,
       group: 'policies' as const,
-      label: `#${p.id} · ${p.lga} ${p.crop}`,
-      sub: `${getWindow(p.windowId).label}${user.role === 'admin' ? ` · ${findUser(p.farmerId)?.name ?? ''}` : ''}`,
+      label: `#${p.id} · ${p.lga} ${cropName(p.crop, t)}`,
+      sub: `${windowName(p.windowId)}${user.role === 'farmer' ? '' : ` · ${findUser(p.farmerId)?.name ?? ''}`}`,
       to: `/${user.role}/policies/${p.id}`,
       icon: FileTextIcon
     })) : [];
@@ -74,7 +76,7 @@ export function CommandPalette({
       avatar: f.name
     })) : [];
     return [...pages, ...policyResults, ...farmerResults];
-  }, [query, policies, user, t]);
+  }, [query, policies, user, t, windowName]);
   useEffect(() => setActive(0), [query]);
   function go(r: Result | undefined) {
     if (!r) return;

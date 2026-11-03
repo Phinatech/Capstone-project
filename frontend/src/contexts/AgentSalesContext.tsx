@@ -210,7 +210,7 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
       setError(null);
     } catch (err) {
       if (!mounted.current) return;
-      setError(err instanceof Error ? err.message : 'The sales ledger could not be read.');
+      setError(err instanceof Error ? err.message : 'sales.readFailed');
     } finally {
       if (mounted.current) {
         setPending(failed);
@@ -235,6 +235,15 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
     }
     setLoading(true);
     void refresh();
+    // A sale recorded on the agent's other device appears here without a
+    // reload: re-read the book every minute and when the tab regains focus.
+    const reload = () => void refresh();
+    const id = window.setInterval(reload, 60_000);
+    window.addEventListener('focus', reload);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', reload);
+    };
   }, [agentId, refresh]);
 
   const record = useCallback(
@@ -251,7 +260,7 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
         });
         return { synced: true, retryable: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'The receipt could not be saved.';
+        const message = err instanceof Error ? err.message : 'sales.saveFailed';
         if (!isRetryable(err)) {
           // Queuing this would just fail the same way on every load. The policy
           // exists on-chain either way, so surface it instead of hiding it.

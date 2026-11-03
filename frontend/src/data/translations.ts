@@ -1,3 +1,17 @@
+import * as activity from './i18n/activity';
+import * as tour from './i18n/tour';
+import * as research from './i18n/research';
+import * as oracles from './i18n/oracles';
+import * as team from './i18n/team';
+import * as admin from './i18n/admin';
+import * as agent from './i18n/agent';
+import * as shell from './i18n/shell';
+import * as chain from './i18n/chain';
+import * as account from './i18n/account';
+import * as ui from './i18n/ui';
+import * as farmer from './i18n/farmer';
+import * as policy from './i18n/policy';
+
 export type Language = 'en' | 'ha' | 'fr';
 
 export const languages: {value: Language;label: string;native: string;locale: string;}[] = [
@@ -132,11 +146,11 @@ export const en = {
   'settings.description': 'Personalise how the app looks and which language it uses.',
   'settings.modeHint': 'System follows your device setting.',
   'settings.accentHint': 'Used for buttons, links and highlights.',
-  'settings.languageHint': 'Navigation, sign-in and settings are translated.',
+  'settings.languageHint': 'The whole app is shown in this language.',
   'settings.preview': 'Preview',
 
-  'greeting.hello': 'Sannu',
-  'dash.coverFor': 'Your rainfall cover for the 2023 season in {place}.',
+  'greeting.hello': 'Hello',
+  'dash.coverFor': 'Your rainfall cover in {place}.',
   'toast.welcome': 'Welcome, {name}',
   'toast.accountCreated': 'Account created',
 
@@ -174,7 +188,7 @@ export const en = {
   'forgot.submit': 'Send reset link',
   'forgot.sending': 'Sending…',
   'forgot.sentTitle': 'Check your email',
-  'forgot.sentBody': 'If an account exists for {email}, a reset link is on its way. It expires in 30 minutes.',
+  'forgot.sentBody': 'If an account exists for {email}, a reset link is on its way. It expires in 1 hour.',
   'forgot.openDemo': 'Open reset link (demo)',
   'reset.title': 'Choose a new password',
   'reset.subtitle': 'Resetting the password for {email}.',
@@ -183,7 +197,7 @@ export const en = {
   'reset.successTitle': 'Password updated',
   'reset.successBody': 'You can now sign in with your new password.',
   'reset.invalidTitle': 'This link has expired',
-  'reset.invalidBody': 'Reset links are valid for 30 minutes and can be used once.',
+  'reset.invalidBody': 'Reset links are valid for 1 hour and can be used once.',
   'reset.requestNew': 'Request a new link',
   'strength.weak': 'Weak',
   'strength.fair': 'Fair',
@@ -206,7 +220,20 @@ export const en = {
   'errorPage.home': 'Go to dashboard',
   'errorPage.details': 'Technical details',
   'notFound.title': 'Page not found',
-  'notFound.body': "The page you're looking for doesn't exist or has moved."
+  'notFound.body': "The page you're looking for doesn't exist or has moved.",
+  ...activity.en,
+  ...tour.en,
+  ...research.en,
+  ...oracles.en,
+  ...team.en,
+  ...admin.en,
+  ...agent.en,
+  ...shell.en,
+  ...chain.en,
+  ...account.en,
+  ...ui.en,
+  ...farmer.en,
+  ...policy.en
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -338,11 +365,11 @@ export const ha: Dictionary = {
   'settings.description': 'Zaɓi yadda manhajar za ta yi kama da harshen da za ta yi amfani da shi.',
   'settings.modeHint': 'Na na’ura yana bin saitin wayarka.',
   'settings.accentHint': 'Ana amfani da shi a maɓallai, hanyoyi da haske.',
-  'settings.languageHint': 'An fassara kewayawa, shiga da saituna.',
+  'settings.languageHint': 'Duk manhajar za ta bayyana a wannan harshe.',
   'settings.preview': 'Samfoti',
 
   'greeting.hello': 'Sannu',
-  'dash.coverFor': 'Inshorar ruwan saman ka na damina ta 2023 a {place}.',
+  'dash.coverFor': 'Inshorar ruwan saman ku a {place}.',
   'toast.welcome': 'Barka, {name}',
   'toast.accountCreated': 'An buɗe asusu',
 
@@ -380,7 +407,7 @@ export const ha: Dictionary = {
   'forgot.submit': 'Aika hanyar saitawa',
   'forgot.sending': 'Ana aikawa…',
   'forgot.sentTitle': 'Duba imel ɗinka',
-  'forgot.sentBody': 'Idan akwai asusu na {email}, an aika hanyar saitawa. Za ta ƙare cikin minti 30.',
+  'forgot.sentBody': 'Idan akwai asusu na {email}, an aika hanyar saitawa. Za ta ƙare cikin awa 1.',
   'forgot.openDemo': 'Buɗe hanyar saitawa (gwaji)',
   'reset.title': 'Zaɓi sabuwar kalmar sirri',
   'reset.subtitle': 'Ana sake saita kalmar sirri na {email}.',
@@ -389,7 +416,7 @@ export const ha: Dictionary = {
   'reset.successTitle': 'An sabunta kalmar sirri',
   'reset.successBody': 'Yanzu za ka iya shiga da sabuwar kalmar sirri.',
   'reset.invalidTitle': 'Wannan hanyar ta ƙare',
-  'reset.invalidBody': 'Hanyoyin saitawa suna aiki na minti 30 kuma sau ɗaya kawai.',
+  'reset.invalidBody': 'Hanyoyin saitawa suna aiki na awa 1 kuma sau ɗaya kawai.',
   'reset.requestNew': 'Nemi sabuwar hanya',
   'strength.weak': 'Rauni',
   'strength.fair': 'Matsakaici',
@@ -412,7 +439,20 @@ export const ha: Dictionary = {
   'errorPage.home': 'Je babban shafi',
   'errorPage.details': 'Bayanan fasaha',
   'notFound.title': 'Ba a sami shafin ba',
-  'notFound.body': 'Shafin da kake nema babu shi ko an motsa shi.'
+  'notFound.body': 'Shafin da kake nema babu shi ko an motsa shi.',
+  ...activity.ha,
+  ...tour.ha,
+  ...research.ha,
+  ...oracles.ha,
+  ...team.ha,
+  ...admin.ha,
+  ...agent.ha,
+  ...shell.ha,
+  ...chain.ha,
+  ...account.ha,
+  ...ui.ha,
+  ...farmer.ha,
+  ...policy.ha
 };
 
 export const fr: Dictionary = {
@@ -541,11 +581,11 @@ export const fr: Dictionary = {
   'settings.description': 'Personnalisez l’apparence de l’application et sa langue.',
   'settings.modeHint': 'Système suit le réglage de votre appareil.',
   'settings.accentHint': 'Utilisée pour les boutons, liens et surlignages.',
-  'settings.languageHint': 'La navigation, la connexion et les paramètres sont traduits.',
+  'settings.languageHint': 'Toute l’application s’affiche dans cette langue.',
   'settings.preview': 'Aperçu',
 
   'greeting.hello': 'Bonjour',
-  'dash.coverFor': 'Votre couverture pluie pour la saison 2023 à {place}.',
+  'dash.coverFor': 'Votre couverture pluie à {place}.',
   'toast.welcome': 'Bienvenue, {name}',
   'toast.accountCreated': 'Compte créé',
 
@@ -583,7 +623,7 @@ export const fr: Dictionary = {
   'forgot.submit': 'Envoyer le lien',
   'forgot.sending': 'Envoi…',
   'forgot.sentTitle': 'Vérifiez vos e-mails',
-  'forgot.sentBody': 'Si un compte existe pour {email}, un lien vous a été envoyé. Il expire dans 30 minutes.',
+  'forgot.sentBody': 'Si un compte existe pour {email}, un lien vous a été envoyé. Il expire dans 1 heure.',
   'forgot.openDemo': 'Ouvrir le lien (démo)',
   'reset.title': 'Choisissez un nouveau mot de passe',
   'reset.subtitle': 'Réinitialisation pour {email}.',
@@ -592,7 +632,7 @@ export const fr: Dictionary = {
   'reset.successTitle': 'Mot de passe mis à jour',
   'reset.successBody': 'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.',
   'reset.invalidTitle': 'Ce lien a expiré',
-  'reset.invalidBody': 'Les liens sont valables 30 minutes et ne peuvent servir qu’une fois.',
+  'reset.invalidBody': 'Les liens sont valables 1 heure et ne peuvent servir qu’une fois.',
   'reset.requestNew': 'Demander un nouveau lien',
   'strength.weak': 'Faible',
   'strength.fair': 'Moyen',
@@ -615,7 +655,20 @@ export const fr: Dictionary = {
   'errorPage.home': 'Aller au tableau de bord',
   'errorPage.details': 'Détails techniques',
   'notFound.title': 'Page introuvable',
-  'notFound.body': 'La page que vous cherchez n’existe pas ou a été déplacée.'
+  'notFound.body': 'La page que vous cherchez n’existe pas ou a été déplacée.',
+  ...activity.fr,
+  ...tour.fr,
+  ...research.fr,
+  ...oracles.fr,
+  ...team.fr,
+  ...admin.fr,
+  ...agent.fr,
+  ...shell.fr,
+  ...chain.fr,
+  ...account.fr,
+  ...ui.fr,
+  ...farmer.fr,
+  ...policy.fr
 };
 
 export const translations: Record<Language, Dictionary> = { en, ha, fr };

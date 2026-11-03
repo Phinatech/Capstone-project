@@ -173,7 +173,7 @@ export function VerifyEmail() {
             autoComplete={i === 0 ? 'one-time-code' : 'off'}
             maxLength={LENGTH}
             autoFocus={i === 0}
-            aria-label={`Digit ${i + 1}`}
+            aria-label={t('auth.digit', { n: i + 1 })}
             aria-invalid={error}
             disabled={submitting}
             className={`h-12 w-full min-w-0 rounded-md border bg-surface text-center font-mono text-lg font-semibold text-ink transition-colors duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-accent-soft sm:h-14 ${

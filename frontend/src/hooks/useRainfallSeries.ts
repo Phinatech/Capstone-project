@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { SOURCE_BY_LABEL } from '../chain/config';
 import { usePolicies } from '../contexts/PolicyContext';
+import { formatMonthShort } from '../utils/format';
 import type { RainfallSeriesRow } from '../utils/oracle';
 import type { SourceId } from '../types/insurance';
 
 const API_URL = '';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** A period id is YYYYMMD: 2026092 is 2026, September, second dekad. */
+/** A period id is YYYYMMD: 2026092 is 2026, September, second dekad ("Sep D2", in the reader's language). */
 function dekadLabel(period: number): string {
   const month = Math.floor(period / 10) % 100;
-  return `${MONTHS[month - 1] ?? month} D${period % 10}`;
+  return `${formatMonthShort(month)} D${period % 10}`;
 }
 
 interface ReadingRow {

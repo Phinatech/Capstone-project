@@ -17,6 +17,7 @@ import { appPersistence } from "../utils/firebase.js";
 import { attributePolicies } from "../utils/policyAttribution.js";
 import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
 import type { PolicyData } from "../utils/chain.js";
+import type { PublicUser } from "../utils/userStore.js";
 import {
   headBlock,
   readPolicies,
@@ -95,16 +96,28 @@ router.get("/fx", async (_req, res) => {
   }
 });
 
+/** Another user as a non-administrator sees them: no email, phone or sign-in history. */
+function directoryListing(u: PublicUser): PublicUser {
+  const { email: _email, phone: _phone, lastSignInAt: _lastSignInAt, twoFactor: _twoFactor, bio: _bio, ...listing } = u;
+  return { ...listing, email: "" };
+}
+
 /**
  * The user directory the UI renders against (names, LGAs, wallets).
  *
  * Password hashes never leave the store — `directory()` maps through
  * `toPublicUser`. Before F-1 this list came from `data/users.ts` compiled
  * into the bundle plus whatever a visitor had written to localStorage.
+ *
+ * Signed-in users only, and contact details (email, phone, sign-in history)
+ * go to the administrator alone: an agent choosing a farmer needs a name, an
+ * LGA and a wallet, not everyone's email and phone number.
  */
-router.get("/users/directory", async (_req, res) => {
+router.get("/users/directory", requireAuth, async (req, res) => {
   try {
-    res.json({ users: await userStore.directory() });
+    const viewer = req.principal!.user;
+    const users = await userStore.directory();
+    res.json({ users: viewer.role === "admin" ? users : users.map((u) => (u.id === viewer.id ? u : directoryListing(u))) });
   } catch (err) {
     console.error("[api] failed to read the user directory:", err);
     res.status(500).json({ error: "Failed to read the user directory" });

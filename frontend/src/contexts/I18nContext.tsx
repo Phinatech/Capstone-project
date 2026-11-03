@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { languages, translations } from '../data/translations';
+import { setFormatLocale } from '../utils/format';
 import type { Language, TranslationKey } from '../data/translations';
 
 const LANG_KEY = 'sokoto-cover-language';
@@ -33,6 +34,8 @@ function readLanguage(): Language {
 export function I18nProvider({ children }: {children: React.ReactNode;}) {
   const [language, setLanguage] = useState<Language>(readLanguage);
   const locale = languages.find((l) => l.value === language)?.locale ?? 'en-NG';
+  // Before children render, so every date on this pass is in the new language.
+  setFormatLocale(locale);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -50,7 +53,7 @@ export function I18nProvider({ children }: {children: React.ReactNode;}) {
       const table = translations[language] as Record<string, string>;
       const english = translations.en as Record<string, string>;
       let text: string = table[key] ?? english[key] ?? key;
-      if (vars) Object.entries(vars).forEach(([k, v]) => text = text.replace(`{${k}}`, String(v)));
+      if (vars) Object.entries(vars).forEach(([k, v]) => text = text.split(`{${k}}`).join(String(v)));
       return text;
     },
     [language]

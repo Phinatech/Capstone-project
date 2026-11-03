@@ -3,6 +3,7 @@ import { SearchIcon, SlidersHorizontalIcon, XIcon } from 'lucide-react';
 import { Modal } from './Modal';
 import { SearchInput } from './SearchInput';
 import { btnGhost, btnPrimary, btnSecondary } from './buttons';
+import { useI18n } from '../../contexts/I18nContext';
 
 interface FilterBarProps {
   search: string;
@@ -30,7 +31,8 @@ export function FilterBar({
 }: FilterBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const results = `${resultCount} ${resultCount === 1 ? 'result' : 'results'}`;
+  const { t } = useI18n();
+  const results = resultCount === 1 ? t('ui.resultOne') : t('ui.resultMany', { count: resultCount });
 
   return (
     <div className="space-y-2 sm:space-y-3">
@@ -46,7 +48,7 @@ export function FilterBar({
           <span className={`truncate text-left text-[13px] font-normal ${search ? 'text-ink' : ''}`}>{search || searchPlaceholder}</span>
         </button>
         {search &&
-        <button type="button" onClick={() => onSearch('')} aria-label="Clear search" className={`${iconBtn} w-9 px-0 sm:hidden`}>
+        <button type="button" onClick={() => onSearch('')} aria-label={t('ui.clearSearch')} className={`${iconBtn} w-9 px-0 sm:hidden`}>
             <XIcon className="h-4 w-4" aria-hidden />
           </button>
         }
@@ -55,10 +57,10 @@ export function FilterBar({
           type="button"
           onClick={() => setFiltersOpen(true)}
           className={`${iconBtn} lg:hidden`}
-          aria-label={`Filters${activeCount ? `, ${activeCount} active` : ''}`}>
+          aria-label={activeCount ? t('ui.filtersActive', { count: activeCount }) : t('ui.filters')}>
           
           <SlidersHorizontalIcon className="h-4 w-4" aria-hidden />
-          <span className="hidden sm:inline">Filters</span>
+          <span className="hidden sm:inline">{t('ui.filters')}</span>
           {activeCount > 0 &&
           <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-accent px-1 font-mono text-[10px] font-semibold text-white">
               {activeCount}
@@ -72,7 +74,7 @@ export function FilterBar({
         <div className="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-2">{children}</div>
         {activeCount > 0 &&
         <button type="button" onClick={onReset} className={btnGhost}>
-            Clear filters
+            {t('ui.clearFilters')}
           </button>
         }
       </div>
@@ -81,17 +83,17 @@ export function FilterBar({
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         placement="top"
-        title="Search"
+        title={t('ui.search')}
         description={results}
         size="sm">
         
         <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} autoFocus onEnter={() => setSearchOpen(false)} />
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button type="button" onClick={() => onSearch('')} className={btnSecondary} disabled={!search}>
-            Clear
+            {t('ui.clear')}
           </button>
           <button type="button" onClick={() => setSearchOpen(false)} className={btnPrimary}>
-            Show {results}
+            {t('ui.show', { count: resultCount })}
           </button>
         </div>
       </Modal>
@@ -99,17 +101,17 @@ export function FilterBar({
       <Modal
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        title="Filters"
-        description={`${results} match`}
+        title={t('ui.filters')}
+        description={results}
         size="sm"
         placement="center"
         footer={
         <>
             <button type="button" onClick={onReset} className={btnSecondary} disabled={activeCount === 0}>
-              Clear all
+              {t('ui.clearAll')}
             </button>
             <button type="button" onClick={() => setFiltersOpen(false)} className={btnPrimary}>
-              Show {resultCount}
+              {t('ui.show', { count: resultCount })}
             </button>
           </>
         }>

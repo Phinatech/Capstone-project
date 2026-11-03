@@ -76,7 +76,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
             <button
             type="button"
             onClick={onToggle}
-            aria-label="Collapse sidebar"
+            aria-label={t('shell.collapseSidebar')}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors duration-150 ease-out hover:bg-canvas hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
             
               <PanelLeftCloseIcon className="h-4 w-4" aria-hidden />
@@ -105,7 +105,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
         </button>
       </div>
 
-      <nav aria-label="Sidebar" className="scroll-area flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" onScroll={() => setTip(null)}>
+      <nav aria-label={t('shell.sidebar')} className="scroll-area flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" onScroll={() => setTip(null)}>
         {sections.map((section, si) =>
         <div key={section.titleKey} className={si > 0 ? 'mt-4' : ''}>
             {collapsed ?
@@ -143,7 +143,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
                       {!collapsed && <span className="relative min-w-0 flex-1 truncate">{label}</span>}
                       {count > 0 && (
                     collapsed ?
-                    <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full bg-danger ring-2 ring-surface" aria-label={`${count} unread`} /> :
+                    <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full bg-danger ring-2 ring-surface" aria-label={t('notifPage.unreadCount', { count })} /> :
 
                     <span className="relative rounded-full bg-accent px-1.5 py-px font-mono text-[10px] font-semibold text-white">
                             {count > 99 ? '99+' : count}
@@ -194,8 +194,8 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps) {
             <button
             type="button"
             onClick={onToggle}
-            aria-label="Expand sidebar"
-            {...tipProps('Expand sidebar')}
+            aria-label={t('shell.expandSidebar')}
+            {...tipProps(t('shell.expandSidebar'))}
             className={`${itemBase} w-full justify-center text-muted hover:bg-canvas hover:text-ink`}>
             
               <PanelLeftOpenIcon className="h-4 w-4" aria-hidden />

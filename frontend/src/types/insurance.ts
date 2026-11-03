@@ -59,6 +59,10 @@ export interface EvaluationResult {
 export interface Policy {
   id: number;
   farmerId: string;
+  /** The agent who sold it, when it was sold through one. */
+  agentId?: string;
+  /** The wallet that bought it on-chain and receives its payout. */
+  holder?: string;
   lga: string;
   crop: string;
   windowId: string;
@@ -66,6 +70,8 @@ export interface Policy {
   premiumEth: number;
   payoutEth: number;
   purchasedAt: string;
+  /** The purchase's exact time (ISO), when the chain reports it; `purchasedAt` is the date alone. */
+  purchasedAtTime?: string;
   status: PolicyStatus;
   evaluation?: EvaluationResult;
 }

@@ -11,7 +11,7 @@ export function BottomNav({ role }: {role: Role;}) {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t('shell.primary')}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
       
       <ul className="mx-auto grid h-14 max-w-2xl grid-cols-5">

@@ -9,6 +9,8 @@ import { crops, lgas, payoutOptionsEth, premiumRate } from '../data/policies';
 import { formatEth } from '../utils/format';
 import { formatNgn } from '../utils/currency';
 import { useFx } from '../contexts/FxContext';
+import { useI18n } from '../contexts/I18nContext';
+import { cropName } from '../contexts/policyActivity';
 
 const fieldClass =
 'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
@@ -17,6 +19,7 @@ export function PurchaseForm() {
   const { balanceOf, purchasePolicy, windows, walletConnected } = usePolicies();
   const { user } = useAuth();
   const { ethToNgn, approximate } = useFx();
+  const { t } = useI18n();
   const balanceEth = user ? balanceOf(user.id) : 0;
   const navigate = useNavigate();
   // Only windows the contract would still accept a purchase for.
@@ -42,51 +45,51 @@ export function PurchaseForm() {
     e.preventDefault();
     const thresholdMm = Number(threshold);
     if (!Number.isFinite(thresholdMm) || thresholdMm <= 0) {
-      setError('Enter a rainfall threshold above 0 mm.');
+      setError('purchase.errThreshold');
       return;
     }
     // A missing wallet also reads as a zero balance, so say which it is rather
     // than telling a funded account that it is broke.
     if (walletConnected === false) {
-      setError('No wallet is connected to Sepolia. Unlock MetaMask, pick this site, then reload.');
+      setError('purchase.errNoWallet');
       return;
     }
     if (premiumEth > balanceEth) {
-      setError('Not enough test ETH to pay this premium.');
+      setError('purchase.errFunds');
       return;
     }
     if (!user) {
-      setError('Sign in as a farmer to buy cover.');
+      setError('purchase.errSignIn');
       return;
     }
     if (!windowId) {
-      setError('There is no coverage window open for sale right now.');
+      setError('purchase.errNoWindow');
       return;
     }
     setError(null);
     setSubmitting(true);
     purchasePolicy(user.id, { lga, crop, windowId, thresholdMm, premiumEth, payoutEth }).
     then((policy) => {
-      toast.success(`Policy #${policy.id} confirmed`, { description: `${formatEth(policy.premiumEth)} premium paid into the contract.` });
+      toast.success(t('purchase.confirmed', { id: policy.id }), { description: t('purchase.confirmedBody', { premium: formatEth(policy.premiumEth) }) });
       navigate(`/farmer/policies/${policy.id}`);
     }).
-    catch((err: unknown) => setError(err instanceof Error ? err.message : 'The purchase failed. Try again.')).
+    catch((err: unknown) => setError(err instanceof Error ? err.message : 'purchase.failed')).
     finally(() => setSubmitting(false));
   }
 
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-surface p-5" noValidate>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold">Policy details</h2>
+        <h2 className="text-base font-semibold">{t('purchase.details')}</h2>
         <span className="whitespace-nowrap text-xs text-muted">
-          Balance <span className="font-mono text-ink">{formatEth(balanceEth)}</span>
+          {t('purchase.balance')} <span className="font-mono text-ink">{formatEth(balanceEth)}</span>
         </span>
       </div>
-      <p className="mt-1 text-sm text-muted">Pays out automatically if seasonal rainfall falls below your threshold.</p>
+      <p className="mt-1 text-sm text-muted">{t('purchase.intro')}</p>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <label className="text-sm font-medium">
-          LGA
+          {t('purchase.lga')}
           <select className={fieldClass} value={lga} onChange={(e) => setLga(e.target.value)}>
             {lgas.map((l) =>
             <option key={l}>{l}</option>
@@ -94,17 +97,17 @@ export function PurchaseForm() {
           </select>
         </label>
         <label className="text-sm font-medium">
-          Crop
+          {t('purchase.crop')}
           <select className={fieldClass} value={crop} onChange={(e) => setCrop(e.target.value)}>
             {crops.map((c) =>
-            <option key={c}>{c}</option>
+            <option key={c} value={c}>{cropName(c, t)}</option>
             )}
           </select>
         </label>
       </div>
 
       <label className="mt-4 block text-sm font-medium">
-        Coverage window
+        {t('policy.coverageWindow')}
         <select className={fieldClass} value={windowId} onChange={(e) => setWindowId(e.target.value)}>
           {sellable.map((w) =>
           <option key={w.id} value={w.id}>
@@ -115,7 +118,7 @@ export function PurchaseForm() {
       </label>
 
       <label className="mt-4 block text-sm font-medium">
-        Rainfall threshold
+        {t('purchase.threshold')}
         <div className="relative">
           <input
             type="number"
@@ -129,15 +132,15 @@ export function PurchaseForm() {
           <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">mm</span>
         </div>
         <span id="threshold-hint" className="mt-1.5 block text-xs font-normal text-muted">
-          Rainfall recorded for this window:{' '}
+          {t('purchase.recorded')}{' '}
           <span className="font-mono">
-            {windowRainfall === null ? 'not finalised yet' : `${windowRainfall.toFixed(1)} mm`}
+            {windowRainfall === null ? t('purchase.notFinalised') : `${windowRainfall.toFixed(1)} mm`}
           </span>
         </span>
       </label>
 
       <fieldset className="mt-4">
-        <legend className="text-sm font-medium">Payout amount</legend>
+        <legend className="text-sm font-medium">{t('purchase.payoutAmount')}</legend>
         <div className="mt-1.5 grid grid-cols-3 gap-2">
           {payoutOptionsEth.map((opt) =>
           <button
@@ -156,19 +159,19 @@ export function PurchaseForm() {
       </fieldset>
 
       <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-4">
-        <span className="text-sm text-muted">Premium due</span>
+        <span className="text-sm text-muted">{t('purchase.premiumDue')}</span>
         <span className="text-right">
           <span className="font-mono text-lg font-semibold">{formatEth(premiumEth)}</span>
           <span className="ml-2 font-mono text-sm text-muted">≈ {formatNgn(ethToNgn(premiumEth))}</span>
         </span>
       </div>
       {approximate &&
-      <p className="mt-1 text-xs text-muted">Naira figures are approximate: the rate could not be refreshed.</p>
+      <p className="mt-1 text-xs text-muted">{t('purchase.approxNaira')}</p>
       }
 
       {error &&
       <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-          {error}
+          {t(error)}
         </p>
       }
 
@@ -180,10 +183,10 @@ export function PurchaseForm() {
         {submitting ?
         <>
             <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />
-            Confirming transaction…
+            {t('purchase.confirming')}
           </> :
 
-        'Pay premium & buy policy'
+        t('purchase.submit')
         }
       </button>
     </form>);

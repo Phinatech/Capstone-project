@@ -31,7 +31,7 @@ export function NotificationBell({ role }: {role: Role;}) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${t('notif.title')}${unreadCount ? `, ${unreadCount} unread` : ''}`}
+        aria-label={unreadCount ? `${t('notif.title')}, ${t('notifPage.unreadCount', { count: unreadCount })}` : t('notif.title')}
         className={`${iconButtonClass} relative`}>
         
         <BellIcon className="h-[18px] w-[18px]" aria-hidden />
@@ -102,7 +102,7 @@ export function NotificationBell({ role }: {role: Role;}) {
                   <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted">{n.body}</span>
                   <span className="mt-1 block text-[11px] text-muted">{formatRelative(n.createdAt)}</span>
                 </span>
-                {!n.read && <span className="mt-1.5 h-2 w-2 rounded-full bg-accent" aria-label="Unread" />}
+                {!n.read && <span className="mt-1.5 h-2 w-2 rounded-full bg-accent" aria-label={t('notif.unread')} />}
               </button>
             </li>
           )}
