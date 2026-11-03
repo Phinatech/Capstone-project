@@ -464,7 +464,7 @@ export const fr: Dictionary = {
   'brand.heroTitle': 'Une couverture pluie automatique pour les petits exploitants de l’État de Sokoto.',
   'brand.heroText':
   'Les indemnisations sont décidées par trois sources de pluviométrie indépendantes, pondérées selon leur fiabilité, afin qu’une seule mauvaise mesure ne décide pas du sort d’un agriculteur.',
-  'brand.footer': 'Prototype de licence en génie logiciel · Chinemerem Judith Ugbo · Sepolia testnet',
+  'brand.footer': 'Prototype BSc Software Engineering · Chinemerem Judith Ugbo · réseau de test Sepolia',
 
   'section.cover': 'Couverture',
   'section.account': 'Compte',

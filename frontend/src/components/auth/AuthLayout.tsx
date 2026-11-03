@@ -61,7 +61,7 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
           </div>
           <div className="flex items-center gap-1">
             <div className="hidden items-center gap-1 lg:flex">
-              <LanguageMenu showLabel />
+              <LanguageMenu bordered />
               <ThemeMenu />
             </div>
             <div className="lg:hidden">

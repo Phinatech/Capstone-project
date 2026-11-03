@@ -53,7 +53,8 @@ export const fr: Strings = {
   'shell.sidebar': 'Barre latérale',
   'shell.primary': 'Navigation principale',
   'shell.breadcrumb': 'Fil d’Ariane',
-  'shell.footer': 'Prototype de licence en génie logiciel · Chinemerem Judith Ugbo · Encadrant : Dr Aaron Izang · réseau de test Sepolia uniquement.',
+  // The degree is named as awarded, in English, in every language.
+  'shell.footer': 'Prototype BSc Software Engineering · Chinemerem Judith Ugbo · Encadrant : Dr Aaron Izang · réseau de test Sepolia uniquement.',
   'shell.version': 'Version {version}',
   'shell.authTagline': 'Oracle pondéré par la réputation · réseau de test Sepolia',
   'quick.evaluate': 'Évaluer la police n° {id}',
