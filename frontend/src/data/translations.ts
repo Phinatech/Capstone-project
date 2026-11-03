@@ -27,7 +27,6 @@ export const en = {
   'brand.heroTitle': 'Automatic rainfall cover for smallholder farmers in Sokoto State.',
   'brand.heroText':
   "Payouts are decided by three independent rainfall sources, weighted by how reliably each has agreed with the others, so one bad reading can't decide a farmer's claim.",
-  'brand.footer': 'BSc Software Engineering prototype · Chinemerem Judith Ugbo · Sepolia testnet',
 
   'section.cover': 'Cover',
   'section.account': 'Account',
@@ -247,7 +246,6 @@ export const ha: Dictionary = {
   'brand.heroTitle': 'Inshorar ruwan sama kai tsaye ga ƙananan manoma a Jihar Sokoto.',
   'brand.heroText':
   'Tushen bayanan ruwan sama guda uku masu zaman kansu ne ke yanke biyan kuɗi, bisa yadda kowane ya yi daidai da sauran, don kada karatu ɗaya mara kyau ya yanke hukunci.',
-  'brand.footer': 'Samfurin BSc Software Engineering · Chinemerem Judith Ugbo · Sepolia testnet',
 
   'section.cover': 'Inshora',
   'section.account': 'Asusu',
@@ -464,7 +462,6 @@ export const fr: Dictionary = {
   'brand.heroTitle': 'Une couverture pluie automatique pour les petits exploitants de l’État de Sokoto.',
   'brand.heroText':
   'Les indemnisations sont décidées par trois sources de pluviométrie indépendantes, pondérées selon leur fiabilité, afin qu’une seule mauvaise mesure ne décide pas du sort d’un agriculteur.',
-  'brand.footer': 'Prototype BSc Software Engineering · Chinemerem Judith Ugbo · réseau de test Sepolia',
 
   'section.cover': 'Couverture',
   'section.account': 'Compte',

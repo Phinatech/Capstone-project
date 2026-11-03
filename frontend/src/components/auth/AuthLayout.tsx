@@ -22,13 +22,13 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
   const { t } = useI18n();
   return (
     <div className="grid h-[100dvh] w-full overflow-hidden bg-canvas md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <aside className="hidden h-full flex-col justify-between overflow-hidden bg-accent p-8 text-white md:flex lg:p-12">
+      <aside className="hidden h-full flex-col overflow-hidden bg-accent p-8 text-white md:flex lg:p-12">
         <Brand to="/sign-in" inverted />
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease }}
-          className="max-w-md">
+          className="my-auto max-w-md">
           
           <p className="text-2xl font-semibold leading-tight tracking-tight lg:text-3xl">{t('brand.heroTitle')}</p>
           <p className="mt-4 text-sm leading-relaxed text-white/80 lg:text-[15px]">{t('brand.heroText')}</p>
@@ -51,7 +51,6 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
             <span className="truncate">{t('shell.authTagline')}</span>
           </p>
         </motion.div>
-        <p className="line-clamp-2 text-xs text-white/70">{t('brand.footer')}</p>
       </aside>
 
       <div className="scroll-area flex h-full min-w-0 flex-col overflow-y-auto overflow-x-hidden">
