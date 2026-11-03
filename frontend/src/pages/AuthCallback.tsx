@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckIcon, CloudRainIcon, Loader2Icon, XCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
+import { AuthError, useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import { GOOGLE_PENDING_KEY } from '../components/auth/GoogleButton';
 import { homePath } from '../utils/users';
@@ -38,7 +38,8 @@ export function AuthCallback() {
   const { completeGoogleSignIn } = useAuth();
   const { t } = useI18n();
   const [step, setStep] = useState(0);
-  const [error, setError] = useState<TranslationKey | null>(null);
+  // A key when we have one, the server's own wording when we do not.
+  const [error, setError] = useState<TranslationKey | string | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -68,8 +69,10 @@ export function AuthCallback() {
               navigate(homePath(user), { replace: true });
             }, STEP_MS)
           );
-        } catch {
-          setError('error.googleFailed');
+        } catch (err) {
+          // Say why: "not set up on the server" and "too many attempts" need
+          // different responses from the person reading this.
+          setError(err instanceof AuthError ? err.key : 'error.googleFailed');
         }
       }, STEP_MS * 2)
     );

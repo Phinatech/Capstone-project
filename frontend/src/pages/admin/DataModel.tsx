@@ -1,13 +1,13 @@
 import { PageHeader } from '../../components/PageHeader';
 import { useI18n } from '../../contexts/I18nContext';
 
-// Entity names are the contract's own identifiers, so they stay as written.
+// Each entity in the reader's language, with the contract's own identifier beside it.
 const entities = [
-{ name: 'Farmer', text: 'dataModel.farmer' },
-{ name: 'Policy', text: 'dataModel.policy' },
-{ name: 'OracleSource', text: 'dataModel.source' },
-{ name: 'WeatherReading', text: 'dataModel.reading' },
-{ name: 'Payout', text: 'dataModel.payout' }] as const;
+{ name: 'Farmer', label: 'dataModel.farmerName', text: 'dataModel.farmer' },
+{ name: 'Policy', label: 'dataModel.policyName', text: 'dataModel.policy' },
+{ name: 'OracleSource', label: 'dataModel.sourceName', text: 'dataModel.source' },
+{ name: 'WeatherReading', label: 'dataModel.readingName', text: 'dataModel.reading' },
+{ name: 'Payout', label: 'dataModel.payoutName', text: 'dataModel.payout' }] as const;
 
 
 export function DataModel() {
@@ -29,7 +29,9 @@ export function DataModel() {
       <dl className="mt-8 grid gap-x-10 gap-y-6 md:grid-cols-2">
         {entities.map((e) =>
         <div key={e.name} className="border-t border-line pt-4">
-            <dt className="font-mono text-sm font-medium">{e.name}</dt>
+            <dt className="text-sm font-medium">
+              {t(e.label)} <span className="ml-1 font-mono text-xs font-normal text-muted">{e.name}</span>
+            </dt>
             <dd className="mt-1 text-sm leading-relaxed text-muted">{t(e.text)}</dd>
           </div>
         )}

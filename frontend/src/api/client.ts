@@ -36,8 +36,9 @@ export async function api<T>(path: string, { method = 'GET', body }: RequestOpti
   });
 
   if (!res.ok) {
-    const payload = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(payload.error ?? `The server answered ${res.status}`, res.status);
+    const payload = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+    // The code is what AuthContext translates; the message is only a fallback.
+    throw new ApiError(payload.error ?? `The server answered ${res.status}`, res.status, payload.code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

@@ -170,6 +170,7 @@ export function VerifyEmail() {
             onKeyDown={(e) => onKeyDown(i, e)}
             onFocus={(e) => e.target.select()}
             inputMode="numeric"
+            placeholder={t('ph.codeDigit')}
             autoComplete={i === 0 ? 'one-time-code' : 'off'}
             maxLength={LENGTH}
             autoFocus={i === 0}

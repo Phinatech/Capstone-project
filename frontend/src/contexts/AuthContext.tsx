@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { ApiError, api } from '../api/client';
+import { useI18n } from './I18nContext';
 import { loadDirectory, setDirectory } from '../utils/users';
 import type { TranslationKey } from '../data/translations';
 import type { ProfilePatch, SignUpInput, User } from '../types/user';
@@ -31,28 +32,36 @@ const CODE_KEYS: Record<string, TranslationKey> = {
   invalid_email: 'error.invalidEmail',
   current_password: 'error.currentPassword',
   token_rejected: 'error.googleFailed',
-  not_configured: 'error.googleFailed',
+  not_configured: 'error.googleUnavailable',
   captcha_required: 'error.completeCheck',
   captcha_failed: 'error.checkFailed',
   captcha_unavailable: 'error.checkUnavailable',
   code_invalid: 'verify.invalid',
-  token_invalid: 'reset.invalidTitle'
+  token_invalid: 'reset.invalidTitle',
+  rate_limited: 'error.rateLimited',
+  invalid_input: 'error.required',
+  already_verified: 'error.alreadyVerified',
+  invalid_role: 'error.invalidRole',
+  server_error: 'error.server'
 };
 
 export class AuthError extends Error {
   /** A translation key, or the server's own wording when there is no key. */
   readonly key: TranslationKey | string;
-  constructor(key: TranslationKey | string) {
+  /** The server's machine-readable reason, for callers that branch on it. */
+  readonly code?: string;
+  constructor(key: TranslationKey | string, code?: string) {
     super(key);
     this.key = key;
+    this.code = code;
   }
 }
 
 function asAuthError(err: unknown): AuthError {
   if (err instanceof ApiError && err.code && CODE_KEYS[err.code]) {
-    return new AuthError(CODE_KEYS[err.code]);
+    return new AuthError(CODE_KEYS[err.code], err.code);
   }
-  if (err instanceof ApiError) return new AuthError(err.message);
+  if (err instanceof ApiError) return new AuthError(err.message, err.code);
   return err instanceof AuthError ? err : new AuthError(String(err));
 }
 
@@ -83,6 +92,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: {children: React.ReactNode;}) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  // Emails (verification codes, password resets) are written in this language.
+  const { language } = useI18n();
 
   // Ask the server who is signed in. A missing, expired or revoked session
   // answers with `user: null`, which is the same as being signed out.
@@ -144,7 +155,7 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
     try {
       const { user: created } = await api<{ user: User }>('/auth/register', {
         method: 'POST',
-        body: { ...input, turnstileToken }
+        body: { ...input, turnstileToken, language }
       });
       setUser(created);
       // The directory feeds every "choose a farmer" list, so a new account has
@@ -154,7 +165,7 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
     } catch (err) {
       throw asAuthError(err);
     }
-  }, []);
+  }, [language]);
 
   const completeGoogleSignIn = useCallback(async (credential: string) => {
     try {
@@ -187,25 +198,25 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
     try {
       const body = await api<{ user: User | null; demoCode?: string; demoToken?: string }>(
         '/auth/resend-verification',
-        { method: 'POST' }
+        { method: 'POST', body: { language } }
       );
       return body.demoCode ?? null;
     } catch (err) {
       throw asAuthError(err);
     }
-  }, []);
+  }, [language]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
     try {
       const body = await api<{ demoToken?: string }>('/auth/reset/request', {
         method: 'POST',
-        body: { email }
+        body: { email, language, origin: window.location.origin }
       });
       return body.demoToken ?? null;
     } catch (err) {
       throw asAuthError(err);
     }
-  }, []);
+  }, [language]);
 
   const resetPassword = useCallback(async (token: string, password: string) => {
     try {

@@ -172,8 +172,8 @@ export function Profile() {
           <form onSubmit={save} className="space-y-4">
               <h3 className="text-sm font-semibold">{t('profile.editDetails')}</h3>
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField label={t('auth.fullName')} value={form.name ?? ''} onChange={set('name')} className="min-w-0" />
-                <TextField label={t('profile.phone')} type="tel" value={form.phone ?? ''} onChange={set('phone')} className="min-w-0" />
+                <TextField label={t('auth.fullName')} placeholder={t('ph.fullName')} value={form.name ?? ''} onChange={set('name')} className="min-w-0" />
+                <TextField label={t('profile.phone')} type="tel" placeholder={t('ph.phone')} value={form.phone ?? ''} onChange={set('phone')} className="min-w-0" />
                 {isFarmer ?
               <>
                     <div className="min-w-0">
@@ -184,7 +184,7 @@ export function Profile() {
                     )}
                       </select>
                     </div>
-                    <TextField label={t('profile.village')} value={form.village ?? ''} onChange={set('village')} className="min-w-0" />
+                    <TextField label={t('profile.village')} placeholder={t('ph.village')} value={form.village ?? ''} onChange={set('village')} className="min-w-0" />
                     <div className="min-w-0">
                       <label htmlFor="p-crop" className="block text-sm font-medium">{t('profile.primaryCrop')}</label>
                       <select id="p-crop" value={form.primaryCrop} onChange={set('primaryCrop')} className={`${fieldInputClass} mt-1.5 border-line focus:border-accent`}>
@@ -195,6 +195,7 @@ export function Profile() {
                     </div>
                     <TextField
                   label={t('profile.farmSize')}
+                  placeholder={t('ph.farmSize')}
                   type="number"
                   min={0}
                   step={0.5}
@@ -204,7 +205,7 @@ export function Profile() {
                 
                   </> :
 
-              <TextField label={t('profile.jobTitle')} value={form.title ?? ''} onChange={set('title')} className="min-w-0 sm:col-span-2" />
+              <TextField label={t('profile.jobTitle')} placeholder={t('ph.jobTitle')} value={form.title ?? ''} onChange={set('title')} className="min-w-0 sm:col-span-2" />
               }
               </div>
               <div>
@@ -212,6 +213,7 @@ export function Profile() {
                 <textarea
                 id="p-bio"
                 rows={3}
+                placeholder={t('ph.bio')}
                 maxLength={240}
                 value={form.bio ?? ''}
                 onChange={set('bio')}

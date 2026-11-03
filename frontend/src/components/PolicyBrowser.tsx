@@ -136,7 +136,7 @@ export function PolicyBrowser({ policies, basePath, showFarmer = false, storageK
         basePath={basePath}
         view={view}
         showFarmer={showFarmer}
-        emptyMessage="Try a different search or clear your filters." />
+        emptyMessage={t('team.noMatchBody')} />
       
     </div>);
 

@@ -106,13 +106,14 @@ export function SignUp() {
           }
         </AnimatePresence>
 
-        <TextField label={t('auth.fullName')} autoComplete="name" value={form.name} onChange={update('name')} error={err('name')} />
+        <TextField label={t('auth.fullName')} autoComplete="name" placeholder={t('ph.fullName')} value={form.name} onChange={update('name')} error={err('name')} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             label={t('auth.email')}
             type="email"
             autoComplete="email"
+            placeholder={t('ph.email')}
             value={form.email}
             onChange={update('email')}
             error={err('email')}
@@ -122,7 +123,7 @@ export function SignUp() {
             label={t('auth.phone')}
             type="tel"
             autoComplete="tel"
-            placeholder="+234"
+            placeholder={t('ph.phone')}
             value={form.phone}
             onChange={update('phone')}
             error={err('phone')}
@@ -165,6 +166,7 @@ export function SignUp() {
           <PasswordField
             label={t('auth.password')}
             autoComplete="new-password"
+            placeholder={t('ph.newPassword')}
             value={form.password}
             onChange={update('password')}
             error={err('password')}
@@ -174,6 +176,7 @@ export function SignUp() {
           <PasswordField
             label={t('auth.confirmPassword')}
             autoComplete="new-password"
+            placeholder={t('ph.confirmPassword')}
             value={form.confirm}
             onChange={update('confirm')}
             error={err('confirm')}

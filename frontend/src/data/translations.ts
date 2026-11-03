@@ -1,4 +1,5 @@
 import * as activity from './i18n/activity';
+import * as placeholders from './i18n/placeholders';
 import * as tour from './i18n/tour';
 import * as research from './i18n/research';
 import * as oracles from './i18n/oracles';
@@ -222,6 +223,7 @@ export const en = {
   'notFound.title': 'Page not found',
   'notFound.body': "The page you're looking for doesn't exist or has moved.",
   ...activity.en,
+  ...placeholders.en,
   ...tour.en,
   ...research.en,
   ...oracles.en,
@@ -441,6 +443,7 @@ export const ha: Dictionary = {
   'notFound.title': 'Ba a sami shafin ba',
   'notFound.body': 'Shafin da kake nema babu shi ko an motsa shi.',
   ...activity.ha,
+  ...placeholders.ha,
   ...tour.ha,
   ...research.ha,
   ...oracles.ha,
@@ -657,6 +660,7 @@ export const fr: Dictionary = {
   'notFound.title': 'Page introuvable',
   'notFound.body': 'La page que vous cherchez n’existe pas ou a été déplacée.',
   ...activity.fr,
+  ...placeholders.fr,
   ...tour.fr,
   ...research.fr,
   ...oracles.fr,

@@ -69,8 +69,8 @@ export function BacktestTable({ results }: {results: BacktestSummary[];}) {
             {rows.map((r) =>
             <tr key={r.mode} className={`border-b border-line last:border-0 ${r.mode === 'reputation' ? 'bg-accent-soft' : ''}`}>
                 <th scope="row" className="truncate py-3.5 pl-5 pr-4 text-left font-medium">
-                  {r.profile.name}
-                  {r.mode === 'reputation' && <span className="ml-2 text-xs font-normal text-muted">proposed</span>}
+                  {t(`mode.${r.mode}.name`)}
+                  {r.mode === 'reputation' && <span className="ml-2 text-xs font-normal text-muted">{t('bt.proposed')}</span>}
                 </th>
                 <td className={cell(r.cleanAccuracy === best.clean)}>{formatPct(r.cleanAccuracy)}</td>
                 <td className={cell(r.corruptedAccuracy === best.corrupted)}>{formatPct(r.corruptedAccuracy)}</td>

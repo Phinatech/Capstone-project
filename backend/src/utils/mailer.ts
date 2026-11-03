@@ -68,20 +68,56 @@ export async function sendMail(to: string, subject: string, text: string): Promi
   return false;
 }
 
-const SIGNATURE = "Sokoto Rainfall Cover — weather-index insurance on Sepolia.";
+export type MailLanguage = "en" | "ha" | "fr";
 
-export async function sendVerificationCode(to: string, code: string): Promise<boolean> {
-  return sendMail(
-    to,
-    "Your verification code — Sokoto Rainfall Cover",
-    `Your verification code is: ${code}\n\nIt expires in 15 minutes. If you did not create this account, ignore this message.\n\n${SIGNATURE}`
-  );
+/** The language a request asked its email in; English for anything else. */
+export function mailLanguage(value: unknown): MailLanguage {
+  return value === "ha" || value === "fr" ? value : "en";
 }
 
-export async function sendPasswordReset(to: string, token: string): Promise<boolean> {
-  return sendMail(
-    to,
-    "Password reset — Sokoto Rainfall Cover",
-    `Use this token to choose a new password: ${token}\n\nIt expires in 1 hour. If you did not request this, ignore this message.\n\n${SIGNATURE}`
-  );
+const TEMPLATES: Record<MailLanguage, {
+  signature: string;
+  verifySubject: string;
+  verifyBody: (code: string) => string;
+  resetSubject: string;
+  resetBody: (token: string, link?: string) => string;
+}> = {
+  en: {
+    signature: "Sokoto Rainfall Cover — weather-index insurance on Sepolia.",
+    verifySubject: "Your verification code — Sokoto Rainfall Cover",
+    verifyBody: (code) =>
+      `Your verification code is: ${code}\n\nIt expires in 15 minutes. If you did not create this account, ignore this message.`,
+    resetSubject: "Password reset — Sokoto Rainfall Cover",
+    resetBody: (token, link) =>
+      `${link ? `Open this link to choose a new password:\n${link}\n\nOr enter this token on the reset page: ` : "Use this token to choose a new password: "}${token}\n\nIt expires in 1 hour. If you did not request this, ignore this message.`
+  },
+  ha: {
+    signature: "Sokoto Rainfall Cover — inshorar yanayin ruwan sama a Sepolia.",
+    verifySubject: "Lambar tabbatarwarku — Sokoto Rainfall Cover",
+    verifyBody: (code) =>
+      `Lambar tabbatarwarku ita ce: ${code}\n\nZa ta ƙare cikin minti 15. Idan ba ku ne kuka buɗe wannan asusun ba, ku yi watsi da wannan saƙon.`,
+    resetSubject: "Sake saita kalmar sirri — Sokoto Rainfall Cover",
+    resetBody: (token, link) =>
+      `${link ? `Buɗe wannan hanyar don zaɓar sabuwar kalmar sirri:\n${link}\n\nKo ku shigar da wannan lambar a shafin sake saitawa: ` : "Yi amfani da wannan lambar don zaɓar sabuwar kalmar sirri: "}${token}\n\nZa ta ƙare cikin awa 1. Idan ba ku nemi wannan ba, ku yi watsi da wannan saƙon.`
+  },
+  fr: {
+    signature: "Sokoto Rainfall Cover — assurance indicielle météo sur Sepolia.",
+    verifySubject: "Votre code de vérification — Sokoto Rainfall Cover",
+    verifyBody: (code) =>
+      `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Si vous n’avez pas créé ce compte, ignorez ce message.`,
+    resetSubject: "Réinitialisation du mot de passe — Sokoto Rainfall Cover",
+    resetBody: (token, link) =>
+      `${link ? `Ouvrez ce lien pour choisir un nouveau mot de passe :\n${link}\n\nOu saisissez ce code sur la page de réinitialisation : ` : "Utilisez ce code pour choisir un nouveau mot de passe : "}${token}\n\nIl expire dans 1 heure. Si vous n’avez pas fait cette demande, ignorez ce message.`
+  }
+};
+
+export async function sendVerificationCode(to: string, code: string, language: MailLanguage = "en"): Promise<boolean> {
+  const m = TEMPLATES[language];
+  return sendMail(to, m.verifySubject, `${m.verifyBody(code)}\n\n${m.signature}`);
+}
+
+/** `link` opens the reset page with the token filled in, when the site's address is known. */
+export async function sendPasswordReset(to: string, token: string, language: MailLanguage = "en", link?: string): Promise<boolean> {
+  const m = TEMPLATES[language];
+  return sendMail(to, m.resetSubject, `${m.resetBody(token, link)}\n\n${m.signature}`);
 }

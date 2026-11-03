@@ -126,6 +126,7 @@ export function PurchaseForm() {
             min={1}
             className={`${fieldClass} pr-12 font-mono`}
             value={threshold}
+            placeholder={t('ph.threshold')}
             onChange={(e) => setThreshold(e.target.value)}
             aria-describedby="threshold-hint" />
           

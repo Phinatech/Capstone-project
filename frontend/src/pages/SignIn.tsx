@@ -114,11 +114,12 @@ export function SignIn() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           error={errors.email && t(errors.email)}
-          placeholder="you@example.com" />
+          placeholder={t('ph.email')} />
         
         <PasswordField
           label={t('auth.password')}
           autoComplete="current-password"
+          placeholder={t('ph.password')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password && t(errors.password)} />

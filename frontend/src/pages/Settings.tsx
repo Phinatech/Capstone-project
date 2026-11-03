@@ -218,6 +218,7 @@ export function Settings() {
               <PasswordField
                 label={t('settings.currentPassword')}
                 autoComplete="current-password"
+                placeholder={t('ph.currentPassword')}
                 value={pw.current}
                 onChange={(e) => setPw((p) => ({ ...p, current: e.target.value }))}
                 className="min-w-0 sm:col-span-2" />
@@ -227,6 +228,7 @@ export function Settings() {
                 <PasswordField
                   label={t('settings.newPassword')}
                   autoComplete="new-password"
+                  placeholder={t('ph.newPassword')}
                   value={pw.next}
                   onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} />
                 
@@ -235,6 +237,7 @@ export function Settings() {
               <PasswordField
                 label={t('settings.confirmNewPassword')}
                 autoComplete="new-password"
+                placeholder={t('ph.confirmPassword')}
                 value={pw.confirm}
                 onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))}
                 className="min-w-0" />
@@ -348,6 +351,7 @@ export function Settings() {
           <input
             data-autofocus
             value={confirmText}
+            placeholder={t('ph.deleteConfirm')}
             onChange={(e) => setConfirmText(e.target.value)}
             className="mt-2 h-10 w-full rounded-md border border-line bg-surface px-3 font-mono text-sm focus:border-danger focus:outline-none" />
           

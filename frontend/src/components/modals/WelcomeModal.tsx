@@ -47,16 +47,17 @@ export function WelcomeModal({ open, onClose, user }: WelcomeModalProps) {
       open={open}
       onClose={onClose}
       size="md"
-      hideClose
       bodyClassName="px-6 pb-2 pt-4 sm:px-8"
       footer={
       <>
-          {index === 0 ?
+          {/* Skip is on every slide, not just the first: nobody should have to page through to leave. */}
+          {!last &&
         <button type="button" onClick={onClose} className={`${btnGhost} sm:mr-auto`}>
               {t('common.skip')}
-            </button> :
-
-        <button type="button" onClick={() => go(index - 1)} className={`${btnSecondary} sm:mr-auto`}>
+            </button>
+        }
+          {index > 0 &&
+        <button type="button" onClick={() => go(index - 1)} className={`${btnSecondary} ${last ? 'sm:mr-auto' : ''}`}>
               {t('common.back')}
             </button>
         }

@@ -217,6 +217,7 @@ export function AgentPurchaseForm() {
             min={1}
             className={`${fieldClass} pr-12 font-mono`}
             value={threshold}
+            placeholder={t('ph.threshold')}
             onChange={(e) => setThreshold(e.target.value)}
             aria-describedby="threshold-hint" />
           <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">mm</span>
@@ -272,7 +273,7 @@ export function AgentPurchaseForm() {
             className={`${fieldClass} font-mono`}
             value={paymentReference}
             onChange={(e) => setPaymentReference(e.target.value)}
-            placeholder="SKT-0000"
+            placeholder={t('ph.reference')}
             aria-describedby="reference-hint" />
           <span id="reference-hint" className="mt-1.5 block text-xs font-normal text-muted">
             {t('agentForm.referenceHint')}

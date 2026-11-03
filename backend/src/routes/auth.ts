@@ -23,7 +23,7 @@ import { verifyTurnstileToken } from "../turnstile.js";
 import type { AuthCodeStore } from "../utils/authCodes.js";
 import { sessionClearCookie, sessionSetCookie } from "../utils/cookies.js";
 import { createGoogleVerifier, type GoogleVerifier } from "../utils/googleAuth.js";
-import { sendPasswordReset, sendVerificationCode } from "../utils/mailer.js";
+import { mailLanguage, sendPasswordReset, sendVerificationCode, type MailLanguage } from "../utils/mailer.js";
 import { hashPassword, verifyPassword } from "../utils/passwords.js";
 import type { SessionStore } from "../utils/sessions.js";
 import { DEFAULT_SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from "../utils/sessions.js";
@@ -117,13 +117,13 @@ export function createAuthRouter(deps: AuthDeps): Router {
    * Resend button waits 30 s, so a deliberate resend always sends.
    */
   const lastEmailed = new Map<string, { code: string; at: number }>();
-  async function emailVerificationCode(userId: string, email: string, code: string): Promise<void> {
+  async function emailVerificationCode(userId: string, email: string, code: string, language: MailLanguage): Promise<void> {
     const last = lastEmailed.get(userId);
     if (last?.code === code && Date.now() - last.at < 30_000) return;
     lastEmailed.set(userId, { code, at: Date.now() });
     // The code belongs in the recipient's inbox; with no mail service it goes
     // to the server log for an operator to relay.
-    if (!(await sendVerificationCode(email, code))) {
+    if (!(await sendVerificationCode(email, code, language))) {
       console.log(`[auth] verification code for ${email}: ${code}`);
     }
   }
@@ -254,7 +254,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
     }
 
     const code = await authCodes.createVerificationCode(created.id);
-    await emailVerificationCode(created.id, created.email, code);
+    await emailVerificationCode(created.id, created.email, code, mailLanguage(req.body?.language));
     if (!(await signIn(res, created.id, created.role, remember))) return;
     res.status(201).json({
       user: toPublicUser(created),
@@ -343,7 +343,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
       return;
     }
     const code = await authCodes.createVerificationCode(req.principal!.user.id);
-    await emailVerificationCode(req.principal!.user.id, req.principal!.user.email, code);
+    await emailVerificationCode(req.principal!.user.id, req.principal!.user.email, code, mailLanguage(req.body?.language));
     res.json(config.demoAuthCodes ? { demoCode: code } : {});
   });
 
@@ -369,7 +369,15 @@ export function createAuthRouter(deps: AuthDeps): Router {
       return;
     }
     const token = await authCodes.createResetToken(email);
-    if (!(await sendPasswordReset(email, token))) {
+    // A link straight to the reset page, built only from an origin this
+    // backend already trusts (CORS_ORIGINS), so a forged value cannot point the
+    // email somewhere else. The page sends its own origin in the body because
+    // the Cloudflare same-origin proxy strips the Origin header.
+    const origin = (text(req.body?.origin) || req.get("origin") || "").replace(/\/+$/, "");
+    const link = origin && config.corsOrigins.includes(origin)
+      ? `${origin}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
+      : undefined;
+    if (!(await sendPasswordReset(email, token, mailLanguage(req.body?.language), link))) {
       console.log(`[auth] password reset token for ${email}: ${token}`);
     }
     res.json(config.demoAuthCodes ? { demoToken: token } : {});

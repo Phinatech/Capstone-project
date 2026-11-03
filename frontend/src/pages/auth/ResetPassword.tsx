@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2Icon, Loader2Icon, LockKeyholeIcon, TimerOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { ApiError } from '../../api/client';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { PasswordField } from '../../components/auth/PasswordField';
 import { PasswordStrength } from '../../components/auth/PasswordStrength';
@@ -85,7 +84,7 @@ export function ResetPassword() {
       // The server refused the token: expired, spent, or never issued. Swap
       // to the expired-link screen, which is a more useful answer than a
       // toast over a form that will keep failing.
-      if (err instanceof ApiError && err.code === 'token_invalid') {
+      if (err instanceof AuthError && err.code === 'token_invalid') {
         setRejected(true);
         return;
       }
@@ -113,6 +112,7 @@ export function ResetPassword() {
           <PasswordField
             label={t('auth.password')}
             autoComplete="new-password"
+            placeholder={t('ph.newPassword')}
             value={password}
             onChange={(e) => setPasswordValue(e.target.value)}
             error={errors.password && t(errors.password)}
@@ -123,6 +123,7 @@ export function ResetPassword() {
         <PasswordField
           label={t('auth.confirmPassword')}
           autoComplete="new-password"
+          placeholder={t('ph.confirmPassword')}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           error={errors.confirm && t(errors.confirm)} />

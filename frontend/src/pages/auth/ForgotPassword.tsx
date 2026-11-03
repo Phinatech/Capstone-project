@@ -115,7 +115,7 @@ export function ForgotPassword() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={error ? t(error) : undefined}
-            placeholder="you@example.com" />
+            placeholder={t('ph.email')} />
           
             {TURNSTILE_ENFORCED &&
             <TurnstileWidget {...captcha.widget} error={captchaError ? t(captchaError) : undefined} />}
