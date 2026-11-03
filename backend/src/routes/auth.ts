@@ -67,6 +67,12 @@ function rateLimited(key: string): boolean {
   return entry.count > MAX_ATTEMPTS;
 }
 
+/** Whether `key` has used up its attempts, without spending one. */
+function overLimit(key: string): boolean {
+  const entry = attempts.get(key);
+  return !!entry && entry.resetAt > Date.now() && entry.count >= MAX_ATTEMPTS;
+}
+
 /** Exported for tests, which share this module-level table. */
 export function resetAuthRateLimit(): void {
   attempts.clear();
@@ -275,7 +281,12 @@ export function createAuthRouter(deps: AuthDeps): Router {
       fail(res, 400, "invalid_input", "Missing Google credential");
       return;
     }
-    if (rateLimited(`${req.ip}|google`)) {
+    // Only rejected tokens spend the budget. Behind the Pages proxy every
+    // visitor can arrive from the same Cloudflare address, so counting good
+    // sign-ins too would lock everyone out after eight of them; a valid
+    // Google token cannot be guessed, so there is nothing to throttle there.
+    const limitKey = `${req.ip}|google`;
+    if (overLimit(limitKey)) {
       fail(res, 429, "rate_limited", "Too many attempts. Try again later.");
       return;
     }
@@ -284,6 +295,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
     try {
       identity = await google.verify(credential, config.googleClientId);
     } catch (err) {
+      rateLimited(limitKey);
       // The reason is useful in the log and useless — and slightly helpful to
       // an attacker — in the response.
       console.warn("[auth] rejected a Google ID token:", err instanceof Error ? err.message : err);

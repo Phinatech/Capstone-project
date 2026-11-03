@@ -443,6 +443,22 @@ describe('Google sign-in is verified rather than decoded', () => {
     }
   });
 
+  it('never throttles good sign-ins, only rejected tokens', async () => {
+    // Everyone behind the Pages proxy can share one address, so a run of
+    // successful sign-ins must not close the gate for the next person.
+    for (let i = 0; i < 12; i++) {
+      const res = await new Client().call('/auth/google', { method: 'POST', body: { credential: ACCEPTED_GOOGLE_TOKEN } });
+      assert.equal(res.status, 200, `good sign-in ${i + 1} must go through`);
+    }
+    let sawLimit = false;
+    for (let i = 0; i < 12 && !sawLimit; i++) {
+      const res = await new Client().call('/auth/google', { method: 'POST', body: { credential: 'a.b.c' } });
+      if (res.status === 429) sawLimit = true;
+      else assert.equal(res.status, 401);
+    }
+    assert.ok(sawLimit, 'forged tokens must still be throttled');
+  });
+
   it('does not create an account for a rejected token', async () => {
     const before = (await userStore.list()).length;
     await new Client().call('/auth/google', { method: 'POST', body: { credential: 'forged' } });
