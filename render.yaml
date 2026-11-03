@@ -74,6 +74,13 @@ services:
       # every deploy and every15-minute sleep. That is survivable by design:
       # seeding runs at boot, so the demo accounts come back on their own, and
       # anyone who was signed in simply signs in again.
+      # Email for verification codes and password resets. The free plan blocks
+      # SMTP, so Gmail cannot send from here; Brevo sends over HTTPS instead,
+      # from MAIL_USER (verified as a sender in Brevo).
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_USER
+        sync: false
       # Optional: leave empty to keep the demo Turnstile key and SMS off
       - key: TURNSTILE_SECRET_KEY
         sync: false

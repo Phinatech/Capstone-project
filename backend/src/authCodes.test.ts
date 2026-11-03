@@ -39,6 +39,34 @@ describe("email verification codes", () => {
     assert.equal(await store.checkVerificationCode("farmer-1", code), false);
   });
 
+  it("resends the same code, so an earlier email still works", async () => {
+    const { store, advance } = withClock();
+    const first = await store.createVerificationCode("farmer-1");
+    advance(10 * 60_000);
+    assert.equal(await store.createVerificationCode("farmer-1"), first);
+    advance(10 * 60_000); // 20 minutes after the first email, 10 after the resend
+    assert.equal(await store.checkVerificationCode("farmer-1", first), true, "the resend restarted the expiry");
+  });
+
+  it("does not give back the guesses a resend could otherwise buy", async () => {
+    const { store } = withClock();
+    const first = await store.createVerificationCode("farmer-1");
+    for (let i = 0; i < 4; i++) await store.checkVerificationCode("farmer-1", "999999");
+    assert.equal(await store.createVerificationCode("farmer-1"), first);
+    assert.equal(await store.checkVerificationCode("farmer-1", "999998"), false);
+    assert.equal(await store.checkVerificationCode("farmer-1", first), false, "five wrong guesses in all spend the code");
+    const fresh = await store.createVerificationCode("farmer-1");
+    assert.equal(await store.checkVerificationCode("farmer-1", fresh), true, "a spent code is replaced by a new one");
+  });
+
+  it("issues a new code once the old one expires", async () => {
+    const { store, advance } = withClock();
+    await store.createVerificationCode("farmer-1");
+    advance(16 * 60_000);
+    const second = await store.createVerificationCode("farmer-1");
+    assert.equal(await store.checkVerificationCode("farmer-1", second), true);
+  });
+
   it("does not confuse a dropped leading zero with a wrong code", async () => {
     const { store } = withClock();
     const code = await store.createVerificationCode("farmer-1");

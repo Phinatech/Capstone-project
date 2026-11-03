@@ -110,6 +110,24 @@ export function createAuthRouter(deps: AuthDeps): Router {
     return true;
   }
 
+  /**
+   * Emails the code, unless that same code went to this user under 30 s ago:
+   * the verify page asks for a code as it opens, which right after sign-up
+   * would send a second copy of the email still on its way. The page's own
+   * Resend button waits 30 s, so a deliberate resend always sends.
+   */
+  const lastEmailed = new Map<string, { code: string; at: number }>();
+  async function emailVerificationCode(userId: string, email: string, code: string): Promise<void> {
+    const last = lastEmailed.get(userId);
+    if (last?.code === code && Date.now() - last.at < 30_000) return;
+    lastEmailed.set(userId, { code, at: Date.now() });
+    // The code belongs in the recipient's inbox; with no mail service it goes
+    // to the server log for an operator to relay.
+    if (!(await sendVerificationCode(email, code))) {
+      console.log(`[auth] verification code for ${email}: ${code}`);
+    }
+  }
+
   /** Never let a browser or proxy keep an auth response around. */
   function noStore(res: Response): void {
     res.setHeader("Cache-Control", "no-store");
@@ -236,11 +254,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
     }
 
     const code = await authCodes.createVerificationCode(created.id);
-    // The code belongs in the recipient's inbox; with no mail service it goes
-    // to the server log for an operator to relay.
-    if (!(await sendVerificationCode(created.email, code))) {
-      console.log(`[auth] verification code for ${created.email}: ${code}`);
-    }
+    await emailVerificationCode(created.id, created.email, code);
     if (!(await signIn(res, created.id, created.role, remember))) return;
     res.status(201).json({
       user: toPublicUser(created),
@@ -329,9 +343,7 @@ export function createAuthRouter(deps: AuthDeps): Router {
       return;
     }
     const code = await authCodes.createVerificationCode(req.principal!.user.id);
-    if (!(await sendVerificationCode(req.principal!.user.email, code))) {
-      console.log(`[auth] verification code for ${req.principal!.user.email}: ${code}`);
-    }
+    await emailVerificationCode(req.principal!.user.id, req.principal!.user.email, code);
     res.json(config.demoAuthCodes ? { demoCode: code } : {});
   });
 

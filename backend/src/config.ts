@@ -125,6 +125,13 @@ export const config = {
   mailHost: process.env.SMTP_HOST?.trim() || "smtp.gmail.com",
   mailPort: Number(process.env.SMTP_PORT?.trim()) || 465,
   mailFrom: process.env.MAIL_FROM?.trim() || process.env.MAIL_USER?.trim() || "Sokoto Rainfall Cover",
+  /**
+   * Brevo API key. When set, mail goes through Brevo's HTTPS API instead of
+   * SMTP, which Render's free plan blocks.
+   */
+  brevoApiKey: process.env.BREVO_API_KEY?.trim() ?? "",
+  /** The sender address verified in Brevo; defaults to MAIL_USER. */
+  brevoSenderEmail: process.env.BREVO_SENDER_EMAIL?.trim() || process.env.MAIL_USER?.trim() || "",
   /** Minimum length accepted at sign-up and on password change. */
   minPasswordLength: wholeNumber("MIN_PASSWORD_LENGTH", 8, 6),
   /** SMS provider for notifications and POST /api/notify/sms: "africastalking" (default) or "termii". */

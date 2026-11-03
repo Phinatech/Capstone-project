@@ -265,6 +265,17 @@ describe('email verification and password reset live on the server', () => {
     assert.equal((await json(replay)).code, 'code_invalid');
   });
 
+  it('keeps the sign-up code working when the verify page asks for another', async () => {
+    const browser = new Client();
+    const registered = await browser.call('/auth/register', { method: 'POST', body: registerForm() });
+    const { demoCode } = await json(registered);
+    // The verify page requests a code as it opens; that must not void the emailed one.
+    const resent = await browser.call('/auth/resend-verification', { method: 'POST' });
+    assert.equal((await json(resent)).demoCode, demoCode);
+    const verified = await browser.call('/auth/verify-email', { method: 'POST', body: { code: demoCode } });
+    assert.equal(verified.status, 200);
+  });
+
   it('resets a password, and signing out every other session on the way', async () => {
     const oldSession = new Client();
     assert.equal(

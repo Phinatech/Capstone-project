@@ -43,7 +43,7 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 | Database | Firebase Firestore (free Spark plan) · firebase-admin SDK |
 | Frontend | React 18 · Vite 6 · TypeScript · Vitest · Tailwind-style CSS |
 | External data | CHIRPS (Climate Hazards Center) · NASA POWER · Meteostat (RapidAPI) |
-| Mail / SMS | Gmail SMTP (App Password) · optional Africa's Talking SMS |
+| Mail / SMS | Brevo email API (Gmail SMTP locally) · optional Africa's Talking SMS |
 | Browsers | Chrome, Edge, Firefox, Safari — with MetaMask as the wallet |
 | Devices | Low-end laptops and phones; mobile layout verified at 390 px |
 

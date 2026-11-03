@@ -3,11 +3,14 @@
  *
  * Configured from the environment and defaulting to Gmail's SMTP endpoint so
  * a deployment can simply use a Google App Password: the code then arrives in
- * the recipient's inbox instead of only in the server log. With no mail
- * settings nothing is sent and every caller falls back to logging the code.
+ * the recipient's inbox instead of only in the server log. With BREVO_API_KEY
+ * set, mail goes through Brevo's HTTPS API instead, for hosts such as Render's
+ * free plan that block SMTP. With no mail settings nothing is sent and every
+ * caller falls back to logging the code.
  */
 import nodemailer from "nodemailer";
 import { config } from "../config.js";
+import { sendBrevoMail } from "./brevo.js";
 
 const candidates =
   config.mailUser && config.mailPassword
@@ -30,15 +33,27 @@ const candidates =
 
 /** True when a mail service is configured. */
 export function mailConfigured(): boolean {
-  return candidates.length > 0;
+  return Boolean(config.brevoApiKey) || candidates.length > 0;
 }
 
 /**
- * Sends a plain-text message, trying each transport in turn; false when
- * unconfigured or every attempt failed. The fallback keeps working mail
- * working even where one SMTP port is unreachable.
+ * Sends a plain-text message, through Brevo when it is configured and
+ * otherwise trying each SMTP transport in turn; false when unconfigured or
+ * every attempt failed. The SMTP fallback keeps working mail working even
+ * where one port is unreachable.
  */
 export async function sendMail(to: string, subject: string, text: string): Promise<boolean> {
+  if (config.brevoApiKey) {
+    const result = await sendBrevoMail({
+      apiKey: config.brevoApiKey,
+      sender: { name: "Sokoto Rainfall Cover", email: config.brevoSenderEmail },
+      to,
+      subject,
+      text
+    });
+    if (!result.success) console.error(`[mail] Brevo failed for ${to}: ${result.error}`);
+    return result.success;
+  }
   for (const options of candidates) {
     try {
       await nodemailer.createTransport(options).sendMail({ from: config.mailFrom, to, subject, text });

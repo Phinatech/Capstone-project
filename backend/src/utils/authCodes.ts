@@ -33,6 +33,7 @@ interface ResetEntry {
 }
 
 export interface AuthCodeStore {
+  /** The user's live code (with its expiry restarted), or a new one if there is none. */
   createVerificationCode: (userId: string) => Promise<string>;
   /** Single-use on success; consumes an attempt on failure. */
   checkVerificationCode: (userId: string, code: string) => Promise<boolean>;
@@ -101,6 +102,15 @@ export function createAuthCodeStore(
   return {
     async createVerificationCode(userId) {
       await loadOnce();
+      // A resend repeats the live code rather than replacing it, so whichever
+      // email the user opens holds a working code. Only the expiry restarts:
+      // attempts carry over, so resending never buys more guesses.
+      const existing = live(codes.get(userId));
+      if (existing && existing.attempts < MAX_ATTEMPTS) {
+        existing.expiresAt = now() + CODE_TTL_MS;
+        await persist();
+        return existing.code;
+      }
       const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
       codes.set(userId, { code, expiresAt: now() + CODE_TTL_MS, attempts: 0 });
       await persist();

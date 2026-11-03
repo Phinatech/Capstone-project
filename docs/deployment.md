@@ -35,6 +35,7 @@ every push.
    | `FIREBASE_SERVICE_ACCOUNT` | the durable database — Firebase Firestore (free Spark plan), service-account JSON from the Firebase console. **Strongly recommended** — without it, accounts, sessions and receipts live on the ephemeral disk and every deploy wipes them |
    | `SEED_USERS` | JSON array of the agent/farmer accounts to provision at every boot; sign-up accounts die with each redeploy (ephemeral disk), these do not |
    | `MAIL_USER`, `MAIL_PASSWORD` | a Gmail address + Google App Password; verification codes are emailed to the inbox instead of logged |
+   | `BREVO_API_KEY` | **needed on Render's free plan**, which blocks SMTP (ports 25, 465, 587), so Gmail cannot connect: a free Brevo API key sends the mail over HTTPS instead. The sender is `MAIL_USER` (or `BREVO_SENDER_EMAIL`), which must be verified as a sender in Brevo |
    | `CORS_ORIGINS` | `http://localhost:5173` for now; step 3 changes it |
    | `TURNSTILE_SECRET_KEY`, `NOTIFY_API_KEY`, `TERMINII_API_KEY`, `TERMINII_SENDER_ID` | leave empty for now |
 
