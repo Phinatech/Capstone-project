@@ -12,7 +12,7 @@ import { FxProvider } from './contexts/FxContext';
 import { AgentSalesProvider } from './contexts/AgentSalesContext';
 import { PolicyActivitySync } from './components/PolicyActivitySync';
 import { DashboardLayout } from './components/layout/DashboardLayout';
-import { RequireRole, RoleRedirect } from './components/layout/RequireRole';
+import { RequireRole } from './components/layout/RequireRole';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorPage } from './pages/ErrorPage';
@@ -28,6 +28,7 @@ const ResetPassword = page(() => import('./pages/auth/ResetPassword'), 'ResetPas
 const VerifyEmail = page(() => import('./pages/auth/VerifyEmail'), 'VerifyEmail');
 const AuthCallback = page(() => import('./pages/AuthCallback'), 'AuthCallback');
 const Legal = page(() => import('./pages/Legal'), 'Legal');
+const Landing = page(() => import('./pages/Landing'), 'Landing');
 const Profile = page(() => import('./pages/Profile'), 'Profile');
 const Settings = page(() => import('./pages/Settings'), 'Settings');
 const Notifications = page(() => import('./pages/Notifications'), 'Notifications');
@@ -60,7 +61,7 @@ function AppRoutes() {
       {ready &&
       <Suspense fallback={<LoadingScreen label={t('loading.label')} />}>
           <Routes>
-            <Route path="/" element={<RoleRedirect />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/sign-in" element={<SignIn />} />
             <Route path="/sign-up" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -24,7 +24,7 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
   return (
     <div className="grid h-[100dvh] w-full overflow-hidden bg-canvas md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <aside className="hidden h-full flex-col overflow-hidden bg-accent p-8 text-white md:flex lg:p-12">
-        <Brand to="/sign-in" inverted />
+        <Brand to="/" inverted />
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -57,7 +57,7 @@ export function AuthLayout({ title, subtitle, children, footer, icon }: AuthLayo
       <div className="scroll-area flex h-full min-w-0 flex-col overflow-y-auto overflow-x-hidden">
         <header className="flex items-center justify-between gap-3 px-5 py-4 md:px-8 lg:px-10">
           <div className="md:invisible">
-            <Brand to="/sign-in" compact />
+            <Brand to="/" compact />
           </div>
           <div className="flex items-center gap-1">
             <div className="hidden items-center gap-1 lg:flex">

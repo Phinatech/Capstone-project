@@ -1,4 +1,5 @@
 import * as activity from './i18n/activity';
+import * as landing from './i18n/landing';
 import * as legal from './i18n/legal';
 import * as placeholders from './i18n/placeholders';
 import * as tour from './i18n/tour';
@@ -222,6 +223,7 @@ export const en = {
   'notFound.title': 'Page not found',
   'notFound.body': "The page you're looking for doesn't exist or has moved.",
   ...activity.en,
+  ...landing.en,
   ...legal.en,
   ...placeholders.en,
   ...tour.en,
@@ -441,6 +443,7 @@ export const ha: Dictionary = {
   'notFound.title': 'Ba a sami shafin ba',
   'notFound.body': 'Shafin da kake nema babu shi ko an motsa shi.',
   ...activity.ha,
+  ...landing.ha,
   ...legal.ha,
   ...placeholders.ha,
   ...tour.ha,
@@ -657,6 +660,7 @@ export const fr: Dictionary = {
   'notFound.title': 'Page introuvable',
   'notFound.body': 'La page que vous cherchez n’existe pas ou a été déplacée.',
   ...activity.fr,
+  ...landing.fr,
   ...legal.fr,
   ...placeholders.fr,
   ...tour.fr,

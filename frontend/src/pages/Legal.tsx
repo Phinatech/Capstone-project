@@ -50,7 +50,7 @@ export function Legal() {
   return (
     <div className="min-h-screen bg-canvas">
       <header className="flex items-center justify-between gap-3 px-5 py-4 md:px-8 lg:px-10">
-        <Brand to={user ? homePath(user) : '/sign-in'} compact />
+        <Brand to={user ? homePath(user) : '/'} compact />
         <div className="flex items-center gap-1">
           <div className="hidden items-center gap-1 lg:flex">
             <LanguageMenu bordered />
@@ -62,7 +62,7 @@ export function Legal() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-2 md:px-8">
-        <Link to={user ? homePath(user) : '/sign-up'} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <Link to={user ? homePath(user) : '/'} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
           <ArrowLeftIcon className="h-4 w-4" aria-hidden />
           {t('common.back')}
         </Link>
