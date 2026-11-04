@@ -17,9 +17,15 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorPage } from './pages/ErrorPage';
 import { NotFound } from './pages/NotFound';
+import { isStaleBuildError, reloadForNewBuild } from './utils/staleBuild';
 
+// A page file that fails to load because the site was redeployed since this
+// tab opened is fetched again with the new build, instead of crashing the page.
 const page = <T extends string,>(loader: () => Promise<Record<T, React.ComponentType>>, name: T) =>
-lazy(() => loader().then((m) => ({ default: m[name] })));
+lazy(() => loader().then((m) => ({ default: m[name] }), (err: unknown) => {
+  if (isStaleBuildError(err) && reloadForNewBuild()) return new Promise<never>(() => {});
+  throw err;
+}));
 
 const SignIn = page(() => import('./pages/SignIn'), 'SignIn');
 const SignUp = page(() => import('./pages/SignUp'), 'SignUp');

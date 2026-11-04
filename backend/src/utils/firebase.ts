@@ -42,6 +42,20 @@ export function initFirebase(serviceAccountJson: string): void {
   initializeApp({ credential: cert(credentials as never) });
 }
 
+/**
+ * A store's data as Firestore will accept it: what JSON keeps, nothing more.
+ *
+ * Firestore refuses `undefined` anywhere in a document ("Cannot use
+ * "undefined" as a Firestore value"), where the JSON files simply leave the
+ * field out. A Google account has no password hash, so every Google sign-up
+ * failed in production while working locally, and so did any save carrying an
+ * empty optional field. Writing the JSON form makes both backends store
+ * exactly the same thing.
+ */
+export function firestorePayload<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data)) as T;
+}
+
 export function firebasePersistence(name: string): StorePersistence {
   // Firestore documents must be maps, so the store's document rides in a
   // `payload` field rather than being the document itself.
@@ -55,7 +69,7 @@ export function firebasePersistence(name: string): StorePersistence {
       return payload;
     },
     async write(data) {
-      await getFirestore().collection("app_store").doc(name).set({ payload: data as unknown[] });
+      await getFirestore().collection("app_store").doc(name).set({ payload: firestorePayload(data) as unknown[] });
     }
   };
 }

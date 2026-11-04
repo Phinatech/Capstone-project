@@ -379,7 +379,10 @@ export function createAuthRouter(deps: AuthDeps): Router {
           } satisfies NewUser
         );
       } catch (err) {
-        fail(res, 500, "server_error", err instanceof Error ? err.message : "Could not create the account");
+        // Logged, because the reason is the operator's to fix; the response
+        // stays generic, since it can carry database internals.
+        console.error("[auth] could not create an account from a Google sign-in:", err instanceof Error ? err.message : err);
+        fail(res, 500, "server_error", "Could not create the account");
         return;
       }
     }
