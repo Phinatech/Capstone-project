@@ -5,6 +5,9 @@ import type { CoverLevel } from '../utils/coverLevels';
 import { formatEth } from '../utils/format';
 import { formatNgn } from '../utils/currency';
 import type { WindowOption } from '../contexts/policyContextCore';
+import { isMobileBrowser, METAMASK_DOWNLOAD, metaMaskAppLink } from '../chain/wallet';
+import { btnPrimary, btnSecondary } from './ui/buttons';
+import type { FormError } from '../hooks/useCoverQuote';
 
 const fieldClass =
 'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
@@ -116,4 +119,46 @@ export function FarmSizeField({
       </label>
     </div>);
 
+}
+
+/**
+ * Pressing Pay with no MetaMask in this browser: say what to do instead of
+ * failing. On a phone MetaMask is an app, so offer to open this page in it.
+ */
+function WalletMissingNotice() {
+  const { t } = useI18n();
+  const mobile = typeof navigator !== 'undefined' && isMobileBrowser(navigator.userAgent);
+  return (
+    <div role="alert" className="mt-3 rounded-md border border-line bg-canvas px-3 py-3 text-sm">
+      <p className="font-semibold text-ink">{t('wallet.missingTitle')}</p>
+      <p className="mt-1 text-muted">{t(mobile ? 'wallet.missingBodyMobile' : 'wallet.missingBody')}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {mobile &&
+        <a href={metaMaskAppLink(window.location)} className={btnPrimary}>{t('wallet.openInApp')}</a>
+        }
+        <a href={METAMASK_DOWNLOAD} target="_blank" rel="noreferrer" className={mobile ? btnSecondary : btnPrimary}>
+          {t('wallet.getMetaMask')}
+        </a>
+      </div>
+    </div>);
+
+}
+
+/** A purchase form's error, or the MetaMask notice when there is no wallet to pay from. */
+export function PurchaseError({ error }: {error: FormError | null;}) {
+  const { t } = useI18n();
+  if (!error) return null;
+  if (error.key === 'wallet.missing') return <WalletMissingNotice />;
+  return (
+    <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+      {t(error.key, error.vars)}
+    </p>);
+
+}
+
+/** Under the Pay button while no wallet is connected: MetaMask opens on paying. */
+export function WalletHint({ connected }: {connected?: boolean;}) {
+  const { t } = useI18n();
+  if (connected !== false || typeof window === 'undefined' || !window.ethereum) return null;
+  return <p className="mt-2 text-center text-xs text-muted">{t('wallet.willConnect')}</p>;
 }

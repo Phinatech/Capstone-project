@@ -18,7 +18,7 @@ import { formatNgn } from '../utils/currency';
 import { getFarmers } from '../utils/users';
 import { useI18n } from '../contexts/I18nContext';
 import { cropName } from '../contexts/policyActivity';
-import { FarmSizeField, RainLevel, WindowSelect } from './CoverFields';
+import { FarmSizeField, PurchaseError, RainLevel, WalletHint, WindowSelect } from './CoverFields';
 
 /** The windows a farmer already has a policy in. */
 function windowsHeldBy(policies: Policy[], farmerId: string | undefined): Set<string> {
@@ -90,10 +90,10 @@ export function AgentPurchaseForm() {
     if (quote.hectares === null) return setError({ key: 'purchase.errHectares', vars: { min: minHectares, max: maxHectares } });
     if (!confirmed) return setError({ key: 'purchase.errConfirmSize' });
     if (!paymentReference.trim()) return setError({ key: 'agentForm.errReference' });
-    // A missing wallet also reads as a zero balance, so say which it is rather
-    // than telling a funded account that it is broke.
-    if (walletConnected === false) return setError({ key: 'purchase.errNoWallet' });
-    if (quote.premiumEth > balanceEth) return setError({ key: 'agentForm.errFunds' });
+    // With no wallet connected yet, pressing Pay opens MetaMask (or explains
+    // how to get it), and the purchase checks the real balance once it is
+    // connected; an unconnected wallet only reads as a zero balance here.
+    if (walletConnected !== false && quote.premiumEth > balanceEth) return setError({ key: 'agentForm.errFunds' });
     setError(null);
     setSubmitting(true);
     const thresholdMm = quote.level.thresholdMm;
@@ -273,11 +273,7 @@ export function AgentPurchaseForm() {
         </p>
       </div>
 
-      {error &&
-      <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-          {t(error.key, error.vars)}
-        </p>
-      }
+      <PurchaseError error={error} />
 
       <button
         type="submit"
@@ -292,5 +288,6 @@ export function AgentPurchaseForm() {
         quoted ? t('agentForm.submit', { amount: formatNgn(premiumNgn) }) : t('purchase.submit')
         }
       </button>
+      <WalletHint connected={walletConnected} />
     </form>);
 }

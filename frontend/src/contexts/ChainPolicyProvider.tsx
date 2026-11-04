@@ -12,6 +12,7 @@ import type { TranslationKey } from '../data/translations';
 import { formatDate } from '../utils/format';
 import { windowDays } from '../utils/windows';
 import { networkFees } from '../chain/fees';
+import { connectedAccounts, requestWallet } from '../chain/wallet';
 import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
 import type { EvaluationResult, Policy, SourceReading } from '../types/insurance';
 import type { User } from '../types/user';
@@ -76,12 +77,15 @@ async function connect(config: ChainConfig): Promise<Connection> {
     };
   }
 
-  // For non-local chains, try browser wallet first
+  // For non-local chains, use the browser wallet if this site is already
+  // connected to it. Only asking which accounts are connected never opens the
+  // wallet: MetaMask is asked to connect when the user presses Pay (see
+  // requestWallet in purchasePolicy), not the moment any page loads.
   if (chainId !== LOCAL_CHAIN_ID && typeof window !== 'undefined' && window.ethereum) {
     try {
-      const browserProvider = new BrowserProvider(window.ethereum);
-      const accounts = await browserProvider.send('eth_requestAccounts', []);
+      const accounts = await connectedAccounts();
       if (accounts.length > 0) {
+        const browserProvider = new BrowserProvider(window.ethereum);
         // Ask the RPC this app already reads from, not the wallet's own
         // endpoint: that one rate-limits under load, and a failed answer here
         // used to drop the whole app into read-only mode — where addressOf
@@ -152,8 +156,12 @@ export function ChainPolicyProvider({ config, children }: {config: ChainConfig;c
   if (conn.phase === 'failed') {
     return <ErrorPage fullScreen error={new Error(conn.reason)} onRetry={() => setAttempt((a) => a + 1)} />;
   }
+  // Pressing Pay can connect MetaMask after the page loaded read-only; the
+  // whole app then reads balances and signs through the wallet from then on.
+  const onWalletConnected = (provider: BrowserProvider, accounts: string[]) =>
+  setConn((c) => c.phase === 'ready' ? { ...c, provider, accounts, isWallet: true } : c);
   return (
-    <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts} isWallet={conn.isWallet} rpcUrl={conn.rpcUrl}>
+    <ChainData config={config} provider={conn.provider} chainId={conn.chainId} accounts={conn.accounts} isWallet={conn.isWallet} rpcUrl={conn.rpcUrl} onWalletConnected={onWalletConnected}>
       {children}
     </ChainData>);
 
@@ -330,10 +338,9 @@ function ChainData({
   accounts,
   isWallet,
   rpcUrl,
+  onWalletConnected,
   children
-
-
-}: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;rpcUrl: string;children: React.ReactNode;}) {
+}: {config: ChainConfig;provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;rpcUrl: string;onWalletConnected: (provider: BrowserProvider, accounts: string[]) => void;children: React.ReactNode;}) {
   const { user } = useAuth();
   const { t } = useI18n();
   // Read through a ref by load/refresh, so changing language never refetches the chain.
@@ -344,6 +351,8 @@ function ChainData({
   // answer "insufficient funds" while the panel shows a funded account — so
   // follow the wallet's changes instead of trusting the page-load snapshot.
   const [liveAccounts, setLiveAccounts] = useState(accounts);
+  // A wallet connected later (by pressing Pay) arrives as new props.
+  useEffect(() => setLiveAccounts(accounts), [accounts]);
   useEffect(() => {
     const eth = typeof window !== 'undefined' ? window.ethereum : undefined;
     if (!isWallet || !eth?.on) return;
@@ -602,9 +611,27 @@ function ChainData({
     };
   }, [provider, refresh]);
 
+  /**
+   * The account that signs for this user and the provider to sign with. With
+   * no wallet connected yet, MetaMask is asked now (its Connect window opens),
+   * so pressing Pay is all it takes; the rest of the app then switches to the
+   * wallet too. Without a wallet in this browser this throws
+   * WalletError('wallet.missing'), which the form explains.
+   */
+  const signingWallet = useCallback(
+    async (userId: string): Promise<{from?: string;signer: JsonRpcProvider | BrowserProvider;wallet: boolean;}> => {
+      const from = addressOf(userId);
+      if (from || chainId === LOCAL_CHAIN_ID) return { from, signer: provider, wallet: isWallet };
+      const connected = await requestWallet();
+      onWalletConnected(connected.provider, connected.accounts);
+      return { from: connected.accounts[0], signer: connected.provider, wallet: true };
+    },
+    [addressOf, chainId, provider, isWallet, onWalletConnected]
+  );
+
   const purchasePolicy = useCallback(
     async (farmerId: string, input: PurchaseInput) => {
-      const from = addressOf(farmerId);
+      const { from, signer: signingProvider, wallet } = await signingWallet(farmerId);
       if (!from) throw new Error(t('chainErr.buyNeedsWallet'));
       // The wallet may sit on a different chain than this app trades on —
       // MetaMask switched to Ethereum mainnet, say. It would then sign a
@@ -614,7 +641,7 @@ function ChainData({
       // whose UI has moved on but whose link to this page is stale answers
       // for the old chain too, and asking it to switch resyncs both cases.
       const eth = typeof window !== 'undefined' ? window.ethereum : undefined;
-      if (isWallet && eth?.request) {
+      if (wallet && eth?.request) {
         const walletChain = async () => BigInt((await eth.request({ method: 'eth_chainId' })) as string);
         let current = await walletChain();
         if (current !== chainId) {
@@ -643,7 +670,7 @@ function ChainData({
       let premium: bigint;
       let block: number;
       try {
-        const signer = await provider.getSigner(from);
+        const signer = await signingProvider.getSigner(from);
         const payout = parseEther(input.payoutEth.toString());
         premium = await insuranceRead.quotePremium(payout);
         // The wallet's node can disagree with the chain about this account's
@@ -657,7 +684,7 @@ function ChainData({
         // purchase the network would accept.
         const [onChain, inWallet] = await Promise.all([
           readProvider.getBalance(from),
-          provider.getBalance(from).catch(() => null)
+          signingProvider.getBalance(from).catch(() => null)
         ]);
         if (inWallet !== null && inWallet < premium && onChain >= premium) {
           console.warn(
@@ -708,16 +735,16 @@ function ChainData({
       setSnapshot((s) => s && { ...s, policies: [bought, ...s.policies.filter((p) => p.id !== id)] });
       return next?.policies.find((p) => p.id === id) ?? bought;
     },
-    [addressOf, isWallet, chainId, provider, readProvider, insurance, insuranceRead, config.insuranceAddress, load, t]
+    [signingWallet, chainId, readProvider, insurance, insuranceRead, config.insuranceAddress, load, t]
   );
 
   const settleOnChain = useCallback(
     async (policyId: number) => {
-      const from = addressOf(user?.id ?? 'admin-1');
+      const { from, signer: signingProvider } = await signingWallet(user?.id ?? 'admin-1');
       if (!from) throw new Error(t('chainErr.settleNeedsWallet'));
       let block: number;
       try {
-        const signer = await provider.getSigner(from);
+        const signer = await signingProvider.getSigner(from);
         const tx = await (insurance.connect(signer) as Contract).checkAndSettle(policyId, await networkFees(readProvider));
         block = (await tx.wait()).blockNumber;
       } catch (e) {
@@ -727,7 +754,7 @@ function ChainData({
       const next = await load(block).catch(() => null);
       if (next) setSnapshot(next);
     },
-    [addressOf, user, provider, readProvider, insurance, load, t]
+    [signingWallet, user, readProvider, insurance, load, t]
   );
 
   const value = useMemo<PolicyContextValue | null>(

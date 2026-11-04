@@ -12,7 +12,7 @@ import { formatNgn } from '../utils/currency';
 import { useFx } from '../contexts/FxContext';
 import { useI18n } from '../contexts/I18nContext';
 import { cropName } from '../contexts/policyActivity';
-import { FarmSizeField, RainLevel, WindowSelect } from './CoverFields';
+import { FarmSizeField, PurchaseError, RainLevel, WalletHint, WindowSelect } from './CoverFields';
 
 const fieldClass =
 'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
@@ -54,10 +54,10 @@ export function PurchaseForm() {
     if (!quote.level) return setError({ key: 'purchase.errNoLevel' });
     if (quote.hectares === null) return setError({ key: 'purchase.errHectares', vars: { min: minHectares, max: maxHectares } });
     if (!confirmed) return setError({ key: 'purchase.errConfirmSize' });
-    // A missing wallet also reads as a zero balance, so say which it is rather
-    // than telling a funded account that it is broke.
-    if (walletConnected === false) return setError({ key: 'purchase.errNoWallet' });
-    if (quote.premiumEth > balanceEth) return setError({ key: 'purchase.errFunds' });
+    // With no wallet connected yet, pressing Pay opens MetaMask (or explains
+    // how to get it), and the purchase checks the real balance once it is
+    // connected; an unconnected wallet only reads as a zero balance here.
+    if (walletConnected !== false && quote.premiumEth > balanceEth) return setError({ key: 'purchase.errFunds' });
     setError(null);
     setSubmitting(true);
     purchasePolicy(user.id, {
@@ -141,11 +141,7 @@ export function PurchaseForm() {
       <p className="mt-1 text-xs text-muted">{t('purchase.approxNaira')}</p>
       }
 
-      {error &&
-      <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-          {t(error.key, error.vars)}
-        </p>
-      }
+      <PurchaseError error={error} />
 
       <button
         type="submit"
@@ -161,6 +157,7 @@ export function PurchaseForm() {
         t('purchase.submit')
         }
       </button>
+      <WalletHint connected={walletConnected} />
     </form>);
 
 }
