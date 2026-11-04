@@ -6,6 +6,7 @@ import { LanguageMenu } from '../components/layout/LanguageMenu';
 import { ThemeMenu } from '../components/layout/ThemeMenu';
 import { PreferencesMenu } from '../components/layout/PreferencesMenu';
 import { RoleRedirect } from '../components/layout/RequireRole';
+import { CardSlider } from '../components/CardSlider';
 import { btnGhost, btnPrimary, btnSecondary } from '../components/ui/buttons';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -40,7 +41,7 @@ export function Landing() {
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-[90%] items-center justify-between gap-3 py-3">
           <Brand to="/" compact />
           <nav className="flex items-center gap-1 sm:gap-2" aria-label={t('shell.primary')}>
             <div className="hidden items-center gap-1 lg:flex">
@@ -58,7 +59,7 @@ export function Landing() {
 
       <main>
         <section className="bg-accent text-white">
-          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:py-20">
+          <div className="mx-auto grid w-[90%] items-center gap-10 py-14 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:py-20">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease }}>
               <p className="inline-flex rounded-full border border-white/25 px-3 py-1 text-xs text-white/85">{k('badge')}</p>
               <h1 className="mt-5 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl lg:text-5xl">{k('title')}</h1>
@@ -101,26 +102,29 @@ export function Landing() {
           </div>
         </section>
 
-        <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6 md:py-20">
+        <section id="how" className="mx-auto w-[90%] scroll-mt-20 py-14 md:py-20">
           <h2 className="text-2xl font-semibold tracking-tight">{k('stepsTitle')}</h2>
-          <ol className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-8">
+            <CardSlider label={k('stepsTitle')}>
             {steps.map(({ icon: Icon, key }, i) =>
-            <li key={key} className="rounded-lg border border-line bg-surface p-5">
+            <div key={key} className="rounded-lg border border-line bg-surface p-5">
                 <div className="flex items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-strong"><Icon className="h-5 w-5" aria-hidden /></span>
                   <span className="font-mono text-xs text-muted">0{i + 1}</span>
                 </div>
                 <h3 className="mt-4 text-base font-semibold">{k(`${key}.title`)}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{k(`${key}.body`)}</p>
-              </li>
+              </div>
             )}
-          </ol>
+            </CardSlider>
+          </div>
         </section>
 
         <section className="border-y border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-20">
+          <div className="mx-auto w-[90%] py-14 md:py-20">
             <h2 className="text-2xl font-semibold tracking-tight">{k('forTitle')}</h2>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="mt-8">
+              <CardSlider label={k('forTitle')}>
               {audiences.map(({ icon: Icon, key }) =>
               <div key={key} className="rounded-lg border border-line bg-canvas p-5">
                   <Icon className="h-6 w-6 text-accent" aria-hidden />
@@ -128,11 +132,12 @@ export function Landing() {
                   <p className="mt-2 text-sm leading-relaxed text-muted">{k(`${key}.body`)}</p>
                 </div>
               )}
+              </CardSlider>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-20">
+        <section className="mx-auto w-[90%] py-14 md:py-20">
           <h2 className="text-2xl font-semibold tracking-tight">{k('faqTitle')}</h2>
           <div className="mt-6 max-w-3xl divide-y divide-line rounded-lg border border-line bg-surface">
             {['faq1', 'faq2', 'faq3'].map((key) =>
@@ -147,7 +152,7 @@ export function Landing() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <section className="mx-auto w-[90%] pb-16">
           <div className="flex flex-col items-start justify-between gap-5 rounded-xl border border-line bg-surface p-6 sm:flex-row sm:items-center sm:p-8">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">{k('closingTitle')}</h2>
@@ -162,7 +167,7 @@ export function Landing() {
       </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="mx-auto flex w-[90%] flex-col gap-2 py-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>{t('brand.name')}</span>
           <Link to="/terms" className="hover:text-ink hover:underline">{t('legal.footerLink')}</Link>
         </div>

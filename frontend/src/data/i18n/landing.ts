@@ -31,7 +31,10 @@ export const en = {
   'landing.faq3.q': 'What if my farm gets less rain than the area?',
   'landing.faq3.a': 'Rainfall is measured for an area, not for each field, so your crop can suffer without a payout. Choose your rainfall level with that in mind, or ask your field agent for advice.',
   'landing.closingTitle': 'Ready before the season starts',
-  'landing.closingBody': 'Creating an account takes a few minutes, in English, Hausa or French.'
+  'landing.closingBody': 'Creating an account takes a few minutes, in English, Hausa or French.',
+  'landing.prev': 'Previous card',
+  'landing.next': 'Next card',
+  'landing.slideOf': 'Card {n} of {total}'
 } as const;
 
 type Strings = Record<keyof typeof en, string>;
@@ -68,7 +71,10 @@ export const ha: Strings = {
   'landing.faq3.q': 'Idan gonata ta samu ruwan sama ƙasa da na yankin fa?',
   'landing.faq3.a': 'Ana auna ruwan sama ne na yanki, ba na kowace gona ba, don haka amfanin gonarka na iya lalacewa ba tare da diyya ba. Ka zaɓi iyakar ruwan saman ka da wannan a zuciyarka, ko ka nemi shawarar wakilin filin aikinka.',
   'landing.closingTitle': 'Ka shirya kafin damina ta fara',
-  'landing.closingBody': 'Buɗe asusu yana ɗaukar mintuna kaɗan, da Turanci, Hausa ko Faransanci.'
+  'landing.closingBody': 'Buɗe asusu yana ɗaukar mintuna kaɗan, da Turanci, Hausa ko Faransanci.',
+  'landing.prev': 'Katin baya',
+  'landing.next': 'Kati na gaba',
+  'landing.slideOf': 'Kati na {n} cikin {total}'
 };
 
 export const fr: Strings = {
@@ -103,5 +109,8 @@ export const fr: Strings = {
   'landing.faq3.q': 'Et si mon champ reçoit moins de pluie que la zone ?',
   'landing.faq3.a': 'La pluie est mesurée pour une zone, et non pour chaque champ, donc votre culture peut souffrir sans indemnité. Choisissez votre niveau de pluie en conséquence, ou demandez conseil à votre agent de terrain.',
   'landing.closingTitle': 'Prêt avant le début de la saison',
-  'landing.closingBody': 'Créer un compte prend quelques minutes, en anglais, en haoussa ou en français.'
+  'landing.closingBody': 'Créer un compte prend quelques minutes, en anglais, en haoussa ou en français.',
+  'landing.prev': 'Carte précédente',
+  'landing.next': 'Carte suivante',
+  'landing.slideOf': 'Carte {n} sur {total}'
 };
