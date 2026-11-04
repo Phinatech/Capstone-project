@@ -99,6 +99,7 @@ describe("agent sale validation", () => {
       { thresholdMm: 0 },
       { hectares: undefined },
       { hectares: 0 },
+      { hectares: 0.5 },
       { hectares: 5.5 },
       { soldAt: "not a date" },
       { lga: "x".repeat(61) },

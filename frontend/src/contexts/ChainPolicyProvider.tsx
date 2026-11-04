@@ -11,6 +11,7 @@ import { useI18n } from './I18nContext';
 import type { TranslationKey } from '../data/translations';
 import { formatDate } from '../utils/format';
 import { windowDays } from '../utils/windows';
+import { networkFees } from '../chain/fees';
 import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
 import type { EvaluationResult, Policy, SourceReading } from '../types/insurance';
 import type { User } from '../types/user';
@@ -680,7 +681,8 @@ function ChainData({
         })) * 125n / 100n;
         const tx = await (insurance.connect(signer) as Contract).buyPolicy(windowId, Math.round(input.thresholdMm * 100), payout, {
           value: premium,
-          gasLimit
+          gasLimit,
+          ...(await networkFees(readProvider))
         });
         const receipt = await tx.wait();
         const event = (receipt.logs as Log[]).map((l) => insurance.interface.parseLog(l)).find((e) => e?.name === 'PolicyCreated');
@@ -716,7 +718,7 @@ function ChainData({
       let block: number;
       try {
         const signer = await provider.getSigner(from);
-        const tx = await (insurance.connect(signer) as Contract).checkAndSettle(policyId);
+        const tx = await (insurance.connect(signer) as Contract).checkAndSettle(policyId, await networkFees(readProvider));
         block = (await tx.wait()).blockNumber;
       } catch (e) {
         throw new Error(chainErrorMessage(e, t));
@@ -725,7 +727,7 @@ function ChainData({
       const next = await load(block).catch(() => null);
       if (next) setSnapshot(next);
     },
-    [addressOf, user, provider, insurance, load, t]
+    [addressOf, user, provider, readProvider, insurance, load, t]
   );
 
   const value = useMemo<PolicyContextValue | null>(

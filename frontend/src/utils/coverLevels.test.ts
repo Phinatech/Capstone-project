@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { coverLevel, percentile, windowHistory, COVER_RETURN_YEARS } from './coverLevels';
 import { payoutForHectares } from '../data/policies';
+import { parseHectares } from '../hooks/useCoverQuote';
 
 const JULY_2027 = [2027071, 2027072, 2027073];
 const WINDOWS = [
@@ -62,5 +63,17 @@ describe('cover by farm size', () => {
     expect(payoutForHectares(2.5)).toBe(0.025);
     expect(payoutForHectares(0.3)).toBe(0.003);
     expect(payoutForHectares(5)).toBe(0.05);
+  });
+});
+
+describe('farm sizes cover is sold for', () => {
+  it('takes 1 to 5 ha, written with a point or a comma', () => {
+    expect(parseHectares('1')).toBe(1);
+    expect(parseHectares('2,5')).toBe(2.5);
+    expect(parseHectares(' 5 ')).toBe(5);
+  });
+
+  it('refuses farms under 1 ha, where the network fee is a big share of the premium', () => {
+    for (const text of ['', '0', '0.5', '0.99', '5.01', 'two']) expect(parseHectares(text)).toBeNull();
   });
 });

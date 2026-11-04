@@ -1,6 +1,6 @@
 import { useFx } from '../contexts/FxContext';
 import { useI18n } from '../contexts/I18nContext';
-import { coverPerHectareEth, maxHectares } from '../data/policies';
+import { coverPerHectareEth, maxHectares, minHectares } from '../data/policies';
 import type { CoverLevel } from '../utils/coverLevels';
 import { formatEth } from '../utils/format';
 import { formatNgn } from '../utils/currency';
@@ -89,7 +89,7 @@ export function FarmSizeField({
           <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">ha</span>
         </div>
         <span id="farm-size-hint" className="mt-1.5 block text-xs font-normal text-muted">
-          {t('purchase.farmSizeHint', { max: maxHectares, rate: formatEth(coverPerHectareEth) })}
+          {t('purchase.farmSizeHint', { min: minHectares, max: maxHectares, rate: formatEth(coverPerHectareEth) })}
         </span>
       </label>
 

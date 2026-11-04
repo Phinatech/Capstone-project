@@ -13,8 +13,12 @@ export const crops = ['Millet', 'Sorghum'];
 export const coverPerHectareEth = 0.01;
 /** Largest farm one policy covers: smallholder plots, checked by the agent. */
 export const maxHectares = 5;
-/** Smallest farm size a policy can be sold for. */
-export const minHectares = 0.1;
+/**
+ * Smallest farm a policy is sold for. Below 1 ha the premium is so small that
+ * the network fee to buy it (about 600,000 gas, measured on Sepolia) is a big
+ * share of it: at 1 gwei, 35% of a 1 ha premium and 69% of a 0.5 ha one.
+ */
+export const minHectares = 1;
 
 /** The payout for a farm size, rounded so float noise never reaches the contract. */
 export function payoutForHectares(hectares: number): number {

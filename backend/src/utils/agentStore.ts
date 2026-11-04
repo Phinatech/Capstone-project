@@ -26,8 +26,8 @@ export const COMMISSION_RATE = 0.1;
 export const COVER_PER_HECTARE_ETH = 0.01;
 /** Largest farm one policy covers: smallholder plots, checked by the agent. */
 export const MAX_HECTARES = 5;
-/** Smallest farm size a policy can be sold for. */
-export const MIN_HECTARES = 0.1;
+/** Smallest farm a policy is sold for: below 1 ha the network fee to buy it is a big share of the premium. */
+export const MIN_HECTARES = 1;
 
 /** The payout for a farm size, rounded so float noise never reaches the contract. */
 export function payoutForHectares(hectares: number): number {
