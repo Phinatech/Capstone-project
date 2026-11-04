@@ -110,3 +110,22 @@ export function policyPurchasedMessage(policyId: number, farmerName: string): st
 export function settlementMessage(policyId: number, rainfallMm: number): string {
   return `Sokoto Rainfall Cover: Policy #${policyId} settled. Seasonal rainfall was ${(rainfallMm / 100).toFixed(1)} mm. No payout due.`;
 }
+
+/** Whole naira as "NGN 12,500": the naira sign isn't in the GSM alphabet and would halve the SMS. */
+const ngn = (amount: number) => `NGN ${Math.round(amount).toLocaleString("en-US")}`;
+
+/**
+ * To a farmer whose agent bought cover for them. The policy pays the agent's
+ * wallet, so this is the farmer's own record that the cover exists.
+ */
+export function agentSaleMessage(policyId: number, reference: string): string {
+  return `Sokoto Rainfall Cover: your field agent bought policy #${policyId} for you, receipt ${reference}. If the rains fail you are paid through your agent.`;
+}
+
+/**
+ * To that farmer when the policy pays out: the money lands in the agent's
+ * wallet, so the farmer is told what they are owed and by whom.
+ */
+export function agentPayoutMessage(policyId: number, payoutNgn: number, reference: string): string {
+  return `Sokoto Rainfall Cover: policy #${policyId} paid out. Your field agent owes you ${ngn(payoutNgn)} (receipt ${reference}). Collect it from them.`;
+}

@@ -8,11 +8,13 @@
  * history. It runs in the backend that runs the relayer (RELAYER_ENABLED=true),
  * so a local copy doesn't send the same messages twice.
  */
-import { userStore } from "./authServices.js";
+import { agentStore, userStore } from "./authServices.js";
 import { config } from "./config.js";
 import { headBlock, readInsuranceActivity, type InsuranceActivity } from "./utils/chain.js";
 import { dekadDays } from "./utils/period.js";
-import { nigerianMobile, payoutMessage, policyPurchasedMessage, sendSms, settlementMessage, smsConfigured, smsName } from "./utils/sms.js";
+import type { AgentSale } from "./utils/agentStore.js";
+import { agentPayoutMessage, nigerianMobile, payoutMessage, policyPurchasedMessage, sendSms, settlementMessage, smsConfigured, smsName } from "./utils/sms.js";
+import type { PublicUser } from "./utils/userStore.js";
 import { sendTelegram } from "./utils/telegram.js";
 
 const POLL_MS = 15_000;
@@ -65,15 +67,35 @@ export function activitySms(a: InsuranceActivity, farmerName?: string): string {
   }
 }
 
-/** The policy owner's phone (matched by profile wallet) and the NOTIFY_SMS_TO numbers, deduplicated. */
-async function smsRecipients(farmer: string): Promise<{ phones: string[]; farmerName?: string }> {
-  const owner = (await userStore.list()).find((u) => u.wallet.toLowerCase() === farmer.toLowerCase());
-  const phones = new Set<string>();
-  for (const raw of [owner?.phone, ...config.notifySmsTo]) {
+type Contact = Pick<PublicUser, "id" | "name" | "phone" | "wallet">;
+
+/**
+ * Who is texted about a policy event, and what each of them reads:
+ *
+ *  - the wallet that owns the policy (matched by profile wallet) and every
+ *    NOTIFY_SMS_TO number, with the standard text;
+ *  - when an agent sold the policy, the farmer the sale names. The policy pays
+ *    the agent's wallet, so on a payout the farmer is told what the agent owes
+ *    them, against the sale's receipt. Their purchase text is sent when the
+ *    agent records the sale, which can land after this event is read.
+ *
+ * Each number is texted once, with the first text that applies.
+ */
+export function smsPlan(activity: InsuranceActivity, users: Contact[], sale: AgentSale | undefined, notifySmsTo: string[]): Array<{ phone: string; text: string }> {
+  const plan = new Map<string, string>();
+  const add = (raw: string | undefined, text: string) => {
     const phone = raw ? nigerianMobile(raw) : null;
-    if (phone) phones.add(phone);
-  }
-  return { phones: [...phones], farmerName: owner?.name };
+    if (phone && !plan.has(phone)) plan.set(phone, text);
+  };
+
+  const farmer = sale && users.find((u) => u.id === sale.farmerId);
+  if (farmer && activity.kind === "payout") add(farmer.phone, agentPayoutMessage(activity.policyId, sale!.payoutNgn, sale!.paymentReference));
+  if (farmer && activity.kind === "no_payout") add(farmer.phone, activitySms(activity));
+
+  const owner = users.find((u) => u.wallet.toLowerCase() === activity.farmer.toLowerCase());
+  const text = activitySms(activity, sale?.farmerName ?? owner?.name);
+  for (const raw of [owner?.phone, ...notifySmsTo]) add(raw, text);
+  return [...plan].map(([phone, text]) => ({ phone, text }));
 }
 
 async function notify(activity: InsuranceActivity, channels: { telegram: boolean; sms: boolean }): Promise<void> {
@@ -87,9 +109,8 @@ async function notify(activity: InsuranceActivity, channels: { telegram: boolean
     );
   }
   if (channels.sms) {
-    const { phones, farmerName } = await smsRecipients(activity.farmer);
-    const text = activitySms(activity, farmerName);
-    for (const phone of phones) {
+    const [users, sale] = await Promise.all([userStore.list(), agentStore.findByPolicy(activity.policyId)]);
+    for (const { phone, text } of smsPlan(activity, users, sale, config.notifySmsTo)) {
       const result = await sendSms(phone, text);
       if (result.success) console.log(`[notify] sent ${what} by SMS to ${phone.slice(0, 6)}…`);
       else report(`SMS to ${phone.slice(0, 6)}…`, result.error);

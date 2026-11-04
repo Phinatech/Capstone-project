@@ -9,6 +9,7 @@
  * these, so they never touch the real directory.
  */
 import { config } from "./config.js";
+import { createAgentStore } from "./utils/agentStore.js";
 import { createAuthCodeStore } from "./utils/authCodes.js";
 import { appPersistence, initStores } from "./utils/firebase.js";
 import { createSessionStore } from "./utils/sessions.js";
@@ -23,3 +24,7 @@ export const sessionStore = createSessionStore(appPersistence("sessions", config
 // Codes and reset tokens persist too: without that, every restart of a
 // cold-starting host invalidates the code sitting in a user's inbox.
 export const authCodeStore = createAuthCodeStore({}, appPersistence("auth-codes", config.authCodesPath));
+// Agent sales: the naira half of a purchase, and the only record naming the
+// farmer behind a policy an agent bought. One instance, because the store
+// caches what it read: the API writes sales and the notifier reads them.
+export const agentStore = createAgentStore(appPersistence("agent-sales", config.agentSalesPath));

@@ -19,6 +19,21 @@ export const PAYMENT_METHODS: readonly PaymentMethod[] = ["cash", "bank_transfer
 /** Share of the premium the agent keeps. The server applies it; clients can't set it. */
 export const COMMISSION_RATE = 0.1;
 
+/**
+ * Cover is sold by farm size: the payout is this much test ETH per hectare.
+ * Keep both in step with frontend/src/data/policies.ts, which quotes them.
+ */
+export const COVER_PER_HECTARE_ETH = 0.01;
+/** Largest farm one policy covers: smallholder plots, checked by the agent. */
+export const MAX_HECTARES = 5;
+/** Smallest farm size a policy can be sold for. */
+export const MIN_HECTARES = 0.1;
+
+/** The payout for a farm size, rounded so float noise never reaches the contract. */
+export function payoutForHectares(hectares: number): number {
+  return Math.round(hectares * COVER_PER_HECTARE_ETH * 1e6) / 1e6;
+}
+
 export interface AgentSale {
   policyId: number;
   agentId: string;
@@ -28,6 +43,11 @@ export interface AgentSale {
   crop: string;
   windowId: string;
   thresholdMm: number;
+  /**
+   * Farm size the agent checked with the farmer; the payout follows from it.
+   * Absent on sales recorded before cover was sold by the hectare.
+   */
+  hectares?: number;
   premiumEth: number;
   payoutEth: number;
   /** Both naira figures are frozen at the rate live when the sale happened. */
@@ -94,6 +114,7 @@ export function parseSale(input: unknown): SaleResult {
     if (payoutEth < premiumEth) throw new Error("payoutEth cannot be smaller than the premium");
 
     const thresholdMm = number(body.thresholdMm, "thresholdMm", { min: 0.01, max: 100_000 });
+    const hectares = number(body.hectares, "hectares", { min: MIN_HECTARES, max: MAX_HECTARES });
     const ethNgnRate = number(body.ethNgnRate, "ethNgnRate", { min: 1 });
 
     return {
@@ -107,6 +128,7 @@ export function parseSale(input: unknown): SaleResult {
         crop: text(body.crop, "crop", 60),
         windowId: text(body.windowId, "windowId", 32),
         thresholdMm,
+        hectares,
         premiumEth,
         payoutEth,
         premiumNgn,

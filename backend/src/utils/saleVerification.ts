@@ -11,7 +11,7 @@
  * so pinning `premiumNgn` to `premiumEth × ethNgnRate` is what stops an agent
  * inflating its own cut.
  */
-import type { AgentSale } from "./agentStore.js";
+import { payoutForHectares, type AgentSale } from "./agentStore.js";
 import type { PolicyData } from "./chain.js";
 
 export type VerificationResult = { ok: true } | { ok: false; error: string };
@@ -49,6 +49,15 @@ export function verifySaleAgainstPolicy(
     return { ok: false, error: `Policy #${sale.policyId} resolved to policy #${policy.id} on the contract` };
   }
 
+  // One policy per farmer per window is enforced against the sale's window, so
+  // that window has to be the one the contract actually sold.
+  if (String(policy.windowId) !== sale.windowId) {
+    return {
+      ok: false,
+      error: `windowId ${sale.windowId} does not match window #${policy.windowId}, which the contract recorded for policy #${sale.policyId}`,
+    };
+  }
+
   const premium = Number(policy.premiumPaid);
   if (!closeTo(sale.premiumEth, premium, ETH_TOLERANCE, true)) {
     return {
@@ -62,6 +71,15 @@ export function verifySaleAgainstPolicy(
     return {
       ok: false,
       error: `payoutEth ${sale.payoutEth} does not match the ${policy.payoutAmount} ETH the contract recorded for policy #${sale.policyId}`,
+    };
+  }
+
+  // Cover is sold by the hectare, so the payout has to be what the farm size
+  // the agent checked is worth; a bigger payout for the same farm is refused.
+  if (sale.hectares !== undefined && !closeTo(sale.payoutEth, payoutForHectares(sale.hectares), ETH_TOLERANCE, true)) {
+    return {
+      ok: false,
+      error: `payoutEth ${sale.payoutEth} is not the ${payoutForHectares(sale.hectares)} ETH that ${sale.hectares} ha is covered for`,
     };
   }
 
@@ -94,4 +112,26 @@ export function verifySaleAgainstPolicy(
   }
 
   return { ok: true };
+}
+
+/**
+ * Another policy already covering this sale's farmer in the same window, if
+ * there is one: a sale another agent recorded for them, or a policy the
+ * farmer bought from their own wallet. One farm, one policy per window, so
+ * cover can't be multiplied by buying it twice.
+ *
+ * The sale's own policy never counts against it, so re-submitting a receipt
+ * (an upsert) still corrects it.
+ */
+export function findExistingCover(
+  sale: AgentSale,
+  sales: AgentSale[],
+  policies: PolicyData[],
+  farmerWallet: string | undefined
+): number | undefined {
+  const sold = sales.find((s) => s.farmerId === sale.farmerId && s.windowId === sale.windowId && s.policyId !== sale.policyId);
+  if (sold) return sold.policyId;
+  const wallet = farmerWallet?.toLowerCase();
+  if (!wallet) return undefined;
+  return policies.find((p) => p.farmer.toLowerCase() === wallet && String(p.windowId) === sale.windowId && p.id !== sale.policyId)?.id;
 }

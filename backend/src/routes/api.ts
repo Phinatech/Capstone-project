@@ -8,14 +8,13 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
-import { userStore } from "../authServices.js";
+import { agentStore, userStore } from "../authServices.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
-import { createAgentStore, parseSale } from "../utils/agentStore.js";
-import { appPersistence } from "../utils/firebase.js";
+import { parseSale } from "../utils/agentStore.js";
 import { attributePolicies } from "../utils/policyAttribution.js";
-import { verifySaleAgainstPolicy } from "../utils/saleVerification.js";
+import { findExistingCover, verifySaleAgainstPolicy } from "../utils/saleVerification.js";
 import type { PolicyData } from "../utils/chain.js";
 import type { PublicUser } from "../utils/userStore.js";
 import {
@@ -28,7 +27,7 @@ import {
   readReadings,
   readPolicyEvaluations,
 } from "../utils/chain.js";
-import { nigerianMobile, payoutMessage, policyPurchasedMessage, sendSms, settlementMessage, smsName } from "../utils/sms.js";
+import { agentSaleMessage, nigerianMobile, payoutMessage, policyPurchasedMessage, sendSms, settlementMessage, smsConfigured, smsName } from "../utils/sms.js";
 
 const router = Router();
 
@@ -154,10 +153,6 @@ router.get("/users/directory", requireAuth, async (req, res) => {
  * a deployment with real accounts has no credentials to advertise, and a real
  * administrator's password must never be readable over HTTP.
  */
-
-// Agent sales: the naira half of a purchase, recorded so an agent's book is
-// readable from any device rather than only from the browser that sold it.
-const agentStore = createAgentStore(appPersistence("agent-sales", config.agentSalesPath));
 
 /** An optional bounded text query parameter. */
 function boundedQuery(value: unknown, max: number): string | null {
@@ -291,10 +286,42 @@ router.post("/agent/sales", requireAuth, requireRole("agent", "admin"), async (r
     return;
   }
 
+  let isNew: boolean;
+  let farmer: PublicUser | undefined;
+  try {
+    const sale = parsed.sale;
+    const [sales, policies, farmerRecord] = await Promise.all([
+      agentStore.list(),
+      withCache("policies", POLICIES_TTL, readPolicies, { headBlock }),
+      userStore.findById(sale.farmerId)
+    ]);
+    farmer = farmerRecord ?? undefined;
+    // Also 422: the farmer is already covered for this window, which no retry changes.
+    const existing = findExistingCover(sale, sales, policies, farmer?.wallet);
+    if (existing !== undefined) {
+      res.status(422).json({ error: `${sale.farmerName} already has cover for window #${sale.windowId} (policy #${existing}); one policy per farmer per window` });
+      return;
+    }
+    isNew = !sales.some((s) => s.policyId === sale.policyId);
+  } catch (err) {
+    console.error("[api] could not check a sale for existing cover:", err);
+    res.status(503).json({ error: "Could not check this sale against existing cover; try again shortly" });
+    return;
+  }
+
   try {
     // Upsert: re-submitting the same policy corrects it instead of duplicating.
     const sale = await agentStore.upsert(parsed.sale);
     res.status(201).json(sale);
+    // The policy pays the agent's wallet, so this text is the farmer's own
+    // record that they are covered. Sent once, not on a corrected re-submit.
+    const phone = farmer?.phone ? nigerianMobile(farmer.phone) : null;
+    if (isNew && phone && smsConfigured()) {
+      void sendSms(phone, agentSaleMessage(sale.policyId, sale.paymentReference)).then(
+        (r) => console.log(r.success ? `[notify] sent agent sale for policy #${sale.policyId} by SMS to ${phone.slice(0, 6)}…` : `[notify] could not text the farmer for policy #${sale.policyId}: ${r.error}`),
+        (e) => console.log(`[notify] could not text the farmer for policy #${sale.policyId}: ${e instanceof Error ? e.message : String(e)}`)
+      );
+    }
   } catch (err) {
     console.error("[api] failed to record agent sale:", err);
     res.status(500).json({ error: "Failed to record the sale" });

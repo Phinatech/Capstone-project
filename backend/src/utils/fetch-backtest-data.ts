@@ -13,15 +13,24 @@
  * Writes data/backtest/<source>.json as { "YYYYMMDD": mm }, skipping sources
  * already downloaded (delete a file to fetch it again).
  * Usage: npx tsx src/utils/fetch-backtest-data.ts
+ *
+ * HISTORY_POINT=sokoto fetches the same CHIRPS and NASA POWER series for the
+ * point the relayer reads (RAINFALL_LATITUDE/LONGITUDE, Sokoto by default)
+ * into data/cover-history/ instead; build-cover-history.ts turns that into
+ * the rainfall levels cover is sold at.
  */
 import "dotenv/config";
 import { access, mkdir, writeFile } from "node:fs/promises";
+import { config } from "../config.js";
 import { fetchNasaPowerDaily } from "./nasaPower.js";
 
-const GAUGE = { latitude: 13.8, longitude: 5.25 };
+const forCover = process.env.HISTORY_POINT === "sokoto";
+const GAUGE = forCover
+  ? { latitude: config.rainfallLatitude, longitude: config.rainfallLongitude }
+  : { latitude: 13.8, longitude: 5.25 };
 const FIRST_YEAR = 1981;
 const LAST_YEAR = 2024;
-const OUT_DIR = new URL("../../data/backtest/", import.meta.url);
+const OUT_DIR = new URL(forCover ? "../../data/cover-history/" : "../../data/backtest/", import.meta.url);
 
 const CLIMATESERV = "https://climateserv.servirglobal.net/api";
 const CHIRPS_DATATYPE = "0";
@@ -120,7 +129,9 @@ async function main() {
     ],
     ["chirps", fetchAllChirps],
   ];
-  if (meteostatKey) downloads.push(["meteostat-61075", () => fetchMeteostatStation("61075", meteostatKey)]);
+  // Station 61075 is the Birni N'Konni gauge, so it only belongs in the backtest.
+  if (forCover) console.log("meteostat: skipped (Sokoto has no daily station record)");
+  else if (meteostatKey) downloads.push(["meteostat-61075", () => fetchMeteostatStation("61075", meteostatKey)]);
   else console.log("meteostat-61075: skipped (set METEOSTAT_API_KEY to fetch it)");
 
   for (const [name, download] of downloads) {
