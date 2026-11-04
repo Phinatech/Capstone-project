@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseSale, COMMISSION_RATE, type AgentSale } from "./utils/agentStore.js";
-import { verifySaleAgainstPolicy } from "./utils/saleVerification.js";
+import { findExistingCover, verifySaleAgainstPolicy } from "./utils/saleVerification.js";
 import type { PolicyData } from "./utils/chain.js";
 
 const validBody = {
@@ -11,12 +11,13 @@ const validBody = {
   farmerName: "Amina Bello",
   lga: "Wamakko",
   crop: "Millet",
-  windowId: "julaug",
+  windowId: "18",
   thresholdMm: 300,
+  hectares: 5,
   premiumEth: 0.01,
-  payoutEth: 0.1,
+  payoutEth: 0.05,
   premiumNgn: 32_612,
-  payoutNgn: 326_122,
+  payoutNgn: 163_061,
   ethNgnRate: 3_261_222,
   paymentMethod: "cash",
   paymentReference: "SKT-4821",
@@ -37,7 +38,7 @@ function chainPolicy(overrides: Partial<PolicyData> = {}): PolicyData {
     farmer: "0xcCb3eaE69cE584a60d5d8F39cF7aC9F15efA584B",
     windowId: 18,
     droughtThresholdMm: 30_000, // 300 mm, stored in hundredths
-    payoutAmount: "0.1",
+    payoutAmount: "0.05",
     premiumPaid: "0.01",
     settled: false,
     ...overrides,
@@ -75,6 +76,21 @@ describe("sale verification against the contract", () => {
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.match(result.error, /payoutEth/);
+  });
+
+  it("rejects a window the contract did not record", () => {
+    const result = verifySaleAgainstPolicy(sale({ windowId: "17" }), chainPolicy());
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.error, /windowId 17 does not match window #18/);
+  });
+
+  it("rejects a payout bigger than the farm size it was sold for", () => {
+    // The chain agrees with the receipt, but 2 ha is only worth 0.02 ETH of cover.
+    const result = verifySaleAgainstPolicy(sale({ hectares: 2 }), chainPolicy());
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.error, /0\.02 ETH that 2 ha is covered for/);
   });
 
   it("rejects a threshold the contract did not record", () => {
@@ -128,5 +144,30 @@ describe("sale verification against the contract", () => {
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.match(result.error, /#19 resolved to policy #20/);
+  });
+});
+
+describe("one policy per farmer per window", () => {
+  const farmerWallet = "0x00000000000000000000000000000000000000F1";
+
+  it("finds a sale another agent already recorded for the farmer in that window", () => {
+    const earlier = sale({ policyId: 7, agentId: "agent-2" });
+    assert.equal(findExistingCover(sale(), [earlier], [], farmerWallet), 7);
+  });
+
+  it("finds a policy the farmer bought from their own wallet", () => {
+    const own = chainPolicy({ id: 8, farmer: farmerWallet.toLowerCase() });
+    assert.equal(findExistingCover(sale(), [], [own], farmerWallet), 8);
+  });
+
+  it("allows the same farmer in another window, and another farmer in this one", () => {
+    const otherWindow = sale({ policyId: 7, windowId: "17" });
+    const otherFarmer = sale({ policyId: 8, farmerId: "farmer-2" });
+    const theirOwn = chainPolicy({ id: 9, farmer: farmerWallet, windowId: 17 });
+    assert.equal(findExistingCover(sale(), [otherWindow, otherFarmer], [theirOwn], farmerWallet), undefined);
+  });
+
+  it("never counts the sale's own policy, so a corrected receipt can be re-sent", () => {
+    assert.equal(findExistingCover(sale(), [sale()], [chainPolicy({ farmer: farmerWallet })], farmerWallet), undefined);
   });
 });

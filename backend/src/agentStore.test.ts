@@ -28,6 +28,7 @@ const validBody = {
   crop: "Millet",
   windowId: "julaug",
   thresholdMm: 300,
+  hectares: 2.5,
   premiumEth: 0.01,
   payoutEth: 0.1,
   premiumNgn: 32_612,
@@ -96,6 +97,9 @@ describe("agent sale validation", () => {
       { premiumNgn: -1 },
       { ethNgnRate: 0 },
       { thresholdMm: 0 },
+      { hectares: undefined },
+      { hectares: 0 },
+      { hectares: 5.5 },
       { soldAt: "not a date" },
       { lga: "x".repeat(61) },
     ]) {
