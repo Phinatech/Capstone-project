@@ -164,6 +164,8 @@ interface Snapshot {
   policies: Policy[];
   balances: Record<string, number>;
   poolEth: number;
+  /** Premium as a share of the payout, as the contract charges it. */
+  premiumRate: number;
   windowCount: number;
   /** As the contract reports them; labels are built at render, in the reader's language. */
   windows: RawWindow[];
@@ -557,9 +559,15 @@ function ChainData({
         }
       })
     );
-    const poolEth = poolRes.ok ? Number(((await poolRes.json()) as { balance: string }).balance) : 0;
-    return { policies, balances, poolEth, windowCount: windows.length, windows: rawWindows };
-  }, [user, walletFor, insurance, aggregator, provider, readProvider, config.insuranceAddress]);
+    const pool = poolRes.ok ? (await poolRes.json()) as { balance: string; premiumRateBps?: number } : null;
+    const poolEth = pool ? Number(pool.balance) : 0;
+    // The rate the contract charges, so the quote on screen is what the wallet
+    // is asked for. Without the API's figure, price one ETH of cover directly.
+    const premiumRate = typeof pool?.premiumRateBps === 'number' ?
+    pool.premiumRateBps / 10_000 :
+    Number(formatEther(await insuranceRead.quotePremium(parseEther('1'))));
+    return { policies, balances, poolEth, premiumRate, windowCount: windows.length, windows: rawWindows };
+  }, [user, walletFor, insurance, insuranceRead, aggregator, provider, readProvider, config.insuranceAddress]);
 
   // Reload on every new block; overlapping reloads collapse into one follow-up.
   const busy = useRef(false);
@@ -737,6 +745,7 @@ function ChainData({
         };
       }),
       poolEth: snapshot.poolEth,
+      premiumRate: snapshot.premiumRate,
       // Without a wallet there is no account to read, so balanceOf answers 0
       // for everyone. Forms check this rather than blaming a funded wallet.
       walletConnected: isWallet,

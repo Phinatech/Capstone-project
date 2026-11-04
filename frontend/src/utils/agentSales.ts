@@ -19,6 +19,8 @@ export interface AgentSale {
   crop: string;
   windowId: string;
   thresholdMm: number;
+  /** Farm size the agent checked; the payout follows from it. Absent on older sales. */
+  hectares?: number;
   premiumEth: number;
   payoutEth: number;
   /** Both naira figures are frozen at the rate live when the sale happened. */

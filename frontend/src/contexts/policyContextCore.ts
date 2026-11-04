@@ -40,6 +40,11 @@ export interface PolicyContextValue {
   /** ETH held by the insurance contract's payout pool. */
   poolEth: number;
   /**
+   * The contract's premium as a share of the payout (0.175 = 17.5%). Every
+   * quote is priced from this, so the price shown is the price charged.
+   */
+  premiumRate: number;
+  /**
    * False when the app is reading the chain without a connected wallet: no
    * account to sign with, and no account to read a balance from. Optional so
    * simulated mode is unaffected.

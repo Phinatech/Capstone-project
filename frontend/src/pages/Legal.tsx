@@ -14,7 +14,7 @@ import { homePath } from '../utils/users';
 import type { TranslationKey } from '../data/translations';
 
 /** Bump when the text changes in substance; it is shown as "Last updated". */
-const UPDATED = '2026-11-03';
+const UPDATED = '2026-11-04';
 const TERMS = [1, 2, 3, 4, 5, 6, 7];
 const PRIVACY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 

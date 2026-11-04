@@ -16,7 +16,7 @@ export const en = {
   'tour.admin.3.body': 'Purchases, payouts and settlements arrive as notifications on any device. Use search (Ctrl K) to jump anywhere.',
   'tour.agent.1.title': 'Insure farmers from your wallet',
   'tour.agent.1.body':
-    'Select a farmer, set the rainfall threshold, and pay the premium from your agent wallet. If the season falls short, the payout comes to your wallet automatically.',
+    'Select a farmer, enter the farm size you checked with them, and pay the premium from your agent wallet. If the season falls short, the payout comes to your wallet automatically.',
   'tour.agent.2.title': 'No crypto knowledge needed',
   'tour.agent.2.body': 'The farmer does not need a wallet or any blockchain knowledge. You handle the transaction and pay them the naira on their receipt.',
   'tour.agent.3.title': 'Track every policy',
@@ -52,7 +52,7 @@ export const ha: Strings = {
   'tour.admin.3.body': 'Saye, biyan kuɗi da kammalawa suna zuwa a matsayin sanarwa a kowace na’ura. Yi amfani da nema (Ctrl K) don zuwa ko’ina.',
   'tour.agent.1.title': 'Yi wa manoma inshora daga walat ɗinku',
   'tour.agent.1.body':
-    'Zaɓi manomi, saita iyakar ruwan sama, sannan ku biya kuɗin inshora daga walat ɗinku na wakili. Idan damina ba ta kai ba, biyan kuɗi zai zo walat ɗinku kai tsaye.',
+    'Zaɓi manomi, shigar da girman gonar da kuka tabbatar tare da shi, sannan ku biya kuɗin inshora daga walat ɗinku na wakili. Idan damina ba ta kai ba, biyan kuɗi zai zo walat ɗinku kai tsaye.',
   'tour.agent.2.title': 'Ba a buƙatar ilimin crypto',
   'tour.agent.2.body': 'Manomi baya buƙatar walat ko ilimin blockchain. Ku ne kuke yin ma’amalar, kuma ku biya shi Nairar da ke kan rasitinsa.',
   'tour.agent.3.title': 'Bi kowace inshora',
@@ -86,7 +86,7 @@ export const fr: Strings = {
   'tour.admin.3.body': 'Souscriptions, indemnités et règlements arrivent en notifications sur tous vos appareils. Utilisez la recherche (Ctrl K) pour aller partout.',
   'tour.agent.1.title': 'Assurez des agriculteurs depuis votre portefeuille',
   'tour.agent.1.body':
-    'Choisissez un agriculteur, fixez le seuil de pluie et payez la prime depuis votre portefeuille d’agent. Si la saison est trop sèche, l’indemnité arrive automatiquement sur votre portefeuille.',
+    'Choisissez un agriculteur, saisissez la taille de l’exploitation vérifiée avec lui et payez la prime depuis votre portefeuille d’agent. Si la saison est trop sèche, l’indemnité arrive automatiquement sur votre portefeuille.',
   'tour.agent.2.title': 'Aucune connaissance crypto requise',
   'tour.agent.2.body': 'L’agriculteur n’a besoin ni de portefeuille ni de connaissances blockchain. Vous gérez la transaction et lui payez les naira de son reçu.',
   'tour.agent.3.title': 'Suivre chaque police',

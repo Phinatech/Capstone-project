@@ -7,21 +7,29 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFx } from '../contexts/FxContext';
 import { useAgentSales } from '../contexts/AgentSalesContext';
 import { useWindowRainfall } from '../hooks/useWindowRainfall';
-import { crops, lgas, payoutOptionsEth, premiumRate } from '../data/policies';
+import { hectaresText, percent, useCoverQuote, type FormError } from '../hooks/useCoverQuote';
+import { crops, lgas, maxHectares, minHectares } from '../data/policies';
 import { commissionNgn, newPaymentReference } from '../utils/agentSales';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '../types/agent';
 import type { PaymentMethod } from '../types/agent';
+import type { Policy } from '../types/insurance';
 import { formatEth } from '../utils/format';
 import { formatNgn } from '../utils/currency';
 import { getFarmers } from '../utils/users';
 import { useI18n } from '../contexts/I18nContext';
 import { cropName } from '../contexts/policyActivity';
+import { FarmSizeField, RainLevel, WindowSelect } from './CoverFields';
+
+/** The windows a farmer already has a policy in. */
+function windowsHeldBy(policies: Policy[], farmerId: string | undefined): Set<string> {
+  return new Set(policies.filter((p) => farmerId && p.farmerId === farmerId).map((p) => p.windowId));
+}
 
 const fieldClass =
   'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
 
 export function AgentPurchaseForm() {
-  const { balanceOf, purchasePolicy, windows, walletConnected } = usePolicies();
+  const { balanceOf, purchasePolicy, windows, policies, walletConnected } = usePolicies();
   const { user } = useAuth();
   const { ethToNgn, approximate, rate } = useFx();
   const { record } = useAgentSales();
@@ -35,67 +43,65 @@ export function AgentPurchaseForm() {
   // The farmer list can arrive after the form opens; until one is picked, the
   // first farmer is the one the dropdown shows, so it is the one to insure.
   const selectedFarmer = farmers.find((f) => f.id === farmerId) ?? farmers[0];
+  // One policy per farm per window, whoever sold it: the windows this farmer
+  // already holds, from every agent's sales and their own wallet.
+  const covered = useMemo(() => windowsHeldBy(policies, selectedFarmer?.id), [policies, selectedFarmer?.id]);
   const [lga, setLga] = useState(farmers[0]?.lga ?? lgas[0]);
   const [crop, setCrop] = useState(crops[0]);
-  const [windowId, setWindowId] = useState(sellable[0]?.id ?? '');
-  const [threshold, setThreshold] = useState('85');
-  const [payoutEth, setPayoutEth] = useState(payoutOptionsEth[1]);
+  const [windowId, setWindowId] = useState(() => (sellable.find((w) => !covered.has(w.id)) ?? sellable[0])?.id ?? '');
+  const [hectares, setHectares] = useState(() => hectaresText(selectedFarmer?.farmSizeHa));
+  const [confirmed, setConfirmed] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentReference, setPaymentReference] = useState(newPaymentReference);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError | null>(null);
 
+  const selected = windows.find((w) => w.id === windowId);
+  const quote = useCoverQuote(selected, hectares);
   // Rainfall this window has actually recorded, aggregated the way the contract
-  // will settle it, so the trigger can be set against something real.
+  // will settle it. Only a window already under way has any.
   const rainfallOf = useWindowRainfall();
-  const windowRainfall = useMemo(
-    () => rainfallOf(windows.find((w) => w.id === windowId)?.periods ?? []),
-    [rainfallOf, windows, windowId]
-  );
-  const premiumEth = payoutEth * premiumRate;
+  const windowRainfall = useMemo(() => rainfallOf(selected?.periods ?? []), [rainfallOf, selected]);
 
   // Naira figures the farmer is quoted, locked in at the rate on screen.
-  const payoutNgn = ethToNgn(payoutEth);
-  const premiumNgn = ethToNgn(premiumEth);
+  const premiumNgn = ethToNgn(quote.premiumEth);
   const commissionNgnAmount = commissionNgn(premiumNgn);
+  // Nothing to quote until the farm size is one cover is sold for.
+  const quoted = quote.hectares !== null;
+
+  function chooseFarmer(id: string) {
+    setFarmerId(id);
+    const f = farmers.find((x) => x.id === id);
+    if (f?.lga) setLga(f.lga);
+    // A different farm: start from its recorded size, and check it again.
+    setHectares(hectaresText(f?.farmSizeHa));
+    setConfirmed(false);
+    const theirs = windowsHeldBy(policies, f?.id);
+    if (theirs.has(windowId)) setWindowId(sellable.find((w) => !theirs.has(w.id))?.id ?? windowId);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const thresholdMm = Number(threshold);
-    if (!Number.isFinite(thresholdMm) || thresholdMm <= 0) {
-      setError('purchase.errThreshold');
-      return;
-    }
+    if (!user) return setError({ key: 'agentForm.errSignIn' });
+    if (!selectedFarmer) return setError({ key: 'agentForm.errFarmer' });
+    if (!windowId) return setError({ key: 'purchase.errNoWindow' });
+    if (covered.has(windowId)) return setError({ key: 'agentForm.errCovered' });
+    if (!quote.level) return setError({ key: 'purchase.errNoLevel' });
+    if (quote.hectares === null) return setError({ key: 'purchase.errHectares', vars: { min: minHectares, max: maxHectares } });
+    if (!confirmed) return setError({ key: 'purchase.errConfirmSize' });
+    if (!paymentReference.trim()) return setError({ key: 'agentForm.errReference' });
     // A missing wallet also reads as a zero balance, so say which it is rather
     // than telling a funded account that it is broke.
-    if (walletConnected === false) {
-      setError('purchase.errNoWallet');
-      return;
-    }
-    if (premiumEth > balanceEth) {
-      setError('agentForm.errFunds');
-      return;
-    }
-    if (!user) {
-      setError('agentForm.errSignIn');
-      return;
-    }
-    if (!selectedFarmer) {
-      setError('agentForm.errFarmer');
-      return;
-    }
-    if (!paymentReference.trim()) {
-      setError('agentForm.errReference');
-      return;
-    }
-    if (!windowId) {
-      setError('purchase.errNoWindow');
-      return;
-    }
+    if (walletConnected === false) return setError({ key: 'purchase.errNoWallet' });
+    if (quote.premiumEth > balanceEth) return setError({ key: 'agentForm.errFunds' });
     setError(null);
     setSubmitting(true);
-    purchasePolicy(selectedFarmer.id, { lga, crop, windowId, thresholdMm, premiumEth, payoutEth }).
+    const thresholdMm = quote.level.thresholdMm;
+    const ha = quote.hectares;
+    purchasePolicy(selectedFarmer.id, { lga, crop, windowId, thresholdMm, premiumEth: quote.premiumEth, payoutEth: quote.payoutEth }).
     then(async (policy) => {
+      // The receipt carries what the contract charged, so it always matches
+      // the policy the backend checks it against.
       const saved = await record({
         policyId: policy.id,
         agentId: user.id,
@@ -105,11 +111,12 @@ export function AgentPurchaseForm() {
         crop,
         windowId,
         thresholdMm,
-        premiumEth,
-        payoutEth,
-        premiumNgn,
-        payoutNgn,
-        commissionNgn: commissionNgnAmount,
+        hectares: ha,
+        premiumEth: policy.premiumEth,
+        payoutEth: policy.payoutEth,
+        premiumNgn: policy.premiumEth * rate.ethNgn,
+        payoutNgn: policy.payoutEth * rate.ethNgn,
+        commissionNgn: commissionNgn(policy.premiumEth * rate.ethNgn),
         ethNgnRate: rate.ethNgn,
         paymentMethod,
         paymentReference: paymentReference.trim(),
@@ -119,7 +126,7 @@ export function AgentPurchaseForm() {
       // The policy is on-chain either way, so only the receipt's fate differs.
       if (saved.synced) {
         toast.success(t('purchase.confirmed', { id: policy.id }), {
-          description: t('agentForm.confirmedBody', { amount: formatNgn(premiumNgn), farmer: selectedFarmer.name })
+          description: t('agentForm.confirmedBody', { amount: formatNgn(policy.premiumEth * rate.ethNgn), farmer: selectedFarmer.name })
         });
       } else if (saved.retryable) {
         toast.warning(t('agentForm.pendingTitle', { id: policy.id }), {
@@ -137,7 +144,7 @@ export function AgentPurchaseForm() {
       }
       navigate(`/agent/policies/${policy.id}`);
     }).
-    catch((err: unknown) => setError(err instanceof Error ? err.message : 'purchase.failed')).
+    catch((err: unknown) => setError({ key: err instanceof Error ? err.message : 'purchase.failed' })).
     finally(() => setSubmitting(false));
   }
 
@@ -158,11 +165,7 @@ export function AgentPurchaseForm() {
           <select
             className={`${fieldClass} pl-9`}
             value={selectedFarmer?.id ?? ''}
-            onChange={(e) => {
-              setFarmerId(e.target.value);
-              const f = farmers.find((x) => x.id === e.target.value);
-              if (f?.lga) setLga(f.lga);
-            }}>
+            onChange={(e) => chooseFarmer(e.target.value)}>
             {farmers.length === 0 && <option value="">{t('agentForm.noFarmers')}</option>}
             {farmers.map((f) =>
             <option key={f.id} value={f.id}>
@@ -199,55 +202,19 @@ export function AgentPurchaseForm() {
 
       <label className="mt-4 block text-sm font-medium">
         {t('policy.coverageWindow')}
-        <select className={fieldClass} value={windowId} onChange={(e) => setWindowId(e.target.value)}>
-          {sellable.map((w) =>
-          <option key={w.id} value={w.id}>
-              {w.label}
-            </option>
-          )}
-        </select>
+        <WindowSelect windows={sellable} value={windowId} onChange={setWindowId} covered={covered} />
       </label>
 
-      <label className="mt-4 block text-sm font-medium">
-        {t('purchase.threshold')}
-        <div className="relative">
-          <input
-            type="number"
-            inputMode="decimal"
-            min={1}
-            className={`${fieldClass} pr-12 font-mono`}
-            value={threshold}
-            placeholder={t('ph.threshold')}
-            onChange={(e) => setThreshold(e.target.value)}
-            aria-describedby="threshold-hint" />
-          <span className="pointer-events-none absolute right-3 top-1/2 mt-[3px] -translate-y-1/2 text-sm text-muted">mm</span>
-        </div>
-        <span id="threshold-hint" className="mt-1.5 block text-xs font-normal text-muted">
-          {t('purchase.recorded')}{' '}
-          <span className="font-mono">
-            {windowRainfall === null ? t('purchase.notFinalised') : `${windowRainfall.toFixed(1)} mm`}
-          </span>
-        </span>
-      </label>
+      <RainLevel level={quote.level} recordedMm={windowRainfall} />
 
-      <fieldset className="mt-4">
-        <legend className="text-sm font-medium">{t('purchase.payoutAmount')}</legend>
-        <div className="mt-1.5 grid grid-cols-3 gap-2">
-          {payoutOptionsEth.map((opt) =>
-          <button
-            key={opt}
-            type="button"
-            aria-pressed={payoutEth === opt}
-            onClick={() => setPayoutEth(opt)}
-            className={`whitespace-nowrap rounded-md border px-2 py-2 font-mono text-xs transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-            payoutEth === opt ? 'border-accent bg-accent-soft text-accent-strong' : 'border-line text-ink hover:border-muted'}`
-            }>
-              <span className="block">{formatEth(opt)}</span>
-              <span className="mt-0.5 block text-[10px] font-normal opacity-70">{formatNgn(ethToNgn(opt))}</span>
-            </button>
-          )}
-        </div>
-      </fieldset>
+      <FarmSizeField
+        value={hectares}
+        onChange={setHectares}
+        confirmed={confirmed}
+        onConfirm={setConfirmed}
+        confirmLabel={t('agentForm.confirmSize')}
+        hectares={quote.hectares}
+        payoutEth={quote.payoutEth} />
 
       <fieldset className="mt-4">
         <legend className="text-sm font-medium">{t('agentForm.howPaid')}</legend>
@@ -283,16 +250,19 @@ export function AgentPurchaseForm() {
 
       <div className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
         <div className="flex items-baseline justify-between">
-          <span className="text-muted">{t('agentForm.farmerPays')}</span>
-          <span className="font-mono text-lg font-semibold">{formatNgn(premiumNgn)}</span>
+          <span className="text-muted">
+            {t('agentForm.farmerPays')}
+            <span className="block text-xs">{t('purchase.premiumShare', { rate: percent(quote.premiumRate) })}</span>
+          </span>
+          <span className="font-mono text-lg font-semibold">{quoted ? formatNgn(premiumNgn) : '—'}</span>
         </div>
         <div className="flex items-baseline justify-between">
           <span className="text-muted">{t('agentForm.youPay')}</span>
-          <span className="font-mono">{formatEth(premiumEth)}</span>
+          <span className="font-mono">{quoted ? formatEth(quote.premiumEth, 6) : '—'}</span>
         </div>
         <div className="flex items-baseline justify-between">
           <span className="text-muted">{t('agentPolicy.commission')}</span>
-          <span className="font-mono text-clay">{formatNgn(commissionNgnAmount)}</span>
+          <span className="font-mono text-clay">{quoted ? formatNgn(commissionNgnAmount) : '—'}</span>
         </div>
         <p className="flex items-start gap-1.5 pt-1 text-xs text-muted">
           <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -305,7 +275,7 @@ export function AgentPurchaseForm() {
 
       {error &&
       <p role="alert" className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-          {t(error)}
+          {t(error.key, error.vars)}
         </p>
       }
 
@@ -319,7 +289,7 @@ export function AgentPurchaseForm() {
             {t('purchase.confirming')}
           </> :
 
-        t('agentForm.submit', { amount: formatNgn(premiumNgn) })
+        quoted ? t('agentForm.submit', { amount: formatNgn(premiumNgn) }) : t('purchase.submit')
         }
       </button>
     </form>);

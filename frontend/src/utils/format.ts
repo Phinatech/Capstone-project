@@ -39,8 +39,9 @@ export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-export function formatEth(value: number): string {
-  return `${Number(value.toFixed(4))} ETH`;
+/** ETH to four decimals; quotes pass more, so a small premium doesn't round away. */
+export function formatEth(value: number, digits = 4): string {
+  return `${Number(value.toFixed(digits))} ETH`;
 }
 
 export function formatMm(value: number): string {

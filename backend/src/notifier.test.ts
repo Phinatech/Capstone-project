@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { activityMessage, activitySms, windowDates } from "./notifier.js";
+import { activityMessage, activitySms, smsPlan, windowDates } from "./notifier.js";
+import { parseSale } from "./utils/agentStore.js";
+import { agentPayoutMessage, agentSaleMessage } from "./utils/sms.js";
 import { sendTelegram } from "./utils/telegram.js";
 
 const explorer = "https://sepolia.etherscan.io";
@@ -59,5 +61,54 @@ describe("Telegram notifications", () => {
 
     const refused = (async () => new Response(JSON.stringify({ description: "Bad Request: chat not found" }), { status: 400 })) as typeof fetch;
     await assert.rejects(sendTelegram("123:SECRET", "42", "hi", refused), (e: Error) => /chat not found/.test(e.message) && !e.message.includes("SECRET"));
+  });
+});
+
+describe("texts to a farmer who bought through an agent", () => {
+  const agentWallet = "0x00000000000000000000000000000000000000A1";
+  const users = [
+    { id: "agent-1", name: "Musa Garba", phone: "08031234567", wallet: agentWallet },
+    { id: "farmer-1", name: "Amina Bello", phone: "08097654321", wallet: "" },
+  ];
+  const parsed = parseSale({
+    policyId: 12, agentId: "agent-1", farmerId: "farmer-1", farmerName: "Amina Bello", lga: "Wamakko", crop: "Millet",
+    windowId: "1", thresholdMm: 124, hectares: 2.5, premiumEth: 0.004375, payoutEth: 0.025, premiumNgn: 14_268,
+    payoutNgn: 81_530.55, ethNgnRate: 3_261_222, paymentMethod: "cash", paymentReference: "SKT-4821", soldAt: "2027-05-20T10:00:00.000Z",
+  });
+  assert.ok(parsed.ok);
+  const sale = parsed.ok ? parsed.sale : undefined;
+  const payout = { kind: "payout" as const, policyId: 12, farmer: agentWallet, rainfallMm: 98, thresholdMm: 124, payoutEth: "0.025", txHash: "0x" };
+
+  it("keeps both texts to one plain SMS", () => {
+    for (const text of [agentSaleMessage(12345, "SKT-4821-ABCDEFGHIJKLM"), agentPayoutMessage(12345, 9_999_999, "SKT-4821-ABCDEFGHIJKLM")]) {
+      assert.ok(text.length <= 160, `fits in one SMS: ${text.length}`);
+      assert.match(text, /^[\x20-\x7e]+$/, "plain characters only");
+    }
+    assert.match(agentPayoutMessage(12, 81_530.55, "SKT-4821"), /owes you NGN 81,531 \(receipt SKT-4821\)/);
+  });
+
+  it("tells the farmer what the agent owes them when the policy pays", () => {
+    const plan = smsPlan(payout, users, sale, ["+2348011111111"]);
+    assert.deepEqual(plan.map((p) => p.phone), ["2348097654321", "2348031234567", "2348011111111"]);
+    assert.match(plan[0]!.text, /policy #12 paid out\. Your field agent owes you NGN 81,531 \(receipt SKT-4821\)/);
+    assert.match(plan[1]!.text, /paid out 0\.0250 ETH/, "the agent's wallet got the money, so the agent gets the standard text");
+  });
+
+  it("tells the farmer when the policy settles without a payout", () => {
+    const plan = smsPlan({ kind: "no_payout", policyId: 12, farmer: agentWallet, rainfallMm: 150, thresholdMm: 124, txHash: "0x" }, users, sale, []);
+    assert.equal(plan[0]!.phone, "2348097654321");
+    assert.match(plan[0]!.text, /settled\. Seasonal rainfall was 150\.0 mm/);
+  });
+
+  it("leaves the purchase text to the sale record, which names the farmer and receipt", () => {
+    const purchase = { kind: "purchase" as const, policyId: 12, farmer: agentWallet, windowPeriods: [2027071], thresholdMm: 124, payoutEth: "0.025", premiumEth: "0.004375", txHash: "0x" };
+    const plan = smsPlan(purchase, users, sale, []);
+    assert.deepEqual(plan.map((p) => p.phone), ["2348031234567"]);
+    assert.match(plan[0]!.text, /purchased for Amina Bello/);
+  });
+
+  it("texts only the wallet owner when no agent sold the policy", () => {
+    const plan = smsPlan({ ...payout, farmer: agentWallet.toLowerCase() }, users, undefined, []);
+    assert.deepEqual(plan.map((p) => p.phone), ["2348031234567"]);
   });
 });

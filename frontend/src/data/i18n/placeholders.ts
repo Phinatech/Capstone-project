@@ -11,7 +11,6 @@ export const en = {
   'ph.farmSize': 'e.g. 2.5',
   'ph.jobTitle': 'e.g. Field agent, Wamakko',
   'ph.bio': 'A sentence or two about you and your farm',
-  'ph.threshold': 'e.g. 85',
   'ph.reference': 'e.g. SKT-4821',
   'ph.deleteConfirm': 'Type DELETE',
   'ph.codeDigit': '•'
@@ -31,7 +30,6 @@ export const ha: Strings = {
   'ph.farmSize': 'misali 2.5',
   'ph.jobTitle': 'misali Wakilin filin aiki, Wamakko',
   'ph.bio': 'Jimla ɗaya ko biyu game da ku da gonarku',
-  'ph.threshold': 'misali 85',
   'ph.reference': 'misali SKT-4821',
   'ph.deleteConfirm': 'Rubuta DELETE',
   'ph.codeDigit': '•'
@@ -49,7 +47,6 @@ export const fr: Strings = {
   'ph.farmSize': 'ex. 2,5',
   'ph.jobTitle': 'ex. Agent de terrain, Wamakko',
   'ph.bio': 'Une ou deux phrases sur vous et votre exploitation',
-  'ph.threshold': 'ex. 85',
   'ph.reference': 'ex. SKT-4821',
   'ph.deleteConfirm': 'Tapez DELETE',
   'ph.codeDigit': '•'
