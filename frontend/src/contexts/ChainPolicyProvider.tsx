@@ -25,8 +25,9 @@ type Connection =
 /** Public Sepolia nodes tried when the configured one cannot answer. */
 const RPC_FALLBACKS = [
   'https://ethereum-sepolia-rpc.publicnode.com',
-  'https://sepolia.drpc.org',
-  'https://rpc.sepolia.org'
+  'https://1rpc.io/sepolia',
+  'https://gateway.tenderly.co/public/sepolia',
+  'https://sepolia.drpc.org'
 ];
 
 /**
@@ -45,7 +46,6 @@ async function resolveRpcUrl(preferred: string): Promise<string | null> {
   }
   return null;
 }
-
 async function rpc(url: string, method: string, timeoutMs = 3000, params: unknown[] = []): Promise<string> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
