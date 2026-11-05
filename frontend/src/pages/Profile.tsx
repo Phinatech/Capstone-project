@@ -128,24 +128,29 @@ export function Profile() {
 
       <section className="overflow-hidden rounded-lg border border-line bg-surface">
         <div className="h-20 bg-accent md:h-24" aria-hidden />
-        <div className="-mt-10 flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end md:px-6">
+        <div className="-mt-10 flex flex-col gap-4 px-5 pb-4 sm:flex-row sm:items-end md:px-6">
           <div className="rounded-full ring-4 ring-surface">
             <Avatar name={user.name} src={user.avatarUrl} size="lg" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
+            {/* The name sits on the banner in the row layout, so it reads
+                white there; stacked on a phone it drops below the banner,
+                where the normal ink colour keeps it visible. */}
+            <h2 className="flex items-center gap-2 text-lg font-semibold sm:text-white">
               <span className="truncate">{user.name}</span>
-              {user.emailVerified !== false && <BadgeCheckIcon className="h-4 w-4 shrink-0 text-accent" aria-label={t('profile.verified')} />}
+              {user.emailVerified !== false && <BadgeCheckIcon className="h-4 w-4 shrink-0 text-accent sm:text-white" aria-label={t('profile.verified')} />}
             </h2>
             <p className="truncate text-sm text-muted">
               {isFarmer ? `${t('profile.smallholder')}${user.primaryCrop ? ` · ${cropName(user.primaryCrop, t)}` : ''}${user.farmSizeHa ? ` · ${user.farmSizeHa} ha` : ''}` : user.title || t(user.role === 'agent' ? 'role.agent' : user.role === 'admin' ? 'role.admin' : 'role.farmer')}
             </p>
           </div>
+        </div>
+        <div className="flex justify-end px-5 pb-5 md:px-6">
           <button
             type="button"
             onClick={copyWallet}
-            className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-line px-3 py-2 font-mono text-xs transition-colors duration-150 ease-out hover:border-muted">
-            
+            className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs transition-colors duration-150 ease-out hover:border-muted">
+
             <span className="truncate">{walletOf(user)}</span>
             {copied ? <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent" aria-label={t('profile.copied')} /> : <CopyIcon className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={t('profile.copyWallet')} />}
           </button>
