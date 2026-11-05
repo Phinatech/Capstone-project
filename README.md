@@ -22,7 +22,7 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 - **Multi-source oracle** — three measurement families with reputation-weighted aggregation; a corrupted source moves the aggregate by **9%** against **59%** under equal weights
 - **Three portals** — farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
 - **Oracle research tools** — a consensus simulator (corrupt a source, compare strategies) and a backtest over 121 historical dekads
-- **293 automated tests** — plus a documented security audit with regression-pinned fixes
+- **348 automated tests** — plus a documented security audit with regression-pinned fixes
 
 ## 2. Walkthrough video
 
@@ -64,7 +64,7 @@ npm run dev:backend                # API + relayer on :3001
 npm run dev:frontend               # app on :5173 (proxies /api and /auth)
 ```
 
-**Tests** — `npm run test` runs all 293 across the workspaces · per suite: `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
+**Tests** — `npm run test` runs all 348 across the workspaces · per suite: `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
 
 **Deployed setup** — frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
 
@@ -94,9 +94,9 @@ docs/                technical-report.pdf · screenshots (10) · security-audit.
 |---|---|---|
 | Blockchain — Solidity (Hardhat) | 56 | premium maths, reserves invariant (fuzz), settlement, audit regressions |
 | Blockchain — integration (Mocha + ethers) | 13 | full purchase-to-settlement lifecycle against real contracts |
-| Backend (`node:test`) | 203 | auth flows, stores, feeds, verification codes, sale verification |
-| Frontend (Vitest) | 21 | policy evaluation, aggregation, formatting |
-| **Total** | **293** | |
+| Backend (`node:test`) | 237 | auth flows, stores, feeds, verification codes, sale verification |
+| Frontend (Vitest) | 42 | policy evaluation, aggregation, formatting |
+| **Total** | **348** | |
 
 Two testing strategies are demonstrated in the video: **unit/functional** (contract invariants and store logic) and **integration/end-to-end** (real HTTP with cookie jars, real chain reads, live deployment). Performance and compatibility measurements are in §3.4 of the technical report.
 
@@ -109,7 +109,6 @@ Two testing strategies are demonstrated in the video: **unit/functional** (contr
 | [Security audit](docs/security-audit.md) | Findings, fixes, regression tests |
 | [Backtest results](docs/backtest-results.md) | Oracle accuracy study (121 dekads) |
 | [Debugging journal](docs/debugging-journal.md) | Five production bugs, diagnosed and fixed |
-| [Demo script](docs/demo-script.md) | Scene-by-scene plan for the walkthrough video |
 | [Licences](docs/licenses.md) | Third-party components and data attributions |
 
 ## 9. License
