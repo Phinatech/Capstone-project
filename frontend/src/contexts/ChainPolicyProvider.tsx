@@ -13,6 +13,7 @@ import { formatDate } from '../utils/format';
 import { windowDays } from '../utils/windows';
 import { networkFees } from '../chain/fees';
 import { connectedAccounts, requestWallet } from '../chain/wallet';
+import { refreshWhileVisible } from '../utils/refreshWhileVisible';
 import { PolicyContext, type PolicyContextValue, type PurchaseInput, type WindowOption } from './policyContextCore';
 import type { EvaluationResult, Policy, SourceReading } from '../types/insurance';
 import type { User } from '../types/user';
@@ -21,6 +22,9 @@ type Connection =
   {phase: 'connecting';} |
   {phase: 'ready';provider: JsonRpcProvider | BrowserProvider;chainId: bigint;accounts: string[];isWallet: boolean;rpcUrl: string;} |
   {phase: 'failed';reason: string;};
+
+/** How often an open tab re-reads policies, rainfall and the pool. The relayer posts hourly. */
+const CHAIN_REFRESH_MS = 60_000;
 
 /** Public Sepolia nodes tried when the configured one cannot answer. */
 const RPC_FALLBACKS = [
@@ -222,7 +226,7 @@ function writeMeta(insurance: string, id: number, entry: PolicyMeta[number]) {
 
 
 
-/** A balance read slower than this is left for the next block's refresh. */
+/** A balance read slower than this is left for the next refresh. */
 const BALANCE_TIMEOUT_MS = 6_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -557,7 +561,7 @@ function ChainData({
         // Neither read may take the snapshot down with it, nor hold the page
         // on a slow node. A failed balance leaves the entry unset, and
         // walletConnected is what lets the form call that "not connected"
-        // rather than "broke"; the next block's refresh fills it in.
+        // rather than "broke"; the next refresh fills it in.
         try {
           balances[u.id] = Number(formatEther(await withTimeout(readProvider.getBalance(a), BALANCE_TIMEOUT_MS)));
         } catch {
@@ -602,14 +606,10 @@ function ChainData({
     }
   }, [load]);
 
-  useEffect(() => {
-    void refresh();
-    const onBlock = () => void refresh();
-    void provider.on('block', onBlock);
-    return () => {
-      void provider.off('block', onBlock);
-    };
-  }, [provider, refresh]);
+  // Once a minute while the tab is on screen, and straight away when it comes
+  // back; not on every block, which spent the site's daily Cloudflare request
+  // allowance (see refreshWhileVisible). Buying or settling reloads by itself.
+  useEffect(() => refreshWhileVisible(() => void refresh(), CHAIN_REFRESH_MS), [refresh]);
 
   /**
    * The account that signs for this user and the provider to sign with. With

@@ -85,12 +85,20 @@ every push.
    every API call cross-origin — and a cross-origin call does not carry a
    `SameSite=Lax` session cookie, so sign-in would return 200, drop the cookie,
    and bounce you straight back to the sign-in page. It is empty now so the
-   frontend calls relative paths, which `functions/api/[[path]].js` forwards to
+   frontend calls relative paths, which `functions/_middleware.js` forwards to
    Render over Cloudflare's own network. The browser only ever sees
    `*.pages.dev`, the cookie stays first-party, and the session works.
 
    If you ever set `VITE_API_URL` again, you bypass that function and
    reintroduce the problem — leave it empty.
+
+   **Daily request limit.** The free plan allows 100,000 Function requests a
+   day. `frontend/public/_routes.json` runs the Function only for `/api/*` and
+   `/auth/*`, so pages, scripts and images are served as static files, which are
+   free and uncounted. Open tabs re-read the API once a minute and stop while
+   hidden; reloading on every block once used the allowance with three tabs.
+   Cloudflare emails the account at 75%; usage is under **Workers & Pages >
+   the project > Functions > Metrics**.
 
 4. **Save and Deploy**. The site is at `https://<project>.pages.dev`.
 

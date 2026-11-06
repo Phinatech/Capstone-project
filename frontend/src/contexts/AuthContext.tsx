@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { ApiError, api } from '../api/client';
 import { useI18n } from './I18nContext';
 import { loadDirectory, setDirectory } from '../utils/users';
+import { refreshWhileVisible } from '../utils/refreshWhileVisible';
 import type { TranslationKey } from '../data/translations';
 import type { ProfilePatch, SignUpInput, User } from '../types/user';
 
@@ -119,24 +120,17 @@ export function AuthProvider({ children }: {children: React.ReactNode;}) {
   }, []);
 
   // Names, LGAs and wallets come from the server too, for signed-in users only.
-  // Re-read every minute and whenever the tab regains focus, so a farmer who
-  // signs up or edits their profile appears in an agent's or admin's open
-  // portal without a reload. Signing out clears it, so the next person on
-  // this browser never sees the previous account's view.
+  // Re-read every minute while the tab is on screen and whenever it regains
+  // focus, so a farmer who signs up or edits their profile appears in an
+  // agent's or admin's open portal without a reload. Signing out clears it, so
+  // the next person on this browser never sees the previous account's view.
   const signedInAs = user ? `${user.id}:${user.role}` : null;
   useEffect(() => {
     if (!signedInAs) {
       setDirectory([]);
       return;
     }
-    void loadDirectory();
-    const reload = () => void loadDirectory();
-    const id = window.setInterval(reload, 60_000);
-    window.addEventListener('focus', reload);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener('focus', reload);
-    };
+    return refreshWhileVisible(() => void loadDirectory(), 60_000);
   }, [signedInAs]);
 
   const signInWithPassword = useCallback(

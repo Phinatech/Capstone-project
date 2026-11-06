@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import type { AgentSale } from '../utils/agentSales';
+import { refreshWhileVisible } from '../utils/refreshWhileVisible';
 
 // Empty by default so requests go through Vite's proxy and share the UI's
 // origin, which is what lets the session cookie travel with them.
@@ -234,16 +235,10 @@ export function AgentSalesProvider({ children }: {children: React.ReactNode;}) {
       return;
     }
     setLoading(true);
-    void refresh();
     // A sale recorded on the agent's other device appears here without a
-    // reload: re-read the book every minute and when the tab regains focus.
-    const reload = () => void refresh();
-    const id = window.setInterval(reload, 60_000);
-    window.addEventListener('focus', reload);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener('focus', reload);
-    };
+    // reload: re-read the book every minute while the tab is on screen and
+    // when it regains focus.
+    return refreshWhileVisible(() => void refresh(), 60_000);
   }, [agentId, refresh]);
 
   const record = useCallback(
