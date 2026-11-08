@@ -1,6 +1,46 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isTransientRpcError, withRpcRetry } from "./utils/rpcRetry.js";
+import { createFailover, isRateLimitMessage, isTransientRpcError, withRpcRetry } from "./utils/rpcRetry.js";
+
+describe("moving between RPC nodes", () => {
+  /** A call that fails on the nodes named in `down`, and records each node it tried. */
+  function callNodes(...down: string[]) {
+    const tried: string[] = [];
+    const call = async (node: string) => {
+      tried.push(node);
+      if (down.includes(node)) throw new Error(`${node} is down`);
+      return node;
+    };
+    return { call, tried };
+  }
+
+  it("uses the first node while it answers", async () => {
+    const { call, tried } = callNodes();
+    assert.equal(await createFailover(["a", "b"])(call), "a");
+    assert.deepEqual(tried, ["a"]);
+  });
+
+  it("moves on when a node fails, and stays on the one that answered", async () => {
+    const { call, tried } = callNodes("a");
+    const onNodes = createFailover(["a", "b", "c"]);
+    assert.equal(await onNodes(call), "b");
+    assert.equal(await onNodes(call), "b");
+    assert.deepEqual(tried, ["a", "b", "b"], "a failed once and was not asked again");
+  });
+
+  it("reports the failure when every node is down", async () => {
+    const { call, tried } = callNodes("a", "b");
+    await assert.rejects(createFailover(["a", "b"])(call), /b is down/);
+    assert.deepEqual(tried, ["a", "b"]);
+  });
+
+  it("recognises a rate limit sent in a normal reply, but not a contract revert", () => {
+    assert.equal(isRateLimitMessage("Too Many Requests"), true);
+    assert.equal(isRateLimitMessage("daily request quota reached"), true);
+    assert.equal(isRateLimitMessage("execution reverted"), false);
+    assert.equal(isRateLimitMessage(undefined), false);
+  });
+});
 
 /** A sleep that returns at once, so the tests don't really wait out the backoff. */
 const noSleep = async (): Promise<void> => {};

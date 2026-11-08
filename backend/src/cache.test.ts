@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { withCache } from "./utils/cache.js";
+import { MAX_WAIT_MS, withCache } from "./utils/cache.js";
 
 /** A node whose head moves through `heads`, then stays on the last one. */
 function nodeAt(...heads: number[]) {
@@ -52,6 +52,21 @@ describe("withCache", () => {
     await sleep(5);
     assert.equal(read.calls(), 2, "the re-read ran behind the scenes");
     assert.equal(await withCache("swr", 60_000, read.fn, nodeAt(101)), "new");
+  });
+
+  it("still serves a read from hours ago at once, so a quiet night costs nobody a wait", async (t) => {
+    const read = reads("last night", "this morning");
+    await withCache("night", 1, read.fn, nodeAt(100));
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 8 * 60 * 60_000 });
+    assert.equal(await withCache("night", 1, read.fn, nodeAt(101)), "last night");
+  });
+
+  it("stops a visitor waiting on a read that never answers", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const waiting = withCache("hung", 60_000, () => new Promise<string>(() => {}), nodeAt(100));
+    const gaveUp = assert.rejects(waiting, /chain read took over/);
+    t.mock.timers.tick(MAX_WAIT_MS);
+    await gaveUp;
   });
 
   it("shares one read between callers that arrive together", async () => {

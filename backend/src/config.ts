@@ -12,7 +12,25 @@ function required(name: string): string {
   return value;
 }
 
+/** A comma-separated list of URLs from the environment, or `fallback` if the variable isn't set. */
+function urlList(name: string, fallback: string[]): string[] {
+  const value = process.env[name];
+  return value === undefined ? fallback : value.split(",").map((url) => url.trim()).filter(Boolean);
+}
+
 const rpcUrl = process.env.RPC_URL ?? "http://localhost:8545";
+const logsRpcUrl = process.env.LOGS_RPC_URL?.trim() || rpcUrl;
+const localChain = /^https?:\/\/(localhost|127\.0\.0\.1)\b/.test(rpcUrl);
+
+/** Free public Sepolia nodes, tried in turn when the configured one stops answering. */
+const SEPOLIA_NODES = [
+  "https://sepolia.gateway.tenderly.co",
+  "https://ethereum-sepolia-rpc.publicnode.com",
+  "https://0xrpc.io/sep",
+  "https://1rpc.io/sepolia",
+];
+/** The public nodes that keep logs back to DEPLOY_BLOCK and allow 50,000 blocks per request. */
+const SEPOLIA_LOG_NODES = ["https://sepolia.gateway.tenderly.co", "https://gateway.tenderly.co/public/sepolia"];
 
 export const config = {
   port: Number(process.env.PORT ?? 3001),
@@ -21,7 +39,11 @@ export const config = {
    * RPC for event history (eth_getLogs). Defaults to RPC_URL; set it when that
    * provider caps the block range too tightly (Alchemy's free tier: 10 blocks).
    */
-  logsRpcUrl: process.env.LOGS_RPC_URL?.trim() || rpcUrl,
+  logsRpcUrl,
+  /** Nodes the API reads contracts from, in order of preference. */
+  rpcNodes: [...new Set([rpcUrl, ...urlList("RPC_FALLBACK_URLS", localChain ? [] : SEPOLIA_NODES)])],
+  /** Nodes the API reads event history from, in order of preference. */
+  logsNodes: [...new Set([logsRpcUrl, ...urlList("LOGS_RPC_FALLBACK_URLS", localChain ? [] : SEPOLIA_LOG_NODES)])],
   /** Most blocks one eth_getLogs request may span on LOGS_RPC_URL. */
   logsBlockRange: wholeNumber("LOGS_BLOCK_RANGE", 10_000, 1),
   /** Block the contracts were deployed in; event history is read from here. */

@@ -2,11 +2,11 @@
  * Reads policy, oracle, and window data from the blockchain.
  * Used by the API endpoints to serve cached data to the frontend.
  */
-import { JsonRpcProvider, Contract, formatEther, type EventLog, type JsonRpcPayload, type JsonRpcResult } from "ethers";
+import { FetchRequest, JsonRpcProvider, Contract, formatEther, type EventLog, type JsonRpcPayload, type JsonRpcResult } from "ethers";
 import { config } from "../config.js";
 import { blockChunks } from "./logChunks.js";
 import { mapLimit } from "./concurrency.js";
-import { withRpcRetry } from "./rpcRetry.js";
+import { createFailover, isRateLimitMessage, withRpcRetry } from "./rpcRetry.js";
 
 /**
  * How many per-item contract reads to run at once; each one is a round trip.
@@ -17,38 +17,65 @@ const READ_CONCURRENCY = 3;
 
 const range = (count: number) => Array.from({ length: count }, (_, i) => i);
 
+/** How long one node gets to answer. Left alone, ethers waits up to five minutes. */
+const RPC_TIMEOUT_MS = 10_000;
+
+/** One JSON-RPC request to one node, with no waiting around if it is busy. */
+async function postTo(node: string, payload: JsonRpcPayload | JsonRpcPayload[]): Promise<JsonRpcResult[]> {
+  const request = new FetchRequest(node);
+  request.timeout = RPC_TIMEOUT_MS;
+  // ethers retries a 429 twelve times with growing waits, which held a page
+  // for minutes. Another node can answer now, so give up on this one at once.
+  request.retryFunc = async () => false;
+  request.setHeader("content-type", "application/json");
+  request.body = JSON.stringify(payload);
+  const response = await request.send();
+  response.assertOk();
+  const body = response.bodyJson as JsonRpcResult | JsonRpcResult[];
+  const results = Array.isArray(body) ? body : [body];
+  for (const result of results as Array<JsonRpcResult & { error?: { message?: unknown } }>) {
+    if (isRateLimitMessage(result.error?.message)) throw new Error(`RPC node is rate limiting: ${String(result.error?.message)}`);
+  }
+  return results;
+}
+
 /**
  * Every read below goes through this provider. Public Sepolia endpoints drop
- * connections now and then, and a single `request timeout` would turn a whole
- * API route into a 500 that the frontend shows as a blank screen. Every call
- * made here is a read, so re-running it is always safe.
- */
-/**
- * Every read below goes through this provider. Public Sepolia endpoints drop
- * connections now and then, and a single `request timeout` would turn a whole
- * API route into a 500 that the frontend shows as a blank screen. Every call
- * made here is a read, so re-running it is always safe.
+ * connections and rate-limit now and then, and a single failure would turn a
+ * whole API route into a 500 that the frontend shows as an error page. Every
+ * call made here is a read, so re-running it on another node is always safe.
  *
  * `batchMaxCount: 1` matters as much as the retry. ethers groups concurrent
  * calls into one batched HTTP request; retrying that batch re-sends frames the
  * queue has already handed out, so the original callers wait forever on
  * promises nothing will ever resolve. It showed up as reads that hung with no
  * error and no timeout anywhere. One call per request keeps the retry honest.
+ * `staticNetwork` stops ethers asking every node for its chain id on each call.
  */
-class RetryingProvider extends JsonRpcProvider {
+class FailoverProvider extends JsonRpcProvider {
+  readonly #onNodes: ReturnType<typeof createFailover>;
+
+  constructor(nodes: readonly string[]) {
+    super(nodes[0], undefined, { batchMaxCount: 1, staticNetwork: true });
+    this.#onNodes = createFailover(nodes);
+  }
+
   override async _send(payload: JsonRpcPayload | JsonRpcPayload[]): Promise<JsonRpcResult[]> {
-    return withRpcRetry(() => super._send(payload));
+    return withRpcRetry(() => this.#onNodes((node) => postTo(node, payload)), 2);
   }
 }
 
-const provider = new RetryingProvider(config.rpcUrl, undefined, { batchMaxCount: 1 });
-const logsProvider =
-  config.logsRpcUrl === config.rpcUrl ? provider : new RetryingProvider(config.logsRpcUrl, undefined, { batchMaxCount: 1 });
+const provider = new FailoverProvider(config.rpcNodes);
+const logsProvider = config.logsNodes.join() === config.rpcNodes.join() ? provider : new FailoverProvider(config.logsNodes);
 
-/** Head block both RPCs have reached: reads and event scans reflect at least this block. */
+/**
+ * Head block both RPCs have reached: reads and event scans reflect at least
+ * this block. Only some reads need event history, so its nodes being down must
+ * not stop the others.
+ */
 export async function headBlock(): Promise<number> {
   if (logsProvider === provider) return provider.getBlockNumber();
-  const [readsHead, logsHead] = await Promise.all([provider.getBlockNumber(), logsProvider.getBlockNumber()]);
+  const [readsHead, logsHead] = await Promise.all([provider.getBlockNumber(), logsProvider.getBlockNumber().catch(() => Infinity)]);
   return Math.min(readsHead, logsHead);
 }
 

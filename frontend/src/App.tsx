@@ -18,6 +18,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorPage } from './pages/ErrorPage';
 import { NotFound } from './pages/NotFound';
 import { isStaleBuildError, reloadForNewBuild } from './utils/staleBuild';
+import type { Role } from './types/user';
 
 // A page file that fails to load because the site was redeployed since this
 // tab opened is fetched again with the new build, instead of crashing the page.
@@ -78,14 +79,7 @@ function AppRoutes() {
             <Route path="/privacy" element={<Navigate to="/terms#privacy" replace />} />
             <Route path="/error" element={<ErrorPage fullScreen />} />
 
-            <Route
-            path="/farmer"
-            element={
-            <RequireRole role="farmer">
-                  <DashboardLayout />
-                </RequireRole>
-            }>
-            
+            <Route path="/farmer" element={<Portal role="farmer" />}>
               <Route index element={<FarmerDashboard />} />
               <Route path="policies" element={<FarmerPolicies />} />
               <Route path="policies/new" element={<BuyCover />} />
@@ -97,14 +91,7 @@ function AppRoutes() {
               <Route path="*" element={<NotFound />} />
             </Route>
 
-            <Route
-            path="/admin"
-            element={
-            <RequireRole role="admin">
-                  <DashboardLayout />
-                </RequireRole>
-            }>
-            
+            <Route path="/admin" element={<Portal role="admin" />}>
               <Route index element={<AdminOverview />} />
               <Route path="policies" element={<AdminPolicies />} />
               <Route path="policies/:policyId" element={<AdminPolicyDetail />} />
@@ -119,13 +106,7 @@ function AppRoutes() {
               <Route path="*" element={<NotFound />} />
             </Route>
 
-            <Route
-              path="/agent"
-              element={
-                <RequireRole role="agent">
-                  <DashboardLayout />
-                </RequireRole>
-              }>
+            <Route path="/agent" element={<Portal role="agent" />}>
               <Route index element={<AgentDashboard />} />
               <Route path="policies" element={<AgentPolicies />} />
               <Route path="policies/new" element={<AgentBuyCover />} />
@@ -151,6 +132,21 @@ function AppRoutes() {
 
 }
 
+/**
+ * A signed-in portal, the only part of the site that reads the chain: the home
+ * page and sign-in must appear at once even when a blockchain node is down.
+ */
+function Portal({ role }: {role: Role;}) {
+  return (
+    <RequireRole role={role}>
+      <PolicyProvider>
+        <PolicyActivitySync />
+        <DashboardLayout />
+      </PolicyProvider>
+    </RequireRole>);
+
+}
+
 function Motion({ children }: {children: React.ReactNode;}) {
   const { prefs } = usePreferences();
   return <MotionConfig reducedMotion={prefs.reduceMotion ? 'always' : 'user'}>{children}</MotionConfig>;
@@ -168,10 +164,7 @@ export function App() {
                   <AgentSalesProvider>
                     <FxProvider>
                       <NotificationProvider>
-                        <PolicyProvider>
-                          <PolicyActivitySync />
-                          <AppRoutes />
-                        </PolicyProvider>
+                        <AppRoutes />
                       </NotificationProvider>
                     </FxProvider>
                   </AgentSalesProvider>

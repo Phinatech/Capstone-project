@@ -57,9 +57,23 @@ export interface ChainReadOptions {
 
 /**
  * How long past its TTL a read may still be served while a fresh one is
- * fetched in the background. Beyond this, callers wait for the re-read.
+ * fetched in the background. A day, so the first visitor after a quiet night
+ * doesn't pay for the re-read: their page reloads within a minute anyway, and
+ * anyone who has just sent a transaction asks for `minBlock` and gets it.
+ * Beyond this, callers wait for the re-read.
  */
-const MAX_STALE_MS = 10 * 60_000;
+const MAX_STALE_MS = 24 * 60 * 60_000;
+
+/** The longest a visitor waits on a chain read; the read carries on for whoever asks next. */
+export const MAX_WAIT_MS = 45_000;
+
+function withinWait<T>(read: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`chain read took over ${MAX_WAIT_MS / 1000} s`)), MAX_WAIT_MS);
+  });
+  return Promise.race([read, expired]).finally(() => clearTimeout(timer));
+}
 
 /** One read per key at a time: concurrent callers share it. */
 const inflight = new Map<string, Promise<unknown>>();
@@ -90,7 +104,7 @@ export async function withCache<T>(
       return entry.data;
     }
   }
-  return reread(key, ttlMs, fn, headBlock, minBlock);
+  return withinWait(reread(key, ttlMs, fn, headBlock, minBlock));
 }
 
 function reread<T>(key: string, ttlMs: number, fn: () => Promise<T>, headBlock: () => Promise<number>, minBlock: number): Promise<T> {

@@ -36,6 +36,34 @@ export function isTransientRpcError(error: unknown): boolean {
   return TRANSIENT.some((needle) => text.includes(needle));
 }
 
+/** A node saying "slow down" inside a normal JSON reply instead of with an HTTP 429. */
+export function isRateLimitMessage(message: unknown): boolean {
+  return typeof message === "string" && /too many requests|rate.?limit|capacity exceeded|quota/i.test(message);
+}
+
+/**
+ * Returns a function that runs a call against each node in turn until one
+ * answers, starting from the last one that did. Free public nodes rate-limit
+ * or stall without warning; one of them must not be able to take the site down.
+ */
+export function createFailover(nodes: readonly string[]) {
+  let preferred = 0;
+  return async <T>(call: (node: string) => Promise<T>): Promise<T> => {
+    let lastError: unknown;
+    for (let tried = 0; tried < nodes.length; tried++) {
+      const index = (preferred + tried) % nodes.length;
+      try {
+        const result = await call(nodes[index]!);
+        preferred = index;
+        return result;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
+  };
+}
+
 /**
  * Runs `work`, re-running it up to `attempts` times while the failures look
  * like a flaky node. Backoff doubles each time so the node gets room to recover.
