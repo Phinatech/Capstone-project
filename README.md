@@ -2,7 +2,7 @@
 
 **Weather-index insurance on Ethereum: automatic drought cover for smallholder farmers in Sokoto State, Nigeria.**
 
-If rainfall during the coverage window falls below the threshold a farmer chooses at purchase, the smart contract pays them **automatically** — no claim form, no assessor. Rainfall comes from three independent sources (CHIRPS, NASA POWER, Meteostat) aggregated on-chain with **reputation weighting**, so no single source can decide a claim.
+If rainfall during a coverage window falls below the level set for that window, the smart contract pays the policyholder **automatically** — no claim form, no assessor. Rainfall comes from three independent sources (CHIRPS, NASA POWER, Meteostat) aggregated on-chain with **reputation weighting** and a two-source quorum, so no single source can decide a claim.
 
 **Live:** [sokoto-cover.pages.dev](https://sokoto-cover.pages.dev) · **Chain:** Ethereum Sepolia (`0x8520A0697D018a380a91CB65096AB50F5B65D6D5`)
 
@@ -14,15 +14,17 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 |---|---|
 | **What it is** | A full-stack dApp: Solidity contracts, an Express/TypeScript oracle relayer + API, and a React/TypeScript frontend with farmer, field-agent and admin portals |
 | **Why it exists** | Conventional crop insurance cannot reach smallholder farmers, because assessing a loss costs more than a claim is worth. Index insurance removes assessment entirely; this project removes the need to *trust the index* by measuring it from three sources on a public chain |
-| **What's real** | Live contracts on Sepolia, a live relayer feeding real rainfall data, a real policy bought and **paid out autonomously** during evaluation |
+| **What's real** | Live contracts on Sepolia, a live relayer feeding real rainfall data, and seven policies bought during evaluation, five of them **paid out automatically** |
 
 **Key properties**
 
 - **Claims-free settlement** — `checkAndSettle` pushes the payout to the policyholder's wallet when the window's rainfall falls short
-- **Multi-source oracle** — three measurement families with reputation-weighted aggregation; a corrupted source moves the aggregate by **9%** against **59%** under equal weights
-- **Three portals** — farmer (buy cover, monitor, payouts), field agent (sell cover, naira receipts verified against the chain), admin (policies, farmers and agents, oracle research)
+- **Multi-source oracle** — three measurement families with reputation-weighted aggregation and a two-source quorum. In the corruption experiment, one bad source changed up to **73%** of payout decisions in a single-source design. Static weights alone were no more robust than equal weights; a per-reading agreement rule, evaluated in the simulator and not yet deployed on-chain, cut the worst case from **40%** to **15%**
+- **Cover priced from history** — each window's rainfall level is set from 1981 to 2024 rainfall at the index point, so it would have paid in about one year in ten. Cover is 0.01 test ETH per hectare for farms of 1 to 5 ha, the premium is **17.5%** of the payout and is read from the contract, and each farmer holds one policy per window. The level, farm-size and one-policy rules are applied by the application and server, not yet by the contract
+- **Three portals** — farmer (buy cover, with MetaMask opening when Pay is pressed; monitor; payouts), field agent (sell cover, naira receipts verified against the chain, optional SMS receipt and payout notice to the farmer), admin (policies, farmers and agents, oracle research)
+- **Keeps working when a node fails** — the API moves to another public Sepolia gateway when one stops answering and serves its last good data while it refreshes, and public pages never wait for the chain
 - **Oracle research tools** — a consensus simulator (corrupt a source, compare strategies) and a backtest over 121 historical dekads
-- **348 automated tests** — plus a documented security audit with regression-pinned fixes
+- **358 automated tests** — plus a documented security audit with regression-pinned fixes
 
 ## 2. Walkthrough video
 
@@ -37,7 +39,7 @@ If rainfall during the coverage window falls below the threshold a farmer choose
 | Layer | Technology |
 |---|---|
 | Runtime | Node.js ≥ 22.13 (`npm` workspaces) |
-| Contracts | Solidity 0.8.x · Hardhat 3 · OpenZeppelin patterns · Ignition deploy |
+| Contracts | Solidity 0.8.x · Hardhat 3 · Ignition deploy |
 | Chain | Ethereum **Sepolia** testnet · ethers.js v6 |
 | Backend | Express · TypeScript · `node:test` (Node 22) |
 | Database | Firebase Firestore (free Spark plan) · firebase-admin SDK |
@@ -56,7 +58,8 @@ npm install                        # one install for all workspaces
 
 # Configure (copy each .env.example to .env and fill in):
 #   backend/.env    : RPC_URL, contract addresses, ADMIN_*, FIREBASE_SERVICE_ACCOUNT,
-#                     MAIL_USER/MAIL_PASSWORD (optional), AUTH_DEMO_ACCOUNTS=false
+#                     MAIL_USER/MAIL_PASSWORD (optional), AUTH_DEMO_ACCOUNTS=false,
+#                     RPC_FALLBACK_URLS/LOGS_RPC_FALLBACK_URLS (optional backup nodes)
 #   frontend/.env   : VITE_RPC_URL, VITE_WEATHER_INDEX_INSURANCE_ADDRESS,
 #                     VITE_ORACLE_AGGREGATOR_ADDRESS (leave VITE_API_URL empty)
 
@@ -64,7 +67,7 @@ npm run dev:backend                # API + relayer on :3001
 npm run dev:frontend               # app on :5173 (proxies /api and /auth)
 ```
 
-**Tests** — `npm run test` runs all 348 across the workspaces · per suite: `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
+**Tests** — `npm run test` runs all 358 across the workspaces · per suite: `npm run test:blockchain` · `npm run test:backend` · `npm run test:frontend`
 
 **Deployed setup** — frontend on Cloudflare Pages, API/relayer on Render, contracts on Sepolia (see `docs/deployment.md`). The administrator account and any permanent agent/farmer accounts are provisioned from environment variables (`ADMIN_*`, `SEED_USERS`), so they survive restarts.
 
@@ -94,9 +97,9 @@ docs/                technical-report.pdf · screenshots (10) · security-audit.
 |---|---|---|
 | Blockchain — Solidity (Hardhat) | 56 | premium maths, reserves invariant (fuzz), settlement, audit regressions |
 | Blockchain — integration (Mocha + ethers) | 13 | full purchase-to-settlement lifecycle against real contracts |
-| Backend (`node:test`) | 237 | auth flows, stores, feeds, verification codes, sale verification |
-| Frontend (Vitest) | 42 | policy evaluation, aggregation, formatting |
-| **Total** | **348** | |
+| Backend (`node:test`) | 243 | auth flows, stores, feeds, verification codes, sale verification, cache and RPC failover |
+| Frontend (Vitest) | 46 | policy evaluation, aggregation, formatting, rainfall levels, network fees, wallet connection, background refresh |
+| **Total** | **358** | |
 
 Two testing strategies are demonstrated in the video: **unit/functional** (contract invariants and store logic) and **integration/end-to-end** (real HTTP with cookie jars, real chain reads, live deployment). Performance and compatibility measurements are in §3.4 of the technical report.
 

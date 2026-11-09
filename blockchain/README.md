@@ -55,7 +55,8 @@ hardhat.config.ts
    salesCloseAt)`: a list of dekad periods (`YYYYMMD`, e.g. `2026071` for
    1-10 Jul 2026) and a deadline after which no more cover is sold.
 2. A farmer calls `buyPolicy(windowId, droughtThresholdMm, payoutAmount)`,
-   sending `quotePremium(payoutAmount)` (10% of the payout by default). The
+   sending `quotePremium(payoutAmount)` (10% of the payout at deployment; the
+   owner set the live Sepolia rate to 17.5% with `setPremiumRate`). The
    sale reserves the payout and is refused if the pool can't cover it.
 3. Oracles report each dekad once to `OracleAggregator` (at most 500.00 mm,
    `MAX_READING`; larger values are rejected as implausible). Anyone can then
