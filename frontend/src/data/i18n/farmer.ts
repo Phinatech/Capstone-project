@@ -1,7 +1,7 @@
 /** The farmer portal: dashboard, policies, buying cover and payouts. */
 export const en = {
   'farmerDash.step1.title': 'Buy cover',
-  'farmerDash.step1.text': 'Choose a window and the rainfall level that would hurt your harvest.',
+  'farmerDash.step1.text': 'Choose a window and confirm your farm size. Each window has a set rainfall level.',
   'farmerDash.step2.title': 'Rainfall is checked',
   'farmerDash.step2.text': 'Three independent sources are compared when the window closes.',
   'farmerDash.step3.title': 'Paid automatically',
@@ -84,7 +84,7 @@ type Strings = Record<keyof typeof en, string>;
 
 export const ha: Strings = {
   'farmerDash.step1.title': 'Sayi inshora',
-  'farmerDash.step1.text': 'Zaɓi lokacin kariya da matakin ruwan sama da zai cutar da girbinku.',
+  'farmerDash.step1.text': 'Zaɓi lokacin kariya kuma ku tabbatar da girman gonarku. Kowane lokaci yana da matakin ruwan sama da aka saita.',
   'farmerDash.step2.title': 'Ana duba ruwan sama',
   'farmerDash.step2.text': 'Ana kwatanta tushe uku masu zaman kansu idan lokacin kariya ya ƙare.',
   'farmerDash.step3.title': 'Ana biya kai tsaye',
@@ -165,7 +165,7 @@ export const ha: Strings = {
 
 export const fr: Strings = {
   'farmerDash.step1.title': 'Souscrire',
-  'farmerDash.step1.text': 'Choisissez une période et le niveau de pluie qui nuirait à votre récolte.',
+  'farmerDash.step1.text': 'Choisissez une période et confirmez la taille de votre exploitation. Chaque période a un niveau de pluie fixé.',
   'farmerDash.step2.title': 'La pluie est vérifiée',
   'farmerDash.step2.text': 'Trois sources indépendantes sont comparées à la clôture de la période.',
   'farmerDash.step3.title': 'Versement automatique',

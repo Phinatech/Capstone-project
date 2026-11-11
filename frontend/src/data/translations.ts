@@ -28,7 +28,7 @@ export const en = {
   'brand.tagline': 'Weather index insurance',
   'brand.heroTitle': 'Automatic rainfall cover for smallholder farmers in Sokoto State.',
   'brand.heroText':
-  "Payouts are decided by three independent rainfall sources, weighted by how reliably each has agreed with the others, so one bad reading can't decide a farmer's claim.",
+  "Payouts are decided by three independent rainfall sources, each weighted by its reliability, and at least two must report, so one bad reading can't decide a farmer's claim.",
 
   'section.cover': 'Cover',
   'section.account': 'Account',
@@ -248,7 +248,7 @@ export const ha: Dictionary = {
   'brand.tagline': 'Inshorar yanayin ruwan sama',
   'brand.heroTitle': 'Inshorar ruwan sama kai tsaye ga ƙananan manoma a Jihar Sokoto.',
   'brand.heroText':
-  'Tushen bayanan ruwan sama guda uku masu zaman kansu ne ke yanke biyan kuɗi, bisa yadda kowane ya yi daidai da sauran, don kada karatu ɗaya mara kyau ya yanke hukunci.',
+  'Tushen bayanan ruwan sama guda uku masu zaman kansu ne ke yanke biyan kuɗi, kowanne bisa amincinsa, kuma sai aƙalla biyu sun ba da rahoto, don kada karatu ɗaya mara kyau ya yanke hukunci.',
 
   'section.cover': 'Inshora',
   'section.account': 'Asusu',
@@ -465,7 +465,7 @@ export const fr: Dictionary = {
   'brand.tagline': 'Assurance indicielle météo',
   'brand.heroTitle': 'Une couverture pluie automatique pour les petits exploitants de l’État de Sokoto.',
   'brand.heroText':
-  'Les indemnisations sont décidées par trois sources de pluviométrie indépendantes, pondérées selon leur fiabilité, afin qu’une seule mauvaise mesure ne décide pas du sort d’un agriculteur.',
+  'Les indemnisations sont décidées par trois sources de pluviométrie indépendantes, pondérées selon leur fiabilité, et au moins deux doivent répondre, afin qu’une seule mauvaise mesure ne décide pas du sort d’un agriculteur.',
 
   'section.cover': 'Couverture',
   'section.account': 'Compte',

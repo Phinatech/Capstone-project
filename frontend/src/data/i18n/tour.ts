@@ -1,10 +1,10 @@
 /** The welcome tour for each role and the "What's new" notes. */
 export const en = {
   'tour.farmer.1.title': 'Cover that pays without a claim',
-  'tour.farmer.1.body': 'Choose a coverage window and the rainfall level that would hurt your harvest. If the rain falls short, you are paid automatically.',
+  'tour.farmer.1.body': 'Choose a coverage window and confirm your farm size. Each window has a rainfall level set from 44 years of records. If the rain falls short, you are paid automatically.',
   'tour.farmer.2.title': 'Three sources, one fair decision',
   'tour.farmer.2.body':
-    'CHIRPS, NASA POWER and Meteostat are compared. A source that disagrees sharply with the others loses influence, so one bad reading cannot decide your payout.',
+    'CHIRPS, NASA POWER and Meteostat report rainfall separately. At least two must report before a result counts, so one bad reading cannot decide your payout.',
   'tour.farmer.3.title': 'Paid where you bought',
   'tour.farmer.3.body':
     'Cover you buy yourself pays into your Sepolia wallet; cover an agent sold you is paid through that agent in naira. Track every policy, payout and alert from your dashboard and notifications.',
@@ -37,10 +37,10 @@ type Strings = Record<keyof typeof en, string>;
 
 export const ha: Strings = {
   'tour.farmer.1.title': 'Inshorar da ke biya ba tare da ƙara ba',
-  'tour.farmer.1.body': 'Zaɓi lokacin kariya da matakin ruwan sama da zai cutar da girbinku. Idan ruwan sama bai isa ba, za a biya ku kai tsaye.',
+  'tour.farmer.1.body': 'Zaɓi lokacin kariya kuma ku tabbatar da girman gonarku. An saita matakin ruwan sama na kowane lokaci daga bayanan shekaru 44. Idan ruwan sama bai isa ba, za a biya ku kai tsaye.',
   'tour.farmer.2.title': 'Tushe uku, hukunci ɗaya na adalci',
   'tour.farmer.2.body':
-    'Ana kwatanta CHIRPS, NASA POWER da Meteostat. Tushen da ya saɓa sosai da sauran yana rasa tasiri, don haka karatu mara kyau ɗaya ba zai yanke hukuncin biyan kuɗinku ba.',
+    'CHIRPS, NASA POWER da Meteostat suna ba da rahoton ruwan sama daban-daban. Sai aƙalla biyu sun ba da rahoto kafin a karɓi sakamako, don haka karatu mara kyau ɗaya ba zai yanke hukuncin biyan kuɗinku ba.',
   'tour.farmer.3.title': 'Ana biya ta inda kuka saya',
   'tour.farmer.3.body':
     'Inshorar da kuka saya da kanku tana biya zuwa walat ɗinku na Sepolia; inshorar da wakili ya sayar muku ana biya ta hannun wakilin da Naira. Bi duk inshora, biyan kuɗi da sanarwa daga babban shafinku.',
@@ -71,10 +71,10 @@ export const ha: Strings = {
 
 export const fr: Strings = {
   'tour.farmer.1.title': 'Une couverture qui paie sans déclaration',
-  'tour.farmer.1.body': 'Choisissez une période et le niveau de pluie qui nuirait à votre récolte. Si la pluie manque, vous êtes payé automatiquement.',
+  'tour.farmer.1.body': 'Choisissez une période et confirmez la taille de votre exploitation. Le niveau de pluie de chaque période est fixé à partir de 44 ans de relevés. Si la pluie manque, vous êtes payé automatiquement.',
   'tour.farmer.2.title': 'Trois sources, une décision juste',
   'tour.farmer.2.body':
-    'CHIRPS, NASA POWER et Meteostat sont comparées. Une source en fort désaccord avec les autres perd de l’influence : une mauvaise mesure ne peut pas décider seule de votre indemnité.',
+    'CHIRPS, NASA POWER et Meteostat mesurent la pluie séparément. Au moins deux doivent répondre avant qu’un résultat compte : une mauvaise mesure ne peut pas décider seule de votre indemnité.',
   'tour.farmer.3.title': 'Payé selon votre achat',
   'tour.farmer.3.body':
     'Une couverture achetée vous-même paie sur votre portefeuille Sepolia ; une couverture vendue par un agent est payée par cet agent en naira. Suivez polices, indemnités et alertes depuis votre tableau de bord.',
