@@ -16,11 +16,11 @@ export interface OracleMeta {
 export const oracleMeta: Record<SourceId, OracleMeta> = {
   chirps: {
     provider: 'Climate Hazards Center, UC Santa Barbara',
-    product: 'CHIRPS v2.0 daily precipitation',
+    product: 'CHIRPS v3.0 daily precipitation',
     resolution: '0.05° grid (≈5.5 km)',
-    cadence: 'Daily · final release ≈3 weeks after month end',
+    cadence: 'Daily · preliminary within a week, final ≈3 weeks after month end',
     method: 'Infrared satellite estimates blended with station records',
-    endpoint: 'data.chc.ucsb.edu/products/CHIRPS-2.0',
+    endpoint: 'data.chc.ucsb.edu/products/CHIRPS/v3.0/daily',
     licence: 'Public domain'
   },
   nasa: {

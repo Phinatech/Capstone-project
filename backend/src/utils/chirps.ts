@@ -1,6 +1,6 @@
 /**
- * CHIRPS v2.0 daily rainfall for a point, read straight from the Climate
- * Hazoids Center's public GeoTIFF archive.
+ * CHIRPS v3.0 daily rainfall for a point, read straight from the Climate
+ * Hazards Center's public GeoTIFF archive.
  *
  * The relayer used to satisfy this source from `sokoto-dekadal-rainfall.json`,
  * which is actually GHCN station observations for Birni N'Konni and stops at
@@ -8,30 +8,44 @@
  * could never report a current period, and calling it CHIRPS was wrong twice
  * over. This module fetches genuine CHIRPS data instead.
  *
- * Each day is one gzip-compressed GeoTIFF of roughly 3.4 MB that inflates to
- * ~57 MB, so the extracted value for a day is remembered in a JSON cache file;
- * without it every relayer tick would re-download the same month of rasters.
- * Days CHIRPS has not published yet (it lags by a couple of weeks) are left
- * out of the result, which `dekadTotal` reads as "dekad not complete yet".
+ * The v2.0 archive (`products/CHIRPS-2.0/global_daily/tifs/p05`) was taken
+ * offline in 2026 and every request to it now returns 404, which this module
+ * used to read as "not published yet", so the CHIRPS oracle silently stopped
+ * reporting. v3.0 publishes each day twice: a preliminary file a few days
+ * after the date, and a final file weeks later that replaces it. A day is
+ * read from the final file when it exists and from the preliminary one
+ * otherwise, as the archive's readme advises.
+ *
+ * Each day is one GeoTIFF of roughly 13 MB, so the extracted value for a day
+ * is remembered in a JSON cache file; without it every relayer tick would
+ * re-download the same month of rasters. Days CHIRPS has not published yet are
+ * left out of the result, which `dekadTotal` reads as "dekad not complete yet".
  *
  * Usage:
- *   npx tsx src/utils/chirps.ts 20260911 20260920   # print one dekad
+ *   npx tsx src/utils/chirps.ts 20261101 20261110   # print one dekad
  */
-import { gunzip } from "node:zlib";
-import { promisify } from "node:util";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fromArrayBuffer } from "geotiff";
 import { dekadDays } from "./period.js";
 
-const gunzipAsync = promisify(gunzip);
-
 /** CHIRPS marks "no data" (water, outside the domain) with this value. */
 const NODATA = -9999;
 
+/**
+ * Cache-key prefixes. They keep v3.0 values apart from the v2.0 values older
+ * cache files hold under bare dates (the two versions differ day by day), and
+ * keep a preliminary value from being mistaken for a final one.
+ */
+const FINAL_KEY = "v3:";
+const PRELIM_KEY = "v3p:";
+
+/** The default archive: CHIRPS v3.0 daily, holding `final/` and `prelim/`. */
+export const CHIRPS_V3_DAILY = "https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily";
+
 export interface ChirpsQuery {
-  /** Directory holding `<year>/chirps-v2.0.<year>.<mm>.<dd>.tif.gz`. */
+  /** The v3.0 daily directory, holding `final/sat/<year>/` and `prelim/sat/<year>/`. */
   baseUrl: string;
   latitude: number;
   longitude: number;
@@ -64,17 +78,25 @@ export function eachDate(start: string, end: string): string[] {
   return days;
 }
 
-/** The archive URL for one day, e.g. `.../2026/chirps-v2.0.2026.09.15.tif.gz`. */
-export function dailyUrl(baseUrl: string, date: string): string {
+/**
+ * The two archive URLs for one day: the final file
+ * (`final/sat/2026/chirps-v3.0.sat.2026.10.15.tif`) and the preliminary one
+ * (`prelim/sat/2026/chirps-v3.0.prelim.2026.10.15.tif`). Both use the
+ * IMERG-based ("sat") daily split, the only one the preliminary run produces.
+ */
+export function dailyUrls(baseUrl: string, date: string): { final: string; prelim: string } {
   const year = date.slice(0, 4);
-  const month = date.slice(4, 6);
-  const day = date.slice(6, 8);
-  return `${baseUrl.replace(/\/$/, "")}/${year}/chirps-v2.0.${year}.${month}.${day}.tif.gz`;
+  const stamp = `${year}.${date.slice(4, 6)}.${date.slice(6, 8)}`;
+  const base = baseUrl.replace(/\/$/, "");
+  return {
+    final: `${base}/final/sat/${year}/chirps-v3.0.sat.${stamp}.tif`,
+    prelim: `${base}/prelim/sat/${year}/chirps-v3.0.prelim.${stamp}.tif`,
+  };
 }
 
 /**
  * The grid cell containing (`latitude`, `longitude`), in row/column order.
- * CHIRPS p05 is a regular 0.05 degree grid, so the geotransform is enough.
+ * CHIRPS is a regular 0.05 degree grid, so the geotransform is enough.
  */
 export function pixelAt(
   bbox: [number, number, number, number],
@@ -153,9 +175,21 @@ async function mapLimit<T>(items: T[], limit: number, work: (item: T) => Promise
   await Promise.all(workers);
 }
 
+/** Rainfall at the query point from one day's raster, or null if it is not published there. */
+async function readDay(fetchImpl: typeof fetch, url: string, query: ChirpsQuery): Promise<number | null> {
+  const res = await fetchImpl(url);
+  if (!res.ok) {
+    await res.body?.cancel(); // not published yet: free the connection
+    return null;
+  }
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return extractRainfall(bytes, query.latitude, query.longitude);
+}
+
 /**
- * Daily rainfall in mm by YYYYMMDD for the requested range. Days CHIRPS has
- * not published, or that come back as nodata, are simply absent from the map.
+ * Daily rainfall in mm by YYYYMMDD for the requested range, from the final
+ * file where CHIRPS has released one and the preliminary file otherwise. Days
+ * with neither, or that come back as nodata, are simply absent from the map.
  */
 export async function fetchChirpsDaily(
   query: ChirpsQuery,
@@ -168,19 +202,26 @@ export async function fetchChirpsDaily(
   if (wanted.length === 0) return new Map();
 
   const cache = await loadCache(query.cachePath);
-  const missing = wanted.filter((day) => !cache.has(day));
+  // A day only stops being fetched once its final value is known; until then
+  // each run checks for the final file (a quick 404 while it is not out yet).
+  const missing = wanted.filter((day) => !cache.has(FINAL_KEY + day));
 
   let dirty = false;
   await mapLimit(missing, concurrency, async (day) => {
+    const urls = dailyUrls(query.baseUrl, day);
     try {
-      const res = await fetchImpl(dailyUrl(query.baseUrl, day));
-      if (!res.ok) return; // not published yet (or not a leap day)
-      const bytes = Buffer.from(await res.arrayBuffer());
-      const inflated = await gunzipAsync(bytes);
-      const mm = await extractRainfall(inflated, query.latitude, query.longitude);
-      if (mm === null) return;
-      cache.set(day, mm);
-      dirty = true;
+      const final = await readDay(fetchImpl, urls.final, query);
+      if (final !== null) {
+        cache.set(FINAL_KEY + day, final);
+        dirty = true;
+        return;
+      }
+      if (cache.has(PRELIM_KEY + day)) return;
+      const prelim = await readDay(fetchImpl, urls.prelim, query);
+      if (prelim !== null) {
+        cache.set(PRELIM_KEY + day, prelim);
+        dirty = true;
+      }
     } catch {
       // One unreadable raster must not take the whole feed down.
     }
@@ -190,7 +231,7 @@ export async function fetchChirpsDaily(
 
   const daily = new Map<string, number>();
   for (const day of wanted) {
-    const mm = cache.get(day);
+    const mm = cache.get(FINAL_KEY + day) ?? cache.get(PRELIM_KEY + day);
     if (mm !== undefined) daily.set(day, mm);
   }
   return daily;
@@ -203,7 +244,7 @@ if (process.argv[1]?.endsWith("chirps.ts")) {
     console.log("usage: npx tsx src/utils/chirps.ts <start YYYYMMDD> <end YYYYMMDD>");
     process.exit(1);
   }
-  const baseUrl = "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/tifs/p05";
+  const baseUrl = CHIRPS_V3_DAILY;
   const cachePath = fileURLToPath(
     new URL("../../data/chirps-daily-cache.json", import.meta.url),
   );

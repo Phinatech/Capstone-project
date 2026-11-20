@@ -63,10 +63,13 @@ export const config = {
   rainfallLatitude: coordinate("RAINFALL_LATITUDE", 13.05, 90),
   rainfallLongitude: coordinate("RAINFALL_LONGITUDE", 5.23, 180),
   nasaPowerApiUrl: process.env.NASA_POWER_API_URL?.trim() || "https://power.larc.nasa.gov/api/temporal/daily/point",
-  /** CHIRPS v2.0 daily GeoTIFF archive; the real source behind the CHIRPS oracle. */
+  /**
+   * CHIRPS v3.0 daily GeoTIFF archive (holding `final/` and `prelim/`); the real
+   * source behind the CHIRPS oracle. The v2.0 archive was taken offline in 2026.
+   */
   chirpsBaseUrl:
     process.env.CHIRPS_BASE_URL?.trim() ||
-    "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/tifs/p05",
+    "https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily",
   /** Remembers extracted CHIRPS day values so each raster is downloaded once. */
   chirpsCachePath:
     process.env.CHIRPS_CACHE_PATH?.trim() ||

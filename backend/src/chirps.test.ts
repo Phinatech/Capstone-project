@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it } from "node:test";
-import { dailyUrl, eachDate, pixelAt } from "./utils/chirps.js";
+import { writeArrayBuffer } from "geotiff";
+import { dailyUrls, eachDate, fetchChirpsDaily, pixelAt } from "./utils/chirps.js";
 
 // The real geometry of CHIRPS 2.0 p05, as read from a downloaded raster.
 const BBOX: [number, number, number, number] = [
@@ -49,19 +53,99 @@ describe("eachDate", () => {
   });
 });
 
-describe("dailyUrl", () => {
-  it("points at the year folder and the dated raster", () => {
-    assert.equal(
-      dailyUrl("https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/tifs/p05", "20260915"),
-      "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/tifs/p05/2026/chirps-v2.0.2026.09.15.tif.gz",
-    );
+describe("dailyUrls", () => {
+  it("points at the v3.0 final and preliminary rasters for the day", () => {
+    assert.deepEqual(dailyUrls("https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily", "20261015"), {
+      final: "https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/final/sat/2026/chirps-v3.0.sat.2026.10.15.tif",
+      prelim: "https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/prelim/sat/2026/chirps-v3.0.prelim.2026.10.15.tif",
+    });
   });
 
   it("tolerates a trailing slash on the base", () => {
     assert.equal(
-      dailyUrl("https://example.test/p05/", "20260105"),
-      "https://example.test/p05/2026/chirps-v2.0.2026.01.05.tif.gz",
+      dailyUrls("https://example.test/daily/", "20260105").final,
+      "https://example.test/daily/final/sat/2026/chirps-v3.0.sat.2026.01.05.tif",
     );
+  });
+});
+
+describe("fetchChirpsDaily", () => {
+  const BASE = "https://example.test/daily";
+  const point = { baseUrl: BASE, latitude: 13.05, longitude: 5.23 };
+
+  /** A 2x2 raster over 0..10°E, 10..20°N whose cell for Sokoto holds `mm` (the test writer stores whole numbers). */
+  async function raster(mm: number): Promise<ArrayBuffer> {
+    return writeArrayBuffer([0, 0, 0, mm], {
+      height: 2,
+      width: 2,
+      ModelPixelScale: [5, 5, 0],
+      ModelTiepoint: [0, 0, 0, 0, 20, 0],
+      GeographicTypeGeoKey: 4326,
+      GTModelTypeGeoKey: 2,
+      GTRasterTypeGeoKey: 1,
+    } as never);
+  }
+
+  /** A fetch that serves `files` by URL, answers 404 for anything else, and logs every request. */
+  function fakeFetch(files: Record<string, ArrayBuffer>) {
+    const requested: string[] = [];
+    const impl = (async (url: string) => {
+      requested.push(url);
+      const body = files[url];
+      return body ? new Response(body) : new Response(null, { status: 404 });
+    }) as unknown as typeof fetch;
+    return { impl, requested };
+  }
+
+  async function tempCache(contents?: object): Promise<string> {
+    const path = join(await mkdtemp(join(tmpdir(), "chirps-")), "cache.json");
+    if (contents) await writeFile(path, JSON.stringify(contents));
+    return path;
+  }
+
+  it("reads the final file and does not ask for the preliminary one", async () => {
+    const urls = dailyUrls(BASE, "20261015");
+    const { impl, requested } = fakeFetch({ [urls.final]: await raster(6) });
+    const daily = await fetchChirpsDaily(point, "20261015", "20261015", impl);
+    assert.equal(daily.get("20261015"), 6);
+    assert.deepEqual(requested, [urls.final]);
+  });
+
+  it("falls back to the preliminary file while the final one is not out", async () => {
+    const urls = dailyUrls(BASE, "20261105");
+    const { impl } = fakeFetch({ [urls.prelim]: await raster(2) });
+    const daily = await fetchChirpsDaily(point, "20261105", "20261105", impl);
+    assert.equal(daily.get("20261105"), 2);
+  });
+
+  it("keeps a cached preliminary value without downloading it again, but still checks for the final", async () => {
+    const urls = dailyUrls(BASE, "20261105");
+    const cachePath = await tempCache();
+    await fetchChirpsDaily({ ...point, cachePath }, "20261105", "20261105", fakeFetch({ [urls.prelim]: await raster(2) }).impl);
+
+    const second = fakeFetch({});
+    const daily = await fetchChirpsDaily({ ...point, cachePath }, "20261105", "20261105", second.impl);
+    assert.equal(daily.get("20261105"), 2);
+    assert.deepEqual(second.requested, [urls.final]);
+
+    const third = fakeFetch({ [urls.final]: await raster(3) });
+    const upgraded = await fetchChirpsDaily({ ...point, cachePath }, "20261105", "20261105", third.impl);
+    assert.equal(upgraded.get("20261105"), 3, "the final value replaces the preliminary one");
+    const saved = JSON.parse(await readFile(cachePath, "utf8")) as Record<string, number>;
+    assert.equal(saved["v3:20261105"], 3);
+  });
+
+  it("ignores v2.0 values an older cache file holds under bare dates", async () => {
+    const cachePath = await tempCache({ "20261015": 99 });
+    const daily = await fetchChirpsDaily({ ...point, cachePath }, "20261015", "20261015", fakeFetch({}).impl);
+    assert.equal(daily.has("20261015"), false);
+  });
+
+  it("leaves out days that have neither file, so the dekad reads as incomplete", async () => {
+    const urls = dailyUrls(BASE, "20261101");
+    const { impl } = fakeFetch({ [urls.final]: await raster(1) });
+    const daily = await fetchChirpsDaily(point, "20261101", "20261102", impl);
+    assert.deepEqual([...daily.keys()], ["20261101"]);
   });
 });
 
