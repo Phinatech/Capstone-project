@@ -7,9 +7,9 @@
  * Every call is dry-run first, so "not ready yet" costs nothing and the
  * contracts stay the only place the rules (quorum, reporting window) live.
  */
-import { Contract, JsonRpcProvider, Wallet } from "ethers";
+import { Contract, Wallet } from "ethers";
 import { config } from "./config.js";
-import { readPolicies, readReadings, readWindows } from "./utils/chain.js";
+import { readPolicies, readReadings, readWindows, signingProvider } from "./utils/chain.js";
 import { withRpcRetry } from "./utils/rpcRetry.js";
 
 const aggregatorAbi = [
@@ -45,9 +45,7 @@ async function sendIfReady(contract: Contract, method: string, arg: number, done
 }
 
 export async function settleDue(keeperKey: string): Promise<void> {
-  // No response caching: ethers otherwise reuses the account's nonce for 250 ms,
-  // which breaks back-to-back transactions on a fast chain.
-  const keeper = new Wallet(keeperKey, new JsonRpcProvider(config.rpcUrl, undefined, { cacheTimeout: -1 }));
+  const keeper = new Wallet(keeperKey, signingProvider());
   const aggregator = new Contract(config.aggregatorAddress, aggregatorAbi, keeper);
   const insurance = new Contract(config.insuranceAddress, insuranceAbi, keeper);
 

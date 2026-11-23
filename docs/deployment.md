@@ -53,7 +53,9 @@ every push.
 
 4. **Apply**. The first build takes a few minutes. The service's **Logs** should
    show `[api] listening on …` and
-   `[relayer] started: 3 source(s) and settlement, every 60 min`.
+   `[relayer] started: 3 source(s) and settlement, every 60 min, first run in 180 s`.
+   The first run waits three minutes (`RELAYER_START_DELAY_SECONDS`) so it
+   doesn't scan the chain at the same time as the API's cache warmer.
 5. Copy the service URL from the top of its page and open
    `https://<service>.onrender.com/health` and `…/api/readings`.
 

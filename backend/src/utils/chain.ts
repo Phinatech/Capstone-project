@@ -55,8 +55,8 @@ async function postTo(node: string, payload: JsonRpcPayload | JsonRpcPayload[]):
 class FailoverProvider extends JsonRpcProvider {
   readonly #onNodes: ReturnType<typeof createFailover>;
 
-  constructor(nodes: readonly string[]) {
-    super(nodes[0], undefined, { batchMaxCount: 1, staticNetwork: true });
+  constructor(nodes: readonly string[], options: { cacheTimeout?: number } = {}) {
+    super(nodes[0], undefined, { batchMaxCount: 1, staticNetwork: true, ...options });
     this.#onNodes = createFailover(nodes);
   }
 
@@ -67,6 +67,20 @@ class FailoverProvider extends JsonRpcProvider {
 
 const provider = new FailoverProvider(config.rpcNodes);
 const logsProvider = config.logsNodes.join() === config.rpcNodes.join() ? provider : new FailoverProvider(config.logsNodes);
+
+/**
+ * A provider for the relayer and keeper to sign and send transactions with.
+ * It moves between the same nodes as the reads: on a single RPC_URL, one node
+ * rate-limiting (Tenderly's 429s in November 2026) silenced every submission.
+ * Sending a signed transaction to a second node is safe, because the same
+ * bytes have the same hash and the chain accepts them at most once.
+ *
+ * Response caching is off: ethers otherwise reuses an account's nonce for
+ * 250 ms, which breaks back-to-back transactions.
+ */
+export function signingProvider(): JsonRpcProvider {
+  return new FailoverProvider(config.rpcNodes, { cacheTimeout: -1 });
+}
 
 /**
  * Head block both RPCs have reached: reads and event scans reflect at least

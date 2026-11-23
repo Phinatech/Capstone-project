@@ -14,10 +14,10 @@
  * partial total could never be corrected.
  */
 import { readFile } from "node:fs/promises";
-import { JsonRpcProvider, Wallet, Contract } from "ethers";
+import { Wallet, Contract } from "ethers";
 import type { SourceConfig } from "./config.js";
 import { config } from "./config.js";
-import { readReadings } from "./utils/chain.js";
+import { readReadings, signingProvider } from "./utils/chain.js";
 import { dailyFeed, type Feed } from "./utils/feeds.js";
 import { fetchChirpsDaily } from "./utils/chirps.js";
 import { fetchMeteostatDaily } from "./utils/meteostat.js";
@@ -101,7 +101,7 @@ const FEEDS: Record<string, Feed> = {
 };
 
 export async function submitReading(reading: RainfallReading): Promise<void> {
-  const provider = new JsonRpcProvider(config.rpcUrl);
+  const provider = signingProvider();
   const source = config.oracleSources.find((s) => s.label === reading.source);
   if (!source) {
     console.log(`[relayer] no private key for ${reading.source}, skipping`);
@@ -183,8 +183,9 @@ export async function relayFinishedDekads(sources: SourceConfig[], now = new Dat
 }
 
 /**
- * Every `intervalMinutes` (and once at start-up): report finished dekads, then
- * finalize dekads and settle policies that are ready (see settlement.ts).
+ * Every `intervalMinutes` (and once RELAYER_START_DELAY_SECONDS after start-up):
+ * report finished dekads, then finalize dekads and settle policies that are
+ * ready (see settlement.ts).
  */
 export function startRelayer(sources: SourceConfig[], intervalMinutes: number): void {
   if (!config.relayerEnabled) {
@@ -212,7 +213,11 @@ export function startRelayer(sources: SourceConfig[], intervalMinutes: number): 
     running = false;
   };
 
-  void tick();
+  const delaySeconds = config.relayerStartDelaySeconds;
+  setTimeout(() => void tick(), delaySeconds * 1000);
   setInterval(tick, intervalMinutes * 60_000);
-  console.log(`[relayer] started: ${sources.length} source(s)${keeperKey ? " and settlement" : ""}, every ${intervalMinutes} min`);
+  console.log(
+    `[relayer] started: ${sources.length} source(s)${keeperKey ? " and settlement" : ""}, every ${intervalMinutes} min, ` +
+      `first run in ${delaySeconds} s`
+  );
 }

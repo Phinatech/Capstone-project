@@ -53,6 +53,12 @@ export const config = {
   /** The relayer spends the oracle accounts' gas, so it only runs when this is "true". */
   relayerEnabled: process.env.RELAYER_ENABLED?.trim().toLowerCase() === "true",
   relayerIntervalMinutes: wholeNumber("RELAYER_INTERVAL_MINUTES", 60, 1),
+  /**
+   * Wait before the first run after start-up. On Render's free plan every wake
+   * is a cold start, and the first run scanning event history alongside the
+   * API's cache warmer got 429s from the log nodes, so nothing was reported.
+   */
+  relayerStartDelaySeconds: wholeNumber("RELAYER_START_DELAY_SECONDS", 180, 0),
   /** How many finished dekads back the relayer looks for ones it still has to report. */
   relayerLookbackDekads: wholeNumber("RELAYER_LOOKBACK_DEKADS", 3, 1),
   /** Parses ORACLE_SOURCES="CHIRPS:0xabc...,NASA_POWER:0xdef..." */
