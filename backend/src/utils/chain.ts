@@ -6,7 +6,7 @@ import { FetchRequest, JsonRpcProvider, Contract, formatEther, type EventLog, ty
 import { config } from "../config.js";
 import { blockChunks } from "./logChunks.js";
 import { mapLimit } from "./concurrency.js";
-import { createFailover, isRateLimitMessage, withRpcRetry } from "./rpcRetry.js";
+import { createFailover, readJsonRpcReplies, withRateLimitBackoff, withRpcRetry } from "./rpcRetry.js";
 
 /**
  * How many per-item contract reads to run at once; each one is a round trip.
@@ -31,12 +31,7 @@ async function postTo(node: string, payload: JsonRpcPayload | JsonRpcPayload[]):
   request.body = JSON.stringify(payload);
   const response = await request.send();
   response.assertOk();
-  const body = response.bodyJson as JsonRpcResult | JsonRpcResult[];
-  const results = Array.isArray(body) ? body : [body];
-  for (const result of results as Array<JsonRpcResult & { error?: { message?: unknown } }>) {
-    if (isRateLimitMessage(result.error?.message)) throw new Error(`RPC node is rate limiting: ${String(result.error?.message)}`);
-  }
-  return results;
+  return readJsonRpcReplies<JsonRpcResult>(Array.isArray(payload) ? payload : [payload], response.bodyJson);
 }
 
 /**
@@ -61,7 +56,8 @@ class FailoverProvider extends JsonRpcProvider {
   }
 
   override async _send(payload: JsonRpcPayload | JsonRpcPayload[]): Promise<JsonRpcResult[]> {
-    return withRpcRetry(() => this.#onNodes((node) => postTo(node, payload)), 2);
+    // Only when every node said "slow down" does this wait and go round again.
+    return withRateLimitBackoff(() => withRpcRetry(() => this.#onNodes((node) => postTo(node, payload)), 2));
   }
 }
 

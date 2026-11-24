@@ -42,6 +42,59 @@ export function isRateLimitMessage(message: unknown): boolean {
 }
 
 /**
+ * The JSON-RPC replies in a node's response body, one per request sent. Throws
+ * when the node did not really answer, so the caller can try another node:
+ * a body that is not a reply to these requests (0xrpc.io/1rpc.io sometimes
+ * pass through an upstream's `{"error":"Method \"eth_call\" is not available
+ * for unregistered accounts"}` with HTTP 200), or a reply saying "slow down".
+ */
+export function readJsonRpcReplies<T extends { id: unknown }>(
+  requests: ReadonlyArray<{ id: unknown }>,
+  body: unknown,
+): T[] {
+  const replies = (Array.isArray(body) ? body : [body]) as Array<Record<string, unknown> | null>;
+  const ids = new Set(requests.map((r) => r.id));
+  for (const reply of replies) {
+    if (!reply || typeof reply !== "object" || !ids.has(reply.id) || !("result" in reply || "error" in reply)) {
+      throw new Error(`RPC node sent something other than a JSON-RPC reply: ${JSON.stringify(reply)?.slice(0, 200)}`);
+    }
+    const message = (reply.error as { message?: unknown } | undefined)?.message;
+    if (isRateLimitMessage(message)) throw new Error(`RPC node is rate limiting: ${String(message)}`);
+  }
+  return replies as unknown as T[];
+}
+
+/** An HTTP 429, or a node's "slow down" in its JSON reply, as thrown by a failed call. */
+export function isRateLimitError(error: unknown): boolean {
+  const err = error as { message?: unknown; shortMessage?: unknown };
+  const text = `${String(err?.shortMessage ?? "")} ${String(err?.message ?? "")}`;
+  return /\b429\b/.test(text) || isRateLimitMessage(text);
+}
+
+/**
+ * Pauses and runs `work` again while it fails because every node is rate
+ * limiting. Only the gateways that keep full event history (Tenderly's two
+ * public ones) answer the log scans, so when a cold start's burst gets a 429
+ * from both, waiting a few seconds is the only way forward; failing at once
+ * turned the first page load after every Render wake-up into an error.
+ * The waits are few and growing, so a real outage still fails within ~10 s.
+ */
+export async function withRateLimitBackoff<T>(
+  work: () => Promise<T>,
+  delaysMs: readonly number[] = [1_000, 3_000, 6_000],
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await work();
+    } catch (error) {
+      if (attempt >= delaysMs.length || !isRateLimitError(error)) throw error;
+      await sleep(delaysMs[attempt]!);
+    }
+  }
+}
+
+/**
  * Returns a function that runs a call against each node in turn until one
  * answers, starting from the last one that did. Free public nodes rate-limit
  * or stall without warning; one of them must not be able to take the site down.
