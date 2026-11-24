@@ -23,8 +23,8 @@ async function fakeNode(answer: (method: string, params: unknown[]) => unknown) 
         res.writeHead(429).end("Too Many Requests");
         return;
       }
-      const body = result instanceof RawBody ? result.body : { jsonrpc: "2.0", id, result };
-      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(body));
+      const reply = result instanceof RawBody ? result.body : { jsonrpc: "2.0", id, result };
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(reply));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
