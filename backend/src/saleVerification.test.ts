@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseSale, COMMISSION_RATE, type AgentSale } from "./utils/agentStore.js";
-import { findExistingCover, verifySaleAgainstPolicy } from "./utils/saleVerification.js";
+import { findExistingCover, receiptFiledByAnotherAgent, verifySaleAgainstPolicy } from "./utils/saleVerification.js";
 import type { PolicyData } from "./utils/chain.js";
 
 const validBody = {
@@ -169,5 +169,24 @@ describe("one policy per farmer per window", () => {
 
   it("never counts the sale's own policy, so a corrected receipt can be re-sent", () => {
     assert.equal(findExistingCover(sale(), [sale()], [chainPolicy({ farmer: farmerWallet })], farmerWallet), undefined);
+  });
+});
+
+describe("a receipt belongs to the agent who filed it", () => {
+  it("refuses another agent's receipt for a policy that already has one", () => {
+    const filed = sale({ agentId: "agent-1" });
+    assert.equal(receiptFiledByAnotherAgent(sale({ agentId: "agent-2", farmerId: "farmer-9" }), [filed], false), "agent-1");
+  });
+
+  it("lets the same agent re-send their receipt to correct it", () => {
+    assert.equal(receiptFiledByAnotherAgent(sale(), [sale()], false), undefined);
+  });
+
+  it("lets an administrator correct any receipt", () => {
+    assert.equal(receiptFiledByAnotherAgent(sale({ agentId: "admin-1" }), [sale()], true), undefined);
+  });
+
+  it("allows the first receipt for a policy", () => {
+    assert.equal(receiptFiledByAnotherAgent(sale(), [sale({ policyId: 7 })], false), undefined);
   });
 });

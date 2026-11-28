@@ -2,6 +2,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { usePolicies } from '../contexts/PolicyContext';
 import { formatDate, formatEth } from '../utils/format';
 import type { Policy } from '../types/insurance';
+import { PayoutRule } from './PayoutRule';
 
 export function PolicyTerms({ policy }: {policy: Policy;}) {
   // Contract windows carry the dekads they insure; the simulated list does too.
@@ -16,13 +17,16 @@ export function PolicyTerms({ policy }: {policy: Policy;}) {
   { label: t('policy.purchased'), value: formatDate(policy.purchasedAt) }];
 
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-line bg-surface p-5 md:grid-cols-5">
-      {terms.map((term) =>
-      <div key={term.label}>
-          <dt className="text-xs text-muted">{term.label}</dt>
-          <dd className="mt-1 whitespace-nowrap font-mono text-sm md:text-base">{term.value}</dd>
-        </div>
-      )}
-    </dl>);
+    <>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-line bg-surface p-5 md:grid-cols-5">
+        {terms.map((term) =>
+        <div key={term.label}>
+            <dt className="text-xs text-muted">{term.label}</dt>
+            <dd className="mt-1 whitespace-nowrap font-mono text-sm md:text-base">{term.value}</dd>
+          </div>
+        )}
+      </dl>
+      <PayoutRule thresholdMm={policy.thresholdMm} payoutEth={policy.payoutEth} windowCovers={window?.covers} />
+    </>);
 
 }

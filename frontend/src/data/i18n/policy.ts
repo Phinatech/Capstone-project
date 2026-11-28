@@ -25,6 +25,16 @@ export const en = {
   'policy.awaitingBody':
     "When the coverage window closes, rainfall from CHIRPS, NASA POWER and Meteostat is compared and the contract settles automatically. You don't need to file a claim.",
   'policy.notFound': "This policy doesn't exist or belongs to another farmer.",
+  'payoutRule.title': 'When does this cover pay?',
+  'payoutRule.pays': 'It pays {payout} if the rainfall measured for {window} adds up to less than {mm} mm.',
+  'payoutRule.auto':
+    'No claim is needed: the payment is sent automatically, usually about a week after the window ends, once the rainfall sources have reported.',
+  'payoutRule.otherwise': 'If the rainfall reaches {mm} mm or more, nothing is paid and the premium is not refunded.',
+  'payoutRule.agent': 'The payout reaches your agent wallet, and you owe the farmer its value in naira.',
+  'payoutRule.basis':
+    'Rainfall is measured at one point for Sokoto, not on your own field, so a dry spell that hits only your farm may not lead to a payment.',
+  'payoutRule.thePayout': 'the payout',
+  'payoutRule.theWindow': 'the coverage window',
   'activityList.purchase': 'Policy purchased',
   'activityList.paid': 'Payout sent',
   'activityList.noPayout': 'Settled, no payout',
@@ -59,6 +69,16 @@ export const ha: Strings = {
   'policy.awaitingBody':
     'Idan lokacin kariya ya ƙare, ana kwatanta ruwan sama daga CHIRPS, NASA POWER da Meteostat, kuma kwangilar tana kammala kanta. Ba sai kun shigar da ƙara ba.',
   'policy.notFound': 'Wannan inshorar babu ita ko ta wani manomi ce.',
+  'payoutRule.title': 'Yaushe wannan inshora take biya?',
+  'payoutRule.pays': 'Tana biyan {payout} idan jimillar ruwan sama da aka auna na {window} bai kai {mm} mm ba.',
+  'payoutRule.auto':
+    'Ba sai an shigar da ƙara ba: ana aika kuɗin kai tsaye, yawanci kusan mako ɗaya bayan lokacin kariya ya ƙare, da zarar tushen bayanan ruwan sama sun kawo rahoto.',
+  'payoutRule.otherwise': 'Idan ruwan sama ya kai {mm} mm ko fiye, ba a biyan komai, kuma ba a mayar da kuɗin inshora ba.',
+  'payoutRule.agent': 'Kuɗin biya suna shiga walat ɗinku na wakili, kuma manomin yana bin ku darajarsu a naira.',
+  'payoutRule.basis':
+    'Ana auna ruwan sama a wuri ɗaya na Sokoto, ba a gonarku ba, don haka fari da ya shafi gonarku kaɗai ba lallai ya kawo biyan kuɗi ba.',
+  'payoutRule.thePayout': 'kuɗin biya',
+  'payoutRule.theWindow': 'lokacin kariya',
   'activityList.purchase': 'An sayi inshora',
   'activityList.paid': 'An aika biyan kuɗi',
   'activityList.noPayout': 'An kammala, babu biyan kuɗi',
@@ -91,6 +111,16 @@ export const fr: Strings = {
   'policy.awaitingBody':
     'À la clôture de la période, la pluie mesurée par CHIRPS, NASA POWER et Meteostat est comparée et le contrat se règle automatiquement. Aucune déclaration de sinistre n’est nécessaire.',
   'policy.notFound': 'Cette police n’existe pas ou appartient à un autre agriculteur.',
+  'payoutRule.title': 'Quand cette couverture verse-t-elle une indemnité ?',
+  'payoutRule.pays': 'Elle verse {payout} si la pluie mesurée pour {window} totalise moins de {mm} mm.',
+  'payoutRule.auto':
+    'Aucune déclaration n’est nécessaire : le versement est automatique, en général environ une semaine après la fin de la période, une fois que les sources de pluie ont transmis leurs mesures.',
+  'payoutRule.otherwise': 'Si la pluie atteint {mm} mm ou plus, rien n’est versé et la prime n’est pas remboursée.',
+  'payoutRule.agent': 'L’indemnité arrive sur votre portefeuille d’agent, et vous en devez la valeur en naira à l’agriculteur.',
+  'payoutRule.basis':
+    'La pluie est mesurée en un seul point pour Sokoto, pas sur votre champ : une sécheresse qui ne touche que votre exploitation peut ne déclencher aucun versement.',
+  'payoutRule.thePayout': 'l’indemnité',
+  'payoutRule.theWindow': 'la période de couverture',
   'activityList.purchase': 'Police souscrite',
   'activityList.paid': 'Indemnité versée',
   'activityList.noPayout': 'Réglée, sans indemnité',

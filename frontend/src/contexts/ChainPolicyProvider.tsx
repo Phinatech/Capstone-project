@@ -452,7 +452,8 @@ function ChainData({
     const apiUrl = '';
     const fresh = minBlock === undefined ? '' : `?minBlock=${minBlock}`;
     const [policiesRes, oraclesRes, windowsRes, evaluationsRes, poolRes] = await Promise.all([
-      fetch(`${apiUrl}/api/policies${fresh}`),
+      // The answer names farmers only for the signed-in people a receipt concerns.
+      fetch(`${apiUrl}/api/policies${fresh}`, { credentials: 'include' }),
       fetch(`${apiUrl}/api/oracles${fresh}`),
       fetch(`${apiUrl}/api/windows${fresh}`),
       fetch(`${apiUrl}/api/evaluations${fresh}`),

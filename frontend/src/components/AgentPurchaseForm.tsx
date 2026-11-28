@@ -19,6 +19,7 @@ import { getFarmers } from '../utils/users';
 import { useI18n } from '../contexts/I18nContext';
 import { cropName } from '../contexts/policyActivity';
 import { FarmSizeField, PurchaseError, RainLevel, WalletHint, WindowSelect } from './CoverFields';
+import { PayoutRule } from './PayoutRule';
 
 /** The windows a farmer already has a policy in. */
 function windowsHeldBy(policies: Policy[], farmerId: string | undefined): Set<string> {
@@ -215,6 +216,11 @@ export function AgentPurchaseForm() {
         confirmLabel={t('agentForm.confirmSize')}
         hectares={quote.hectares}
         payoutEth={quote.payoutEth} />
+
+      <PayoutRule
+        thresholdMm={quote.level?.thresholdMm ?? null}
+        payoutEth={quote.hectares === null ? 0 : quote.payoutEth}
+        windowCovers={selected?.covers} />
 
       <fieldset className="mt-4">
         <legend className="text-sm font-medium">{t('agentForm.howPaid')}</legend>

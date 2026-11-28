@@ -13,6 +13,7 @@ import { useFx } from '../contexts/FxContext';
 import { useI18n } from '../contexts/I18nContext';
 import { cropName } from '../contexts/policyActivity';
 import { FarmSizeField, PurchaseError, RainLevel, WalletHint, WindowSelect } from './CoverFields';
+import { PayoutRule } from './PayoutRule';
 
 const fieldClass =
 'mt-1.5 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft';
@@ -120,6 +121,11 @@ export function PurchaseForm() {
         confirmLabel={t('purchase.confirmSize')}
         hectares={quote.hectares}
         payoutEth={quote.payoutEth} />
+
+      <PayoutRule
+        thresholdMm={quote.level?.thresholdMm ?? null}
+        payoutEth={quote.hectares === null ? 0 : quote.payoutEth}
+        windowCovers={selected?.covers} />
 
       <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-4">
         <span className="text-sm text-muted">

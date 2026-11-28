@@ -2,9 +2,9 @@
  * Cross-checks a posted agent sale against the policy the contract recorded.
  *
  * Shape validation (`parseSale`) only proves a sale is well-formed; it says
- * nothing about being *true*. Because nothing authenticates the caller (F-10),
- * the chain is the only authority these records can be checked against — it is
- * the one source an agent cannot edit. Anything the sale claims about the
+ * nothing about being *true*. The caller is a signed-in agent, but the receipt
+ * itself comes from their browser, so the chain is the only authority these
+ * records can be checked against — it is the one source an agent cannot edit. Anything the sale claims about the
  * policy itself has to agree with it.
  *
  * The naira figures matter most: `commissionNgn` is derived from `premiumNgn`,
@@ -112,6 +112,22 @@ export function verifySaleAgainstPolicy(
   }
 
   return { ok: true };
+}
+
+/**
+ * The agent who already filed the receipt for this sale's policy, when that is
+ * someone other than the agent filing now.
+ *
+ * The first receipt names the farmer and earns the commission, and the chain
+ * figures every receipt is checked against are public, so without this check
+ * any agent could copy them and take over another agent's sale, re-attributing
+ * the policy to a farmer of their choosing. Re-submitting your own receipt
+ * still corrects it, and an administrator may correct any receipt.
+ */
+export function receiptFiledByAnotherAgent(sale: AgentSale, sales: AgentSale[], isAdmin: boolean): string | undefined {
+  if (isAdmin) return undefined;
+  const filed = sales.find((s) => s.policyId === sale.policyId);
+  return filed && filed.agentId !== sale.agentId ? filed.agentId : undefined;
 }
 
 /**

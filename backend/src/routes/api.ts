@@ -13,8 +13,8 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getCached, setCached, withCache } from "../utils/cache.js";
 import { readFxRate, type FxRate } from "../utils/fx.js";
 import { parseSale } from "../utils/agentStore.js";
-import { attributePolicies } from "../utils/policyAttribution.js";
-import { findExistingCover, verifySaleAgainstPolicy } from "../utils/saleVerification.js";
+import { attributePoliciesFor } from "../utils/policyAttribution.js";
+import { findExistingCover, receiptFiledByAnotherAgent, verifySaleAgainstPolicy } from "../utils/saleVerification.js";
 import type { PolicyData } from "../utils/chain.js";
 import type { PublicUser } from "../utils/userStore.js";
 import {
@@ -44,7 +44,7 @@ const FX_TTL = 60_000 * config.fxTtlMinutes;
  * GET handler for a cached chain read. `?minBlock=N` asks for data read at or
  * after block N, e.g. right after the caller's own transaction landed in it.
  */
-function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body: (data: T) => unknown | Promise<unknown>) {
+function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body: (data: T, req: Request) => unknown | Promise<unknown>) {
   return async (req: Request, res: Response) => {
     const minBlock = req.query.minBlock;
     if (minBlock !== undefined && (typeof minBlock !== "string" || !/^\d{1,15}$/.test(minBlock))) {
@@ -53,7 +53,7 @@ function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body
     }
     try {
       const data = await withCache(name, ttlMs, read, { headBlock, minBlock: Number(minBlock ?? 0) });
-      res.json(await body(data));
+      res.json(await body(data, req));
     } catch (err) {
       console.error(`[api] failed to read ${name}:`, err);
       res.status(500).json({ error: `Failed to read ${name}` });
@@ -62,10 +62,20 @@ function cachedRead<T>(name: string, ttlMs: number, read: () => Promise<T>, body
 }
 
 // The chain names only the buying wallet; the agent sale receipts name the
-// farmer. Join them here so every portal sees the same farmer for a policy.
-router.get("/policies", cachedRead("policies", POLICIES_TTL, readPolicies, async (policies) => ({
-  policies: attributePolicies(policies, await agentStore.list())
-})));
+// farmer. Join them here, but only for the people a receipt concerns: which
+// farmer a policy covers, with their LGA and crop, is personal data, and this
+// endpoint answers anyone (see attributePoliciesFor). The answer therefore
+// depends on who is signed in, so no shared cache may keep it.
+router.get(
+  "/policies",
+  (_req, res, next) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    next();
+  },
+  cachedRead("policies", POLICIES_TTL, readPolicies, async (policies, req) => ({
+    policies: attributePoliciesFor(policies, await agentStore.list(), req.principal?.user)
+  }))
+);
 router.get("/oracles", cachedRead("oracles", ORACLES_TTL, readOracles, (oracles) => ({ oracles })));
 router.get("/windows", cachedRead("windows", WINDOWS_TTL, readWindows, (windows) => ({ windows })));
 router.get("/pool", cachedRead("pool", POOL_TTL, readPool, (pool) => pool));
@@ -296,6 +306,12 @@ router.post("/agent/sales", requireAuth, requireRole("agent", "admin"), async (r
       userStore.findById(sale.farmerId)
     ]);
     farmer = farmerRecord ?? undefined;
+    // 422 as well: whoever filed this policy's receipt first keeps it, and no
+    // retry by another agent changes that.
+    if (receiptFiledByAnotherAgent(sale, sales, principal.user.role === "admin")) {
+      res.status(422).json({ error: `Policy #${sale.policyId} already has a receipt from another agent; only that agent or an administrator can change it` });
+      return;
+    }
     // Also 422: the farmer is already covered for this window, which no retry changes.
     const existing = findExistingCover(sale, sales, policies, farmer?.wallet);
     if (existing !== undefined) {
